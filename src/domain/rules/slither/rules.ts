@@ -232,6 +232,19 @@ const createVertexDegreeRule = (): Rule => ({
             affectedCells: [],
           }
         }
+        if (lineCount === 0 && unknown.length === 1) {
+          return {
+            message: `Vertex (${r}, ${c}) cannot have degree 1, last undecided edge is blank.`,
+            diffs: [
+              {
+                edgeKey: unknown[0][0],
+                from: 'unknown',
+                to: 'blank',
+              },
+            ],
+            affectedCells: [],
+          }
+        }
       }
     }
     return null
