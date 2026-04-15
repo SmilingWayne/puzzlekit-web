@@ -7,7 +7,7 @@ import { puzzleRegistry } from '../../domain/plugins/registry'
 import { runNextRule } from '../../domain/rules/engine'
 import type { RuleStep } from '../../domain/rules/types'
 
-const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
+const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/i61ch28cg16dg122cg63bi3ah1di2dcg0bgb1bc6c8bchd8b6cd1cbg2cgb3ci1dh3ci18dg132bg72bg82bh36dg'
 
 type SolverStore = {
   pluginId: string
