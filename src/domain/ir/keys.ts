@@ -45,6 +45,20 @@ export const getCellEdgeKeys = (row: number, col: number): string[] => [
   edgeKey([row, col + 1], [row + 1, col + 1]),
 ]
 
+export const getCornerVertex = (row: number, col: number, corner: SectorCorner): Vertex => {
+  if (corner === 'nw') return [row, col] 
+  if (corner === "ne") return [row, col + 1]
+  if (corner === "sw") return [row + 1, col]
+  return [row + 1, col + 1]
+}
+
+export const getCornerEdgeKeys = (row: number, col: number, corner: SectorCorner): [string, string] => {
+  if (corner === 'nw') return [edgeKey([row, col], [row, col + 1]), edgeKey([row, col], [row + 1, col])]
+  if (corner === 'ne') return [edgeKey([row, col], [row, col + 1]), edgeKey([row, col + 1], [row + 1, col + 1])]
+  if (corner === 'sw') return [edgeKey([row + 1, col], [row + 1, col + 1]), edgeKey([row, col], [row + 1, col])]
+  return [edgeKey([row + 1, col], [row + 1, col + 1]), edgeKey([row, col + 1], [row + 1, col + 1]),]
+}
+
 export const getVertexIncidentEdges = (
   row: number,
   col: number,

@@ -3,6 +3,8 @@ import {
   edgeKey,
   getCellEdgeKeys,
   getVertexIncidentEdges,
+  getCornerEdgeKeys,
+  getCornerVertex,
   parseCellKey,
   sectorKey,
 } from '../../ir/keys'
@@ -14,23 +16,35 @@ const isClueThree = (puzzle: PuzzleIR, row: number, col: number): boolean => {
   return clue?.kind === 'number' && clue.value === 3
 }
 
-const getCornerEdgeKeys = (row: number, col: number, corner: SectorCorner): [string, string] => {
-  if (corner === 'nw') {
-    return [edgeKey([row, col], [row, col + 1]), edgeKey([row, col], [row + 1, col])]
-  }
-  if (corner === 'ne') {
-    return [edgeKey([row, col], [row, col + 1]), edgeKey([row, col + 1], [row + 1, col + 1])]
-  }
-  if (corner === 'sw') {
-    return [edgeKey([row + 1, col], [row + 1, col + 1]), edgeKey([row, col], [row + 1, col])]
-  }
-  return [
-    edgeKey([row + 1, col], [row + 1, col + 1]),
-    edgeKey([row, col + 1], [row + 1, col + 1]),
-  ]
+const inferSectorMark = (puzzle: PuzzleIR, row:number, col: number, corner: SectorCorner) : SectorMark => {
+  const vertexResult = inferSectorMarkByVertex(puzzle, row, col, corner)
+  if (vertexResult !== 'unknown') { return vertexResult }
+  return inferSectorMarkByCell(puzzle, row, col, corner)
 }
 
-const inferSectorMark = (
+const inferSectorMarkByVertex = (
+  puzzle: PuzzleIR,
+  row: number,
+  col: number,
+  corner: SectorCorner
+): SectorMark => {
+  const vertex = getCornerVertex(row, col, corner)
+  const incidentEdges = getVertexIncidentEdges(vertex[0], vertex[1], puzzle.rows, puzzle.cols)
+  const sectorEdges = getCornerEdgeKeys(row, col, corner)
+  const nonSectorEdges = incidentEdges.filter(e => !sectorEdges.includes(e))
+  const knownNum = nonSectorEdges.filter(e => puzzle.edges[e]?.mark === 'line').length 
+  const unknownNum = nonSectorEdges.filter(e => puzzle.edges[e]?.mark === 'blank').length
+  // count the known / unknown edges in NonSectorEdges
+  if (knownNum === 1 && unknownNum === 1) {
+    return 'onlyOne'
+  }
+  if (unknownNum === 2) {
+    return 'notOne'
+  }
+  return 'unknown'
+}
+
+const inferSectorMarkByCell = (
   puzzle: PuzzleIR,
   row: number,
   col: number,
@@ -312,21 +326,21 @@ const createVertexDegreeRule = (): Rule => ({
   },
 })
 
-const createApplySectorsRule = (): Rule => ({
-  id: 'apply-sectors',
-  name: 'Apply Sectors',
+const createApplySectorsInference = (): Rule => ({
+  id: "sector-inference",
+  name: "Apply Vertex Flow Sector Inference",
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
     const diffs: RuleApplication['diffs'] = []
     const affectedCells = new Set<string>()
     const affectedSectors: string[] = []
-
     for (let r = 0; r < puzzle.rows; r += 1) {
       for (let c = 0; c < puzzle.cols; c += 1) {
         for (const corner of corners) {
           const key = sectorKey(r, c, corner)
           const current = puzzle.sectors[key]?.mark ?? 'unknown'
           const desired = inferSectorMark(puzzle, r, c, corner)
+          // if (r === 3 && c === 5) { console.log(current, desired) }
           if (desired === 'unknown' || desired === current) {
             continue
           }
@@ -341,17 +355,16 @@ const createApplySectorsRule = (): Rule => ({
         }
       }
     }
-
     if (diffs.length === 0) {
       return null
     }
     return {
-      message: 'Apply Sectors: inferred corner sector constraints from current edges.',
+      message: 'Apply Sectors from Vertex: inferred corner sector constraints from current edges.',
       diffs,
       affectedCells: [...affectedCells],
       affectedSectors,
     }
-  },
+  }
 })
 
 export const slitherRules: Rule[] = [
@@ -359,5 +372,5 @@ export const slitherRules: Rule[] = [
   createDiagonalAdjacentThreeOuterCornersRule(),
   createCellCountRule(),
   createVertexDegreeRule(),
-  createApplySectorsRule(),
+  createApplySectorsInference()
 ]
