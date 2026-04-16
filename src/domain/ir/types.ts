@@ -25,6 +25,8 @@ export type CellState = {
 }
 
 export type EdgeMark = 'unknown' | 'line' | 'blank'
+export type SectorCorner = 'nw' | 'ne' | 'sw' | 'se'
+export type SectorMark = 'unknown' | 'onlyOne' | 'notOne' | 'notTwo' | 'notZero'
 
 export type EdgeState = {
   connected?: boolean
@@ -35,6 +37,10 @@ export type EdgeState = {
     symbolType: string
     symbolStyle: number
   }
+}
+
+export type SectorState = {
+  mark: SectorMark
 }
 
 export interface PuzzleIR {
@@ -49,6 +55,7 @@ export interface PuzzleIR {
   boxes: number[]
   cells: Record<string, CellState>
   edges: Record<string, EdgeState>
+  sectors: Record<string, SectorState>
   metadata: Record<string, unknown>
 }
 
@@ -64,5 +71,6 @@ export const defaultPuzzleIR = (): PuzzleIR => ({
   boxes: [],
   cells: {},
   edges: {},
+  sectors: {},
   metadata: {},
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellKey, edgeKey } from '../../ir/keys'
+import { cellKey, edgeKey, sectorKey } from '../../ir/keys'
 import { createSlitherPuzzle } from '../../ir/slither'
 import type { PuzzleIR } from '../../ir/types'
 import { slitherRules } from './rules'
@@ -9,6 +9,9 @@ const setClue = (puzzle: PuzzleIR, row: number, col: number, value: number): voi
     clue: { kind: 'number', value },
   }
 }
+
+const getEdgeDiffKeys = (result: ReturnType<(typeof slitherRules)[number]['apply']>): string[] =>
+  result?.diffs.flatMap((d) => (d.kind === 'edge' ? [d.edgeKey] : [])) ?? []
 
 describe('slither contiguous 3-run boundaries rule', () => {
   const threeRunRule = slitherRules.find((rule) => rule.id === 'contiguous-three-run-boundaries')
@@ -29,7 +32,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
       'Contiguous 3-run in row 1 forces all vertical run boundaries to be lines.',
     )
     expect(result?.affectedCells).toEqual(['1,1', '1,2', '1,3'])
-    expect(result?.diffs.map((d) => d.edgeKey)).toEqual([
+    expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([1, 1], [2, 1]),
       edgeKey([1, 2], [2, 2]),
       edgeKey([1, 3], [2, 3]),
@@ -51,7 +54,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
       'Contiguous 3-run in column 2 forces all horizontal run boundaries to be lines.',
     )
     expect(result?.affectedCells).toEqual(['1,2', '2,2', '3,2'])
-    expect(result?.diffs.map((d) => d.edgeKey)).toEqual([
+    expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([1, 2], [1, 3]),
       edgeKey([2, 2], [2, 3]),
       edgeKey([3, 2], [3, 3]),
@@ -84,8 +87,10 @@ describe('slither contiguous 3-run boundaries rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.affectedCells).toEqual(['0,1', '0,2'])
-    expect(result?.diffs.map((d) => d.edgeKey)).toEqual([unknownEdge])
-    expect(result?.diffs).toEqual([{ edgeKey: unknownEdge, from: 'unknown', to: 'line' }])
+    expect(getEdgeDiffKeys(result)).toEqual([unknownEdge])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: unknownEdge, from: 'unknown', to: 'line' },
+    ])
   })
 })
 
@@ -105,7 +110,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
     expect(result).not.toBeNull()
     expect(result?.message).toBe('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
     expect(result?.affectedCells).toEqual(['0,0', '1,1'])
-    expect(result?.diffs.map((d) => d.edgeKey)).toEqual([
+    expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([0, 0], [1, 0]),
       edgeKey([0, 0], [0, 1]),
       edgeKey([1, 2], [2, 2]),
@@ -123,7 +128,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
     expect(result).not.toBeNull()
     expect(result?.message).toBe('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
     expect(result?.affectedCells).toEqual(['0,1', '1,0'])
-    expect(result?.diffs.map((d) => d.edgeKey)).toEqual([
+    expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([0, 1], [0, 2]),
       edgeKey([0, 2], [1, 2]),
       edgeKey([1, 0], [2, 0]),
@@ -142,7 +147,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.affectedCells).toEqual(['0,0', '1,1', '0,1', '1,0'])
-    expect(result?.diffs.map((d) => d.edgeKey)).toEqual([
+    expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([0, 0], [1, 0]),
       edgeKey([0, 0], [0, 1]),
       edgeKey([1, 2], [2, 2]),
@@ -181,10 +186,76 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.affectedCells).toEqual(['0,0', '1,1'])
-    expect(result?.diffs.map((d) => d.edgeKey)).toEqual([unknownA, unknownB])
+    expect(getEdgeDiffKeys(result)).toEqual([unknownA, unknownB])
     expect(result?.diffs).toEqual([
-      { edgeKey: unknownA, from: 'unknown', to: 'line' },
-      { edgeKey: unknownB, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: unknownA, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: unknownB, from: 'unknown', to: 'line' },
     ])
+  })
+})
+
+describe('slither apply sectors rule', () => {
+  const applySectorsRule = slitherRules.find((rule) => rule.id === 'apply-sectors')
+  if (!applySectorsRule) {
+    throw new Error('Expected apply-sectors rule')
+  }
+
+  it('applies notZero sectors for clue 3 corners', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 3)
+
+    const result = applySectorsRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.message).toBe('Apply Sectors: inferred corner sector constraints from current edges.')
+    expect(result?.affectedCells).toEqual(['0,0'])
+    expect(result?.affectedSectors).toEqual([
+      sectorKey(0, 0, 'nw'),
+      sectorKey(0, 0, 'ne'),
+      sectorKey(0, 0, 'sw'),
+      sectorKey(0, 0, 'se'),
+    ])
+    expect(result?.diffs.every((d) => d.kind === 'sector')).toBe(true)
+    expect(result?.diffs).toEqual([
+      { kind: 'sector', sectorKey: sectorKey(0, 0, 'nw'), from: 'unknown', to: 'notZero' },
+      { kind: 'sector', sectorKey: sectorKey(0, 0, 'ne'), from: 'unknown', to: 'notZero' },
+      { kind: 'sector', sectorKey: sectorKey(0, 0, 'sw'), from: 'unknown', to: 'notZero' },
+      { kind: 'sector', sectorKey: sectorKey(0, 0, 'se'), from: 'unknown', to: 'notZero' },
+    ])
+  })
+
+  it('applies onlyOne when corner has one line and one blank edge', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'blank'
+
+    const result = applySectorsRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.affectedSectors).toContain(sectorKey(0, 0, 'nw'))
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(0, 0, 'nw'),
+      from: 'unknown',
+      to: 'onlyOne',
+    })
+  })
+
+  it('returns null when sectors are already up to date', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 3)
+    const first = applySectorsRule.apply(puzzle)
+    if (!first) {
+      throw new Error('Expected first apply-sectors result')
+    }
+    for (const diff of first.diffs) {
+      if (diff.kind === 'sector') {
+        puzzle.sectors[diff.sectorKey].mark = diff.to
+      }
+    }
+
+    const second = applySectorsRule.apply(puzzle)
+
+    expect(second).toBeNull()
   })
 })

@@ -1,10 +1,19 @@
-import type { CellCoord, Vertex } from './types'
+import type { CellCoord, SectorCorner, Vertex } from './types'
 
 export const cellKey = (row: number, col: number): string => `${row},${col}`
 
 export const parseCellKey = (key: string): CellCoord => {
   const [r, c] = key.split(',').map(Number)
   return [r, c]
+}
+
+export const sectorKey = (row: number, col: number, corner: SectorCorner): string =>
+  `${row},${col}:${corner}`
+
+export const parseSectorKey = (key: string): [row: number, col: number, corner: SectorCorner] => {
+  const [coord, corner] = key.split(':')
+  const [r, c] = coord.split(',').map(Number)
+  return [r, c, corner as SectorCorner]
 }
 
 const sortVertices = (a: Vertex, b: Vertex): [Vertex, Vertex] => {

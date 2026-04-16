@@ -36,10 +36,18 @@ const buildStateFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer
   const next = clonePuzzle(initialPuzzle)
   for (let i = 0; i < clamped; i += 1) {
     for (const diff of steps[i].diffs) {
-      if (!next.edges[diff.edgeKey]) {
-        next.edges[diff.edgeKey] = { mark: diff.to }
+      if (diff.kind === 'edge') {
+        if (!next.edges[diff.edgeKey]) {
+          next.edges[diff.edgeKey] = { mark: diff.to }
+        } else {
+          next.edges[diff.edgeKey].mark = diff.to
+        }
+        continue
+      }
+      if (!next.sectors[diff.sectorKey]) {
+        next.sectors[diff.sectorKey] = { mark: diff.to }
       } else {
-        next.edges[diff.edgeKey].mark = diff.to
+        next.sectors[diff.sectorKey].mark = diff.to
       }
     }
   }
@@ -53,7 +61,7 @@ export const buildDifficultySnapshot = (steps: RuleStep[]): DifficultySnapshot =
   let totalEdgeChanges = 0
   for (const step of steps) {
     ruleUsage[step.ruleId] = (ruleUsage[step.ruleId] ?? 0) + 1
-    totalEdgeChanges += step.diffs.length
+    totalEdgeChanges += step.diffs.filter((diff) => diff.kind === 'edge').length
   }
 
   return {

@@ -5,10 +5,18 @@ import type { Rule, RuleStep } from './types'
 const applyDiffs = (puzzle: PuzzleIR, step: RuleStep): PuzzleIR => {
   const next = clonePuzzle(puzzle)
   for (const diff of step.diffs) {
-    if (!next.edges[diff.edgeKey]) {
-      next.edges[diff.edgeKey] = { mark: diff.to }
+    if (diff.kind === 'edge') {
+      if (!next.edges[diff.edgeKey]) {
+        next.edges[diff.edgeKey] = { mark: diff.to }
+      } else {
+        next.edges[diff.edgeKey].mark = diff.to
+      }
+      continue
+    }
+    if (!next.sectors[diff.sectorKey]) {
+      next.sectors[diff.sectorKey] = { mark: diff.to }
     } else {
-      next.edges[diff.edgeKey].mark = diff.to
+      next.sectors[diff.sectorKey].mark = diff.to
     }
   }
   return next
@@ -31,7 +39,10 @@ export const runNextRule = (
       message: result.message,
       diffs: result.diffs,
       affectedCells: result.affectedCells,
-      affectedEdges: result.diffs.map((d) => d.edgeKey),
+      affectedEdges: result.diffs.flatMap((d) => (d.kind === 'edge' ? [d.edgeKey] : [])),
+      affectedSectors:
+        result.affectedSectors ??
+        result.diffs.flatMap((d) => (d.kind === 'sector' ? [d.sectorKey] : [])),
       timestamp: Date.now(),
     }
     return {

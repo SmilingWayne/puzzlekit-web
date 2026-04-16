@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getCellEdgeKeys, parseCellKey, parseEdgeKey } from '../../domain/ir/keys'
+import { getCellEdgeKeys, parseCellKey, parseEdgeKey, parseSectorKey } from '../../domain/ir/keys'
+import type { SectorCorner } from '../../domain/ir/types'
 import type { PuzzleIR } from '../../domain/ir/types'
 
 type Props = {
@@ -16,6 +17,19 @@ const midpoint = (a: [number, number], b: [number, number]): [number, number] =>
   (a[0] + b[0]) / 2,
   (a[1] + b[1]) / 2,
 ]
+
+const getSectorArcAngles = (corner: SectorCorner): [number, number] => {
+  if (corner === 'nw') {
+    return [0, Math.PI / 2]
+  }
+  if (corner === 'ne') {
+    return [Math.PI / 2, Math.PI]
+  }
+  if (corner === 'sw') {
+    return [Math.PI * 1.5, Math.PI * 2]
+  }
+  return [Math.PI, Math.PI * 1.5]
+}
 
 export const CanvasBoard = ({
   puzzle,
@@ -87,6 +101,39 @@ export const CanvasBoard = ({
         PADDING + c * CELL_SIZE + CELL_SIZE / 2,
         PADDING + r * CELL_SIZE + CELL_SIZE / 2,
       )
+    }
+
+    const sectorRadius = CELL_SIZE * 0.25
+    for (const [key, sector] of Object.entries(puzzle.sectors)) {
+      if (sector.mark === 'unknown') {
+        continue
+      }
+      const [r, c, corner] = parseSectorKey(key)
+      const baseX = PADDING + c * CELL_SIZE
+      const baseY = PADDING + r * CELL_SIZE
+      const cornerX = corner === 'ne' || corner === 'se' ? baseX + CELL_SIZE : baseX
+      const cornerY = corner === 'sw' || corner === 'se' ? baseY + CELL_SIZE : baseY
+      const [start, end] = getSectorArcAngles(corner)
+
+      ctx.save()
+      ctx.lineWidth = 1.8
+      if (sector.mark === 'onlyOne') {
+        ctx.strokeStyle = '#ef4444'
+        ctx.setLineDash([])
+      } else if (sector.mark === 'notOne') {
+        ctx.strokeStyle = '#3b82f6'
+        ctx.setLineDash([])
+      } else if (sector.mark === 'notTwo') {
+        ctx.strokeStyle = '#f59e0b'
+        ctx.setLineDash([4, 3])
+      } else {
+        ctx.strokeStyle = '#22c55e'
+        ctx.setLineDash([4, 3])
+      }
+      ctx.beginPath()
+      ctx.arc(cornerX, cornerY, sectorRadius, start, end)
+      ctx.stroke()
+      ctx.restore()
     }
 
     for (const [edge, state] of Object.entries(puzzle.edges)) {

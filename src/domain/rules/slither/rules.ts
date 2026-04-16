@@ -1,10 +1,66 @@
-import { cellKey, edgeKey, getCellEdgeKeys, getVertexIncidentEdges, parseCellKey } from '../../ir/keys'
-import type { PuzzleIR } from '../../ir/types'
+import {
+  cellKey,
+  edgeKey,
+  getCellEdgeKeys,
+  getVertexIncidentEdges,
+  parseCellKey,
+  sectorKey,
+} from '../../ir/keys'
+import type { PuzzleIR, SectorCorner, SectorMark } from '../../ir/types'
 import type { Rule, RuleApplication } from '../types'
 
 const isClueThree = (puzzle: PuzzleIR, row: number, col: number): boolean => {
   const clue = puzzle.cells[cellKey(row, col)]?.clue
   return clue?.kind === 'number' && clue.value === 3
+}
+
+const getCornerEdgeKeys = (row: number, col: number, corner: SectorCorner): [string, string] => {
+  if (corner === 'nw') {
+    return [edgeKey([row, col], [row, col + 1]), edgeKey([row, col], [row + 1, col])]
+  }
+  if (corner === 'ne') {
+    return [edgeKey([row, col], [row, col + 1]), edgeKey([row, col + 1], [row + 1, col + 1])]
+  }
+  if (corner === 'sw') {
+    return [edgeKey([row + 1, col], [row + 1, col + 1]), edgeKey([row, col], [row + 1, col])]
+  }
+  return [
+    edgeKey([row + 1, col], [row + 1, col + 1]),
+    edgeKey([row, col + 1], [row + 1, col + 1]),
+  ]
+}
+
+const inferSectorMark = (
+  puzzle: PuzzleIR,
+  row: number,
+  col: number,
+  corner: SectorCorner,
+): SectorMark => {
+  const [edgeAKey, edgeBKey] = getCornerEdgeKeys(row, col, corner)
+  const edgeAMark = puzzle.edges[edgeAKey]?.mark ?? 'unknown'
+  const edgeBMark = puzzle.edges[edgeBKey]?.mark ?? 'unknown'
+  const clue = puzzle.cells[cellKey(row, col)]?.clue
+  const clueValue = clue?.kind === 'number' && clue.value !== '?' ? Number(clue.value) : null
+
+  if (
+    (edgeAMark === 'line' && edgeBMark === 'blank') ||
+    (edgeAMark === 'blank' && edgeBMark === 'line')
+  ) {
+    return 'onlyOne'
+  }
+  if (
+    (edgeAMark === 'line' && edgeBMark === 'line') ||
+    (edgeAMark === 'blank' && edgeBMark === 'blank')
+  ) {
+    return 'notOne'
+  }
+  if (edgeAMark === 'blank' || edgeBMark === 'blank') {
+    return 'notTwo'
+  }
+  if (edgeAMark === 'line' || edgeBMark === 'line' || clueValue === 3) {
+    return 'notZero'
+  }
+  return 'unknown'
 }
 
 const createContiguousThreeRunBoundariesRule = (): Rule => ({
@@ -36,7 +92,7 @@ const createContiguousThreeRunBoundariesRule = (): Rule => ({
           const key = edgeKey([r, boundaryCol], [r + 1, boundaryCol])
           const mark = puzzle.edges[key]?.mark ?? 'unknown'
           if (mark === 'unknown') {
-            diffs.push({ edgeKey: key, from: 'unknown', to: 'line' })
+            diffs.push({ kind: 'edge', edgeKey: key, from: 'unknown', to: 'line' })
           }
         }
 
@@ -75,7 +131,7 @@ const createContiguousThreeRunBoundariesRule = (): Rule => ({
           const key = edgeKey([boundaryRow, c], [boundaryRow, c + 1])
           const mark = puzzle.edges[key]?.mark ?? 'unknown'
           if (mark === 'unknown') {
-            diffs.push({ edgeKey: key, from: 'unknown', to: 'line' })
+            diffs.push({ kind: 'edge', edgeKey: key, from: 'unknown', to: 'line' })
           }
         }
 
@@ -128,7 +184,7 @@ const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
 
         const diffs = [...candidateEdgeKeys].flatMap((key) =>
           (puzzle.edges[key]?.mark ?? 'unknown') === 'unknown'
-            ? [{ edgeKey: key, from: 'unknown' as const, to: 'line' as const }]
+            ? [{ kind: 'edge' as const, edgeKey: key, from: 'unknown' as const, to: 'line' as const }]
             : [],
         )
         if (diffs.length === 0) {
@@ -168,6 +224,7 @@ const createCellCountRule = (): Rule => ({
         return {
           message: `Cell (${row}, ${col}) already has ${clue} lines, remaining edges are blank.`,
           diffs: unknown.map(([edge]) => ({
+            kind: 'edge',
             edgeKey: edge,
             from: 'unknown',
             to: 'blank',
@@ -179,6 +236,7 @@ const createCellCountRule = (): Rule => ({
         return {
           message: `Cell (${row}, ${col}) needs all remaining edges to reach clue ${clue}.`,
           diffs: unknown.map(([edge]) => ({
+            kind: 'edge',
             edgeKey: edge,
             from: 'unknown',
             to: 'line',
@@ -212,6 +270,7 @@ const createVertexDegreeRule = (): Rule => ({
           return {
             message: `Vertex (${r}, ${c}) already has 2 lines, remaining incident edges are blank.`,
             diffs: unknown.map(([edge]) => ({
+              kind: 'edge',
               edgeKey: edge,
               from: 'unknown',
               to: 'blank',
@@ -224,6 +283,7 @@ const createVertexDegreeRule = (): Rule => ({
             message: `Vertex (${r}, ${c}) must continue the loop with the last undecided edge.`,
             diffs: [
               {
+                kind: 'edge',
                 edgeKey: unknown[0][0],
                 from: 'unknown',
                 to: 'line',
@@ -237,6 +297,7 @@ const createVertexDegreeRule = (): Rule => ({
             message: `Vertex (${r}, ${c}) cannot have degree 1, last undecided edge is blank.`,
             diffs: [
               {
+                kind: 'edge',
                 edgeKey: unknown[0][0],
                 from: 'unknown',
                 to: 'blank',
@@ -251,9 +312,52 @@ const createVertexDegreeRule = (): Rule => ({
   },
 })
 
+const createApplySectorsRule = (): Rule => ({
+  id: 'apply-sectors',
+  name: 'Apply Sectors',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
+    const diffs: RuleApplication['diffs'] = []
+    const affectedCells = new Set<string>()
+    const affectedSectors: string[] = []
+
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        for (const corner of corners) {
+          const key = sectorKey(r, c, corner)
+          const current = puzzle.sectors[key]?.mark ?? 'unknown'
+          const desired = inferSectorMark(puzzle, r, c, corner)
+          if (desired === 'unknown' || desired === current) {
+            continue
+          }
+          diffs.push({
+            kind: 'sector',
+            sectorKey: key,
+            from: current,
+            to: desired,
+          })
+          affectedCells.add(cellKey(r, c))
+          affectedSectors.push(key)
+        }
+      }
+    }
+
+    if (diffs.length === 0) {
+      return null
+    }
+    return {
+      message: 'Apply Sectors: inferred corner sector constraints from current edges.',
+      diffs,
+      affectedCells: [...affectedCells],
+      affectedSectors,
+    }
+  },
+})
+
 export const slitherRules: Rule[] = [
   createContiguousThreeRunBoundariesRule(),
   createDiagonalAdjacentThreeOuterCornersRule(),
   createCellCountRule(),
   createVertexDegreeRule(),
+  createApplySectorsRule(),
 ]
