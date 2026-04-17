@@ -26,7 +26,7 @@ export type CellState = {
 
 export type EdgeMark = 'unknown' | 'line' | 'blank'
 export type SectorCorner = 'nw' | 'ne' | 'sw' | 'se'
-export type SectorMark = 'unknown' | 'onlyOne' | 'notOne' | 'notTwo' | 'notZero'
+export type SectorMark = 'unknown' | 'onlyOne' | 'notOne' | 'notTwo' | 'notZero' | 'fixed'
 
 export type EdgeState = {
   connected?: boolean

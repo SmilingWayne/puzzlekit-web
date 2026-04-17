@@ -16,11 +16,6 @@ const isClueThree = (puzzle: PuzzleIR, row: number, col: number): boolean => {
   return clue?.kind === 'number' && clue.value === 3
 }
 
-const inferSectorMark = (puzzle: PuzzleIR, row:number, col: number, corner: SectorCorner) : SectorMark => {
-  const vertexResult = inferSectorMarkByVertex(puzzle, row, col, corner)
-  if (vertexResult !== 'unknown') { return vertexResult }
-  return inferSectorMarkByCell(puzzle, row, col, corner)
-}
 
 const inferSectorMarkByVertex = (
   puzzle: PuzzleIR,
@@ -28,51 +23,73 @@ const inferSectorMarkByVertex = (
   col: number,
   corner: SectorCorner
 ): SectorMark => {
+  // step1: primal infer independent of cell number
   const vertex = getCornerVertex(row, col, corner)
   const incidentEdges = getVertexIncidentEdges(vertex[0], vertex[1], puzzle.rows, puzzle.cols)
+  const cellEdges = getCellEdgeKeys(row, col)
   const sectorEdges = getCornerEdgeKeys(row, col, corner)
+  
+  // step 1.1 : no need to infer because fixed
+  const secLineNum = sectorEdges.filter(e => puzzle.edges[e]?.mark === 'line').length 
+  const secCrossNum = sectorEdges.filter(e => puzzle.edges[e]?.mark === 'blank').length 
+  
+  if (secLineNum + secCrossNum === 2) {
+    return 'fixed'
+  }
+
   const nonSectorEdges = incidentEdges.filter(e => !sectorEdges.includes(e))
-  const knownNum = nonSectorEdges.filter(e => puzzle.edges[e]?.mark === 'line').length 
-  const unknownNum = nonSectorEdges.filter(e => puzzle.edges[e]?.mark === 'blank').length
-  // count the known / unknown edges in NonSectorEdges
-  if (knownNum === 1 && unknownNum === 1) {
+  const diagSectorEdges = cellEdges.filter(e => !sectorEdges.includes(e))
+  
+  const nonSecLineNum = nonSectorEdges.filter(e => puzzle.edges[e]?.mark === 'line').length 
+  const nonSecCrossNum = nonSectorEdges.filter(e => puzzle.edges[e]?.mark === 'blank').length
+
+  const diagSecLineNum = diagSectorEdges.filter(e => puzzle.edges[e]?.mark === 'line').length 
+  const diagSecCrossNum = diagSectorEdges.filter(e => puzzle.edges[e]?.mark === 'blank').length 
+  
+  // step 1.2 basic infer
+  if (nonSecLineNum === 1 && nonSecCrossNum === 1) {
     return 'onlyOne'
   }
-  if (unknownNum === 2) {
-    return 'notOne'
+  if (nonSecLineNum === 2 ) {
+    return 'fixed'
   }
-  return 'unknown'
-}
-
-const inferSectorMarkByCell = (
-  puzzle: PuzzleIR,
-  row: number,
-  col: number,
-  corner: SectorCorner,
-): SectorMark => {
-  const [edgeAKey, edgeBKey] = getCornerEdgeKeys(row, col, corner)
-  const edgeAMark = puzzle.edges[edgeAKey]?.mark ?? 'unknown'
-  const edgeBMark = puzzle.edges[edgeBKey]?.mark ?? 'unknown'
+  // step2: infer based on cell number
   const clue = puzzle.cells[cellKey(row, col)]?.clue
-  const clueValue = clue?.kind === 'number' && clue.value !== '?' ? Number(clue.value) : null
+  const clueValue = ((clue?.kind === 'number') && (clue.value !== '?')) ? Number(clue.value) : null
+  if ( clueValue !== null ) {
+    const edgeKeys = getCellEdgeKeys(row, col)
+    const stats = edgeKeys.reduce(
+      (acc, key) => {
+        const mark = puzzle.edges[key]?.mark ?? 'unknown'
+        if (mark === 'line') acc.lineNum++
+        else if (mark === 'blank') acc.crossNum++
+        else acc.unknownNum++
+        return acc
+      }, { lineNum: 0, crossNum: 0, unknownNum: 0 }
+    )
+    if (stats.lineNum === clueValue) {
+      return 'fixed'
+    }
+    if (clueValue === 3 && diagSecLineNum === 2) {
+      return 'onlyOne'
+    }
+    if (clueValue === 2 && diagSecLineNum === 1 && diagSecCrossNum === 1) {
+      return 'onlyOne'
+    }
+    if (clueValue === 1 && diagSecCrossNum === 2) {
+      return 'onlyOne'
+    }
+    if (clueValue === 3 || secLineNum === 1) {
+      return 'notZero'
+    }
+    if (clueValue === 1) {
+      return 'notTwo'
+    }
+  }
 
-  if (
-    (edgeAMark === 'line' && edgeBMark === 'blank') ||
-    (edgeAMark === 'blank' && edgeBMark === 'line')
-  ) {
-    return 'onlyOne'
-  }
-  if (
-    (edgeAMark === 'line' && edgeBMark === 'line') ||
-    (edgeAMark === 'blank' && edgeBMark === 'blank')
-  ) {
-    return 'notOne'
-  }
-  if (edgeAMark === 'blank' || edgeBMark === 'blank') {
+  // step3. infer via cells. Basics.
+  if (secCrossNum === 1) {
     return 'notTwo'
-  }
-  if (edgeAMark === 'line' || edgeBMark === 'line' || clueValue === 3) {
-    return 'notZero'
   }
   return 'unknown'
 }
@@ -339,8 +356,7 @@ const createApplySectorsInference = (): Rule => ({
         for (const corner of corners) {
           const key = sectorKey(r, c, corner)
           const current = puzzle.sectors[key]?.mark ?? 'unknown'
-          const desired = inferSectorMark(puzzle, r, c, corner)
-          // if (r === 3 && c === 5) { console.log(current, desired) }
+          const desired = inferSectorMarkByVertex(puzzle, r, c, corner)
           if (desired === 'unknown' || desired === current) {
             continue
           }

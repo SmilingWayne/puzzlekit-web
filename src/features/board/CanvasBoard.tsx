@@ -104,6 +104,7 @@ export const CanvasBoard = ({
     }
 
     const sectorRadius = CELL_SIZE * 0.25
+    const sectorFixedRadius = CELL_SIZE * 0.30
     for (const [key, sector] of Object.entries(puzzle.sectors)) {
       if (sector.mark === 'unknown') {
         continue
@@ -126,12 +127,19 @@ export const CanvasBoard = ({
       } else if (sector.mark === 'notTwo') {
         ctx.strokeStyle = '#f59e0b'
         ctx.setLineDash([4, 3])
+      } else if (sector.mark === 'fixed') {
+        ctx.strokeStyle = '#ffffff'
+        ctx.setLineDash([])
       } else {
         ctx.strokeStyle = '#22c55e'
         ctx.setLineDash([4, 3])
       }
       ctx.beginPath()
-      ctx.arc(cornerX, cornerY, sectorRadius, start, end)
+      if (sector.mark === 'fixed') {
+        ctx.arc(cornerX, cornerY, sectorFixedRadius, start, end)
+      } else {
+        ctx.arc(cornerX, cornerY, sectorRadius, start, end)
+      }
       ctx.stroke()
       ctx.restore()
     }
