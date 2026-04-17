@@ -53,6 +53,9 @@ const inferSectorMarkByVertex = (
   if (nonSecLineNum === 2 ) {
     return 'fixed'
   }
+  if (nonSecCrossNum === 2) {
+    return 'notOne'
+  }
   // step2: infer based on cell number
   const clue = puzzle.cells[cellKey(row, col)]?.clue
   const clueValue = ((clue?.kind === 'number') && (clue.value !== '?')) ? Number(clue.value) : null
@@ -366,7 +369,7 @@ const createApplySectorsInference = (): Rule => ({
             from: current,
             to: desired,
           })
-          affectedCells.add(cellKey(r, c))
+          // affectedCells.add(cellKey(r, c))
           affectedSectors.push(key)
         }
       }
@@ -383,10 +386,70 @@ const createApplySectorsInference = (): Rule => ({
   }
 })
 
+const createSectorNotOneClueTwoPropagationRule = (): Rule => ({
+  id: 'sector-not-one-clue-two-propagation',
+  name: 'Sector notOne Clue-2 Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const cases: Array<{ target: SectorCorner; opposite: SectorCorner }> = [
+      { target: 'nw', opposite: 'se' },
+      { target: 'se', opposite: 'nw' },
+      { target: 'ne', opposite: 'sw' },
+      { target: 'sw', opposite: 'ne' },
+    ]
+
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        const clue = puzzle.cells[cellKey(r, c)]?.clue
+        if (clue?.kind !== 'number' || clue.value !== 2) {
+          continue
+        }
+
+        for (const { target, opposite } of cases) {
+          const targetSectorKey = sectorKey(r, c, target)
+          if ((puzzle.sectors[targetSectorKey]?.mark ?? 'unknown') !== 'notOne') {
+            continue
+          }
+
+          const oppositeEdges = getCornerEdgeKeys(r, c, opposite)
+          const oppositeHasLine = oppositeEdges.some((edge) => (puzzle.edges[edge]?.mark ?? 'unknown') === 'line')
+          if (!oppositeHasLine) {
+            continue
+          }
+
+          const targetEdges = getCornerEdgeKeys(r, c, target)
+          const hasTargetLine = targetEdges.some((edge) => (puzzle.edges[edge]?.mark ?? 'unknown') === 'line')
+          if (hasTargetLine) {
+            continue
+          }
+
+          const diffs = targetEdges.flatMap((edgeKeyValue) =>
+            (puzzle.edges[edgeKeyValue]?.mark ?? 'unknown') === 'unknown'
+              ? [{ kind: 'edge' as const, edgeKey: edgeKeyValue, from: 'unknown' as const, to: 'blank' as const }]
+              : [],
+          )
+          if (diffs.length === 0) {
+            continue
+          }
+
+          return {
+            message: `Cell (${r}, ${c}) has clue 2; ${target} sector is notOne and opposite ${opposite} already has a line, so ${target} edges are blank.`,
+            diffs,
+            affectedCells: [cellKey(r, c)],
+            affectedSectors: [targetSectorKey, sectorKey(r, c, opposite)],
+          }
+        }
+      }
+    }
+
+    return null
+  },
+})
+
 export const slitherRules: Rule[] = [
   createContiguousThreeRunBoundariesRule(),
   createDiagonalAdjacentThreeOuterCornersRule(),
   createCellCountRule(),
   createVertexDegreeRule(),
-  createApplySectorsInference()
+  createApplySectorsInference(),
+  createSectorNotOneClueTwoPropagationRule(),
 ]
