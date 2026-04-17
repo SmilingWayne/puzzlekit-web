@@ -8,7 +8,21 @@ import {
   parseCellKey,
   sectorKey,
 } from '../../ir/keys'
-import type { PuzzleIR, SectorCorner, SectorMark } from '../../ir/types'
+import {
+  SECTOR_MASK_ALL,
+  SECTOR_MASK_NOT_0,
+  SECTOR_MASK_NOT_1,
+  SECTOR_MASK_NOT_2,
+  SECTOR_MASK_ONLY_0,
+  SECTOR_MASK_ONLY_1,
+  SECTOR_MASK_ONLY_2,
+  sectorMaskAllows,
+  sectorMaskIntersect,
+  sectorMaskIsSingle,
+  type PuzzleIR,
+  type SectorConstraintMask,
+  type SectorCorner,
+} from '../../ir/types'
 import type { Rule, RuleApplication } from '../types'
 
 const isClueThree = (puzzle: PuzzleIR, row: number, col: number): boolean => {
@@ -17,24 +31,34 @@ const isClueThree = (puzzle: PuzzleIR, row: number, col: number): boolean => {
 }
 
 
-const inferSectorMarkByVertex = (
+const maskForExactLineCount = (lineCount: number): SectorConstraintMask => {
+  if (lineCount === 0) return SECTOR_MASK_ONLY_0
+  if (lineCount === 1) return SECTOR_MASK_ONLY_1
+  return SECTOR_MASK_ONLY_2
+}
+
+const inferSectorMaskByVertex = (
   puzzle: PuzzleIR,
   row: number,
   col: number,
   corner: SectorCorner
-): SectorMark => {
+): SectorConstraintMask => {
   // step1: primal infer independent of cell number
   const vertex = getCornerVertex(row, col, corner)
   const incidentEdges = getVertexIncidentEdges(vertex[0], vertex[1], puzzle.rows, puzzle.cols)
   const cellEdges = getCellEdgeKeys(row, col)
   const sectorEdges = getCornerEdgeKeys(row, col, corner)
+  let mask = SECTOR_MASK_ALL
+  const tighten = (constraint: SectorConstraintMask): void => {
+    mask = sectorMaskIntersect(mask, constraint)
+  }
   
   // step 1.1 : no need to infer because fixed
   const secLineNum = sectorEdges.filter(e => puzzle.edges[e]?.mark === 'line').length 
   const secCrossNum = sectorEdges.filter(e => puzzle.edges[e]?.mark === 'blank').length 
   
   if (secLineNum + secCrossNum === 2) {
-    return 'fixed'
+    tighten(maskForExactLineCount(secLineNum))
   }
 
   const nonSectorEdges = incidentEdges.filter(e => !sectorEdges.includes(e))
@@ -48,13 +72,13 @@ const inferSectorMarkByVertex = (
   
   // step 1.2 basic infer
   if (nonSecLineNum === 1 && nonSecCrossNum === 1) {
-    return 'onlyOne'
+    tighten(SECTOR_MASK_ONLY_1)
   }
   if (nonSecLineNum === 2 ) {
-    return 'fixed'
+    tighten(SECTOR_MASK_ONLY_0)
   }
   if (nonSecCrossNum === 2) {
-    return 'notOne'
+    tighten(SECTOR_MASK_NOT_1)
   }
   // step2: infer based on cell number
   const clue = puzzle.cells[cellKey(row, col)]?.clue
@@ -71,30 +95,30 @@ const inferSectorMarkByVertex = (
       }, { lineNum: 0, crossNum: 0, unknownNum: 0 }
     )
     if (stats.lineNum === clueValue) {
-      return 'fixed'
+      tighten(maskForExactLineCount(secLineNum))
     }
     if (clueValue === 3 && diagSecLineNum === 2) {
-      return 'onlyOne'
+      tighten(SECTOR_MASK_ONLY_1)
     }
     if (clueValue === 2 && diagSecLineNum === 1 && diagSecCrossNum === 1) {
-      return 'onlyOne'
+      tighten(SECTOR_MASK_ONLY_1)
     }
     if (clueValue === 1 && diagSecCrossNum === 2) {
-      return 'onlyOne'
+      tighten(SECTOR_MASK_ONLY_1)
     }
     if (clueValue === 3 || secLineNum === 1) {
-      return 'notZero'
+      tighten(SECTOR_MASK_NOT_0)
     }
     if (clueValue === 1) {
-      return 'notTwo'
+      tighten(SECTOR_MASK_NOT_2)
     }
   }
 
   // step3. infer via cells. Basics.
   if (secCrossNum === 1) {
-    return 'notTwo'
+    tighten(SECTOR_MASK_NOT_2)
   }
-  return 'unknown'
+  return mask
 }
 
 const createContiguousThreeRunBoundariesRule = (): Rule => ({
@@ -358,18 +382,19 @@ const createApplySectorsInference = (): Rule => ({
       for (let c = 0; c < puzzle.cols; c += 1) {
         for (const corner of corners) {
           const key = sectorKey(r, c, corner)
-          const current = puzzle.sectors[key]?.mark ?? 'unknown'
-          const desired = inferSectorMarkByVertex(puzzle, r, c, corner)
-          if (desired === 'unknown' || desired === current) {
+          const currentMask = puzzle.sectors[key]?.constraintsMask ?? SECTOR_MASK_ALL
+          const inferredMask = inferSectorMaskByVertex(puzzle, r, c, corner)
+          const nextMask = sectorMaskIntersect(currentMask, inferredMask)
+          if (nextMask === 0 || nextMask === currentMask) {
             continue
           }
           diffs.push({
             kind: 'sector',
             sectorKey: key,
-            from: current,
-            to: desired,
+            fromMask: currentMask,
+            toMask: nextMask,
           })
-          // affectedCells.add(cellKey(r, c))
+          affectedCells.add(cellKey(r, c))
           affectedSectors.push(key)
         }
       }
@@ -384,6 +409,68 @@ const createApplySectorsInference = (): Rule => ({
       affectedSectors,
     }
   }
+})
+
+const createSectorConstraintEdgePropagationRule = (): Rule => ({
+  id: 'sector-constraint-edge-propagation',
+  name: 'Sector Constraint Edge Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
+        for (const corner of corners) {
+          const key = sectorKey(r, c, corner)
+          const mask = puzzle.sectors[key]?.constraintsMask ?? SECTOR_MASK_ALL
+          const sectorEdges = getCornerEdgeKeys(r, c, corner)
+          const marks = sectorEdges.map((edge) => puzzle.edges[edge]?.mark ?? 'unknown')
+          const lineCount = marks.filter((mark) => mark === 'line').length
+          const blankCount = marks.filter((mark) => mark === 'blank').length
+          const unknownEdges = sectorEdges.filter((edge) => (puzzle.edges[edge]?.mark ?? 'unknown') === 'unknown')
+
+          if (unknownEdges.length === 0) {
+            continue
+          }
+
+          if (mask === SECTOR_MASK_ONLY_2 || mask === SECTOR_MASK_ONLY_0) {
+            const toMark = mask === SECTOR_MASK_ONLY_2 ? 'line' : 'blank'
+            return {
+              message: `Sector (${r}, ${c}, ${corner}) is exact-${toMark === 'line' ? 'two-lines' : 'zero-lines'}, so undecided corner edges are ${toMark}.`,
+              diffs: unknownEdges.map((edge) => ({
+                kind: 'edge',
+                edgeKey: edge,
+                from: 'unknown',
+                to: toMark,
+              })),
+              affectedCells: [cellKey(r, c)],
+              affectedSectors: [key],
+            }
+          }
+
+          if (!sectorMaskIsSingle(mask) || mask !== SECTOR_MASK_ONLY_1) {
+            continue
+          }
+          if (lineCount === 1 && blankCount === 0 && unknownEdges.length === 1) {
+            return {
+              message: `Sector (${r}, ${c}, ${corner}) is exact-one-line; the remaining corner edge is blank.`,
+              diffs: [{ kind: 'edge', edgeKey: unknownEdges[0], from: 'unknown', to: 'blank' }],
+              affectedCells: [cellKey(r, c)],
+              affectedSectors: [key],
+            }
+          }
+          if (blankCount === 1 && lineCount === 0 && unknownEdges.length === 1) {
+            return {
+              message: `Sector (${r}, ${c}, ${corner}) is exact-one-line; the remaining corner edge is line.`,
+              diffs: [{ kind: 'edge', edgeKey: unknownEdges[0], from: 'unknown', to: 'line' }],
+              affectedCells: [cellKey(r, c)],
+              affectedSectors: [key],
+            }
+          }
+        }
+      }
+    }
+
+    return null
+  },
 })
 
 const createSectorNotOneClueTwoPropagationRule = (): Rule => ({
@@ -406,7 +493,8 @@ const createSectorNotOneClueTwoPropagationRule = (): Rule => ({
 
         for (const { target, opposite } of cases) {
           const targetSectorKey = sectorKey(r, c, target)
-          if ((puzzle.sectors[targetSectorKey]?.mark ?? 'unknown') !== 'notOne') {
+          const targetMask = puzzle.sectors[targetSectorKey]?.constraintsMask ?? SECTOR_MASK_ALL
+          if (sectorMaskAllows(targetMask, 1)) {
             continue
           }
 
@@ -451,5 +539,6 @@ export const slitherRules: Rule[] = [
   createCellCountRule(),
   createVertexDegreeRule(),
   createApplySectorsInference(),
+  createSectorConstraintEdgePropagationRule(),
   createSectorNotOneClueTwoPropagationRule(),
 ]

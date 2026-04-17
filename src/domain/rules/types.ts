@@ -1,4 +1,4 @@
-import type { EdgeMark, PuzzleIR, SectorMark } from '../ir/types'
+import type { EdgeMark, PuzzleIR, SectorConstraintMask } from '../ir/types'
 
 export type EdgeDiff = {
   kind: 'edge'
@@ -10,8 +10,8 @@ export type EdgeDiff = {
 export type SectorDiff = {
   kind: 'sector'
   sectorKey: string
-  from: SectorMark
-  to: SectorMark
+  fromMask: SectorConstraintMask
+  toMask: SectorConstraintMask
 }
 
 export type RuleDiff = EdgeDiff | SectorDiff

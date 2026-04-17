@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getCellEdgeKeys, parseCellKey, parseEdgeKey, parseSectorKey } from '../../domain/ir/keys'
-import type { SectorCorner } from '../../domain/ir/types'
+import {
+  SECTOR_MASK_ALL,
+  sectorMaskAllows,
+  sectorMaskIsSingle,
+  type SectorCorner,
+} from '../../domain/ir/types'
 import type { PuzzleIR } from '../../domain/ir/types'
 
 type Props = {
@@ -103,10 +108,15 @@ export const CanvasBoard = ({
       )
     }
 
-    const sectorRadius = CELL_SIZE * 0.25
-    const sectorFixedRadius = CELL_SIZE * 0.30
+    const sectorRadii = {
+      notZero: CELL_SIZE * 0.19,
+      notOne: CELL_SIZE * 0.24,
+      notTwo: CELL_SIZE * 0.29,
+      single: CELL_SIZE * 0.34,
+    }
     for (const [key, sector] of Object.entries(puzzle.sectors)) {
-      if (sector.mark === 'unknown') {
+      const mask = sector.constraintsMask ?? SECTOR_MASK_ALL
+      if (mask === SECTOR_MASK_ALL) {
         continue
       }
       const [r, c, corner] = parseSectorKey(key)
@@ -117,30 +127,39 @@ export const CanvasBoard = ({
       const [start, end] = getSectorArcAngles(corner)
 
       ctx.save()
-      ctx.lineWidth = 1.8
-      if (sector.mark === 'onlyOne') {
+      const drawArc = (
+        radius: number,
+        strokeStyle: string,
+        lineWidth: number,
+        lineDash: number[] = [],
+      ): void => {
+        ctx.strokeStyle = strokeStyle
+        ctx.lineWidth = lineWidth
+        ctx.setLineDash(lineDash)
+        ctx.beginPath()
+        ctx.arc(cornerX, cornerY, radius, start, end)
+        ctx.stroke()
+      }
+
+      if (!sectorMaskAllows(mask, 0)) {
+        drawArc(sectorRadii.notZero, '#22c55e', 1.8, [4, 3])
+      }
+      if (!sectorMaskAllows(mask, 1)) {
+        drawArc(sectorRadii.notOne, '#3b82f6', 1.8)
+      }
+      if (!sectorMaskAllows(mask, 2)) {
+        drawArc(sectorRadii.notTwo, '#f59e0b', 1.8, [4, 3])
+      }
+
+      if (sectorMaskIsSingle(mask)) {
+        // Emphasize sectors that have been reduced to a single exact count.
         ctx.strokeStyle = '#ef4444'
+        ctx.lineWidth = 2.4
         ctx.setLineDash([])
-      } else if (sector.mark === 'notOne') {
-        ctx.strokeStyle = '#3b82f6'
-        ctx.setLineDash([])
-      } else if (sector.mark === 'notTwo') {
-        ctx.strokeStyle = '#f59e0b'
-        ctx.setLineDash([4, 3])
-      } else if (sector.mark === 'fixed') {
-        ctx.strokeStyle = '#ffffff'
-        ctx.setLineDash([])
-      } else {
-        ctx.strokeStyle = '#22c55e'
-        ctx.setLineDash([4, 3])
+        ctx.beginPath()
+        ctx.arc(cornerX, cornerY, sectorRadii.single, start, end)
+        ctx.stroke()
       }
-      ctx.beginPath()
-      if (sector.mark === 'fixed') {
-        ctx.arc(cornerX, cornerY, sectorFixedRadius, start, end)
-      } else {
-        ctx.arc(cornerX, cornerY, sectorRadius, start, end)
-      }
-      ctx.stroke()
       ctx.restore()
     }
 

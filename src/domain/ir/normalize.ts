@@ -53,7 +53,7 @@ export const normalizePuzzle = (puzzle: PuzzleIR): Record<string, unknown> => {
       return (order[aCorner] ?? 99) - (order[bCorner] ?? 99)
     })
     .reduce<Record<string, unknown>>((acc, [key, state]) => {
-      acc[key] = { mark: state.mark }
+      acc[key] = { constraintsMask: state.constraintsMask }
       return acc
     }, {})
 

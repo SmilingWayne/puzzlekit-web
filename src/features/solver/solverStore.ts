@@ -45,9 +45,9 @@ const buildStateFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer
         continue
       }
       if (!next.sectors[diff.sectorKey]) {
-        next.sectors[diff.sectorKey] = { mark: diff.to }
+        next.sectors[diff.sectorKey] = { constraintsMask: diff.toMask }
       } else {
-        next.sectors[diff.sectorKey].mark = diff.to
+        next.sectors[diff.sectorKey].constraintsMask = diff.toMask
       }
     }
   }

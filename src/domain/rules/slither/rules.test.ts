@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { decodeSlitherFromPuzzlink } from '../../parsers/puzzlink'
 import { cellKey, edgeKey, getCornerEdgeKeys, sectorKey } from '../../ir/keys'
 import { createSlitherPuzzle } from '../../ir/slither'
-import type { PuzzleIR } from '../../ir/types'
+import {
+  SECTOR_MASK_ALL,
+  SECTOR_MASK_NOT_0,
+  SECTOR_MASK_NOT_1,
+  SECTOR_MASK_ONLY_0,
+  SECTOR_MASK_ONLY_1,
+  SECTOR_MASK_ONLY_2,
+  type PuzzleIR,
+} from '../../ir/types'
 import { runNextRule } from '../engine'
 import { slitherRules } from './rules'
 
@@ -40,7 +48,9 @@ describe('slither contiguous 3-run boundaries rule', () => {
       edgeKey([1, 3], [2, 3]),
       edgeKey([1, 4], [2, 4]),
     ])
-    expect(result?.diffs.every((d) => d.from === 'unknown' && d.to === 'line')).toBe(true)
+    expect(
+      result?.diffs.every((d) => d.kind === 'edge' && d.from === 'unknown' && d.to === 'line'),
+    ).toBe(true)
   })
 
   it('forces all horizontal run boundaries for a vertical 3-run', () => {
@@ -62,7 +72,9 @@ describe('slither contiguous 3-run boundaries rule', () => {
       edgeKey([3, 2], [3, 3]),
       edgeKey([4, 2], [4, 3]),
     ])
-    expect(result?.diffs.every((d) => d.from === 'unknown' && d.to === 'line')).toBe(true)
+    expect(
+      result?.diffs.every((d) => d.kind === 'edge' && d.from === 'unknown' && d.to === 'line'),
+    ).toBe(true)
   })
 
   it('does not apply for an isolated single clue-3 cell', () => {
@@ -159,7 +171,9 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
       edgeKey([1, 0], [2, 0]),
       edgeKey([2, 0], [2, 1]),
     ])
-    expect(result?.diffs.every((d) => d.from === 'unknown' && d.to === 'line')).toBe(true)
+    expect(
+      result?.diffs.every((d) => d.kind === 'edge' && d.from === 'unknown' && d.to === 'line'),
+    ).toBe(true)
   })
 
   it('does not apply when 3 clues are not diagonally adjacent', () => {
@@ -205,7 +219,7 @@ describe('slither sector notOne clue-2 propagation rule', () => {
   it('marks target corner edges blank when clue=2, target sector is notOne, and opposite corner has a line', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     setClue(puzzle, 0, 0, 2)
-    puzzle.sectors[sectorKey(0, 0, 'nw')].mark = 'notOne'
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
     const [seTopOrBottom] = getCornerEdgeKeys(0, 0, 'se')
     puzzle.edges[seTopOrBottom].mark = 'line'
 
@@ -224,7 +238,7 @@ describe('slither sector notOne clue-2 propagation rule', () => {
   it('does not apply when clue is not 2', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     setClue(puzzle, 0, 0, 3)
-    puzzle.sectors[sectorKey(0, 0, 'nw')].mark = 'notOne'
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
     const [seEdge] = getCornerEdgeKeys(0, 0, 'se')
     puzzle.edges[seEdge].mark = 'line'
 
@@ -236,7 +250,7 @@ describe('slither sector notOne clue-2 propagation rule', () => {
   it('does not apply when opposite corner has no line', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     setClue(puzzle, 0, 0, 2)
-    puzzle.sectors[sectorKey(0, 0, 'nw')].mark = 'notOne'
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
 
     const result = propagationRule.apply(puzzle)
 
@@ -246,7 +260,7 @@ describe('slither sector notOne clue-2 propagation rule', () => {
   it('is idempotent when target corner edges are already decided', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     setClue(puzzle, 0, 0, 2)
-    puzzle.sectors[sectorKey(0, 0, 'nw')].mark = 'notOne'
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
     const [seEdge] = getCornerEdgeKeys(0, 0, 'se')
     puzzle.edges[seEdge].mark = 'line'
     const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
@@ -278,6 +292,53 @@ describe('slither sector notOne clue-2 propagation rule', () => {
   })
 })
 
+describe('slither sector constraint edge propagation rule', () => {
+  const edgePropagationRule = slitherRules.find((rule) => rule.id === 'sector-constraint-edge-propagation')
+  if (!edgePropagationRule) {
+    throw new Error('Expected sector-constraint-edge-propagation rule')
+  }
+
+  it('forces both corner edges to line when sector mask is onlyTwo', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_2
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+
+    const result = edgePropagationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: nwTop, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: nwLeft, from: 'unknown', to: 'line' },
+    ])
+  })
+
+  it('forces both corner edges to blank when sector mask is onlyZero', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_0
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+
+    const result = edgePropagationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: nwTop, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: nwLeft, from: 'unknown', to: 'blank' },
+    ])
+  })
+
+  it('forces the last unknown corner edge to line when onlyOne with one blank', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+    puzzle.edges[nwTop].mark = 'blank'
+
+    const result = edgePropagationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: nwLeft, from: 'unknown', to: 'line' }])
+  })
+})
+
 describe('slither apply sectors rule', () => {
   const applySectorsRule = slitherRules.find((rule) => rule.id === 'sector-inference')
   if (!applySectorsRule) {
@@ -301,14 +362,34 @@ describe('slither apply sectors rule', () => {
     ])
     expect(result?.diffs.every((d) => d.kind === 'sector')).toBe(true)
     expect(result?.diffs).toEqual([
-      { kind: 'sector', sectorKey: sectorKey(0, 0, 'nw'), from: 'unknown', to: 'notZero' },
-      { kind: 'sector', sectorKey: sectorKey(0, 0, 'ne'), from: 'unknown', to: 'notZero' },
-      { kind: 'sector', sectorKey: sectorKey(0, 0, 'sw'), from: 'unknown', to: 'notZero' },
-      { kind: 'sector', sectorKey: sectorKey(0, 0, 'se'), from: 'unknown', to: 'notZero' },
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(0, 0, 'nw'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_0,
+      },
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(0, 0, 'ne'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_0,
+      },
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(0, 0, 'sw'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_0,
+      },
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(0, 0, 'se'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_0,
+      },
     ])
   })
 
-  it('applies fixed when corner has one line and one blank edge', () => {
+  it('applies onlyOne mask when corner has one line and one blank edge', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
     puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'blank'
@@ -320,8 +401,8 @@ describe('slither apply sectors rule', () => {
     expect(result?.diffs).toContainEqual({
       kind: 'sector',
       sectorKey: sectorKey(0, 0, 'nw'),
-      from: 'unknown',
-      to: 'fixed',
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
     })
   })
 
@@ -334,7 +415,7 @@ describe('slither apply sectors rule', () => {
     }
     for (const diff of first.diffs) {
       if (diff.kind === 'sector') {
-        puzzle.sectors[diff.sectorKey].mark = diff.to
+        puzzle.sectors[diff.sectorKey].constraintsMask = diff.toMask
       }
     }
 
