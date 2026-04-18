@@ -411,6 +411,85 @@ const createApplySectorsInference = (): Rule => ({
   }
 })
 
+const createSectorDiagonalSharedVertexPropagationRule = (): Rule => ({
+  id: 'sector-diagonal-shared-vertex-propagation',
+  name: 'Sector Diagonal Shared Vertex Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const diagonalCases: Array<{
+      sourceCorner: SectorCorner
+      targetCorner: SectorCorner
+      rowOffset: number
+      colOffset: number
+    }> = [
+      { sourceCorner: 'nw', targetCorner: 'se', rowOffset: -1, colOffset: -1 },
+      { sourceCorner: 'ne', targetCorner: 'sw', rowOffset: -1, colOffset: 1 },
+      { sourceCorner: 'sw', targetCorner: 'ne', rowOffset: 1, colOffset: -1 },
+      { sourceCorner: 'se', targetCorner: 'nw', rowOffset: 1, colOffset: 1 },
+    ]
+
+    const diffs: RuleApplication['diffs'] = []
+    const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        for (const diagonalCase of diagonalCases) {
+          const sourceSectorKey = sectorKey(r, c, diagonalCase.sourceCorner)
+          const sourceMask = puzzle.sectors[sourceSectorKey]?.constraintsMask ?? SECTOR_MASK_ALL
+
+          let impliedMask: SectorConstraintMask | null = null
+          if (sourceMask === SECTOR_MASK_ONLY_1) {
+            impliedMask = SECTOR_MASK_ONLY_1
+          } else if (sourceMask === SECTOR_MASK_NOT_1) {
+            impliedMask = SECTOR_MASK_NOT_1
+          } else if (sourceMask === SECTOR_MASK_NOT_0) {
+            impliedMask = SECTOR_MASK_NOT_2
+          }
+
+          if (impliedMask === null) {
+            continue
+          }
+
+          const targetRow = r + diagonalCase.rowOffset
+          const targetCol = c + diagonalCase.colOffset
+          if (targetRow < 0 || targetRow >= puzzle.rows || targetCol < 0 || targetCol >= puzzle.cols) {
+            continue
+          }
+
+          const targetSectorKey = sectorKey(targetRow, targetCol, diagonalCase.targetCorner)
+          const targetMask = puzzle.sectors[targetSectorKey]?.constraintsMask ?? SECTOR_MASK_ALL
+          const nextMask = sectorMaskIntersect(targetMask, impliedMask)
+          if (nextMask === 0 || nextMask === targetMask) {
+            continue
+          }
+
+          diffs.push({
+            kind: 'sector',
+            sectorKey: targetSectorKey,
+            fromMask: targetMask,
+            toMask: nextMask,
+          })
+          affectedCells.add(cellKey(r, c))
+          affectedCells.add(cellKey(targetRow, targetCol))
+          affectedSectors.add(sourceSectorKey)
+          affectedSectors.add(targetSectorKey)
+        }
+      }
+    }
+
+    if (diffs.length === 0) {
+      return null
+    }
+
+    return {
+      message: 'Diagonal shared-vertex sectors propagate corner constraints to opposite diagonal sectors.',
+      diffs,
+      affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
+    }
+  },
+})
+
 const createSectorConstraintEdgePropagationRule = (): Rule => ({
   id: 'sector-constraint-edge-propagation',
   name: 'Sector Constraint Edge Propagation',
@@ -539,6 +618,7 @@ export const slitherRules: Rule[] = [
   createCellCountRule(),
   createVertexDegreeRule(),
   createApplySectorsInference(),
+  createSectorDiagonalSharedVertexPropagationRule(),
   createSectorConstraintEdgePropagationRule(),
   createSectorNotOneClueTwoPropagationRule(),
 ]

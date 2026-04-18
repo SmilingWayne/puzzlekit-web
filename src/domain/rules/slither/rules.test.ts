@@ -6,6 +6,7 @@ import {
   SECTOR_MASK_ALL,
   SECTOR_MASK_NOT_0,
   SECTOR_MASK_NOT_1,
+  SECTOR_MASK_NOT_2,
   SECTOR_MASK_ONLY_0,
   SECTOR_MASK_ONLY_1,
   SECTOR_MASK_ONLY_2,
@@ -282,6 +283,137 @@ describe('slither sector notOne clue-2 propagation rule', () => {
         break
       }
       if (step.ruleId === 'sector-not-one-clue-two-propagation') {
+        triggered = true
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(triggered).toBe(true)
+  })
+})
+
+describe('slither sector diagonal shared-vertex propagation rule', () => {
+  const diagonalSectorRule = slitherRules.find(
+    (rule) => rule.id === 'sector-diagonal-shared-vertex-propagation',
+  )
+  if (!diagonalSectorRule) {
+    throw new Error('Expected sector-diagonal-shared-vertex-propagation rule')
+  }
+
+  it('propagates onlyOne from A.ne to B.sw', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    puzzle.sectors[sectorKey(2, 2, 'ne')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const result = diagonalSectorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(1, 3, 'sw'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_ONLY_1,
+      },
+    ])
+    expect(result?.affectedCells).toEqual([cellKey(2, 2), cellKey(1, 3)])
+    expect(result?.affectedSectors).toEqual([sectorKey(2, 2, 'ne'), sectorKey(1, 3, 'sw')])
+  })
+
+  it('propagates notOne from A.ne to B.sw', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    puzzle.sectors[sectorKey(2, 2, 'ne')].constraintsMask = SECTOR_MASK_NOT_1
+
+    const result = diagonalSectorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(1, 3, 'sw'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_1,
+      },
+    ])
+  })
+
+  it('propagates notZero from A.ne to B.sw as notTwo', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    puzzle.sectors[sectorKey(2, 2, 'ne')].constraintsMask = SECTOR_MASK_NOT_0
+
+    const result = diagonalSectorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(1, 3, 'sw'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_2,
+      },
+    ])
+  })
+
+  it('does not apply when diagonal target cell is out of bounds', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const result = diagonalSectorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('is idempotent when target sector is already equally constrained', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    puzzle.sectors[sectorKey(2, 2, 'ne')].constraintsMask = SECTOR_MASK_NOT_0
+    puzzle.sectors[sectorKey(1, 3, 'sw')].constraintsMask = SECTOR_MASK_NOT_2
+
+    const result = diagonalSectorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('skips conflicts when intersection would become zero', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    puzzle.sectors[sectorKey(2, 2, 'ne')].constraintsMask = SECTOR_MASK_NOT_0
+    puzzle.sectors[sectorKey(1, 3, 'sw')].constraintsMask = SECTOR_MASK_ONLY_2
+
+    const result = diagonalSectorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('appears during stepwise solving for the provided 8x8 puzzle', () => {
+    let current = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/8/8/gdg1dddbdid26d72ccicadc3cgc')
+    let triggered = false
+
+    for (let stepNumber = 1; stepNumber <= 1000; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (step.ruleId === 'sector-diagonal-shared-vertex-propagation') {
+        triggered = true
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(triggered).toBe(true)
+  })
+
+  it('appears during stepwise solving for the provided 10x10 puzzle', () => {
+    let current = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/10/10/ga337ddkdh2adbgdi20dp23dibgbd0dhdkd511da',
+    )
+    let triggered = false
+
+    for (let stepNumber = 1; stepNumber <= 1200; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (step.ruleId === 'sector-diagonal-shared-vertex-propagation') {
         triggered = true
         break
       }
