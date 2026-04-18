@@ -490,6 +490,132 @@ const createSectorDiagonalSharedVertexPropagationRule = (): Rule => ({
   },
 })
 
+const createSectorClueTwoIntraCellPropagationRule = (): Rule => ({
+  id: 'sector-clue-two-intra-cell-propagation',
+  name: 'Sector Clue-2 In-Cell Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const oppositeCorner: Record<SectorCorner, SectorCorner> = {
+      nw: 'se',
+      ne: 'sw',
+      sw: 'ne',
+      se: 'nw',
+    }
+    const adjacentCorners: Record<SectorCorner, [SectorCorner, SectorCorner]> = {
+      nw: ['ne', 'sw'],
+      ne: ['nw', 'se'],
+      sw: ['nw', 'se'],
+      se: ['ne', 'sw'],
+    }
+
+    const nextMasks = new Map<string, SectorConstraintMask>()
+    const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        const clue = puzzle.cells[cellKey(r, c)]?.clue
+        if (clue?.kind !== 'number' || clue.value !== 2) {
+          continue
+        }
+
+        const rememberSectorMask = (
+          sourceSectorKey: string | null,
+          targetSectorKey: string,
+          impliedMask: SectorConstraintMask,
+        ): void => {
+          const currentTargetMask =
+            nextMasks.get(targetSectorKey) ?? (puzzle.sectors[targetSectorKey]?.constraintsMask ?? SECTOR_MASK_ALL)
+          const nextTargetMask = sectorMaskIntersect(currentTargetMask, impliedMask)
+          if (nextTargetMask === 0 || nextTargetMask === currentTargetMask) {
+            return
+          }
+          nextMasks.set(targetSectorKey, nextTargetMask)
+          affectedCells.add(cellKey(r, c))
+          if (sourceSectorKey !== null) {
+            affectedSectors.add(sourceSectorKey)
+          }
+          affectedSectors.add(targetSectorKey)
+        }
+
+        const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
+        for (const sourceCorner of corners) {
+          const sourceSectorKey = sectorKey(r, c, sourceCorner)
+          const sourceMask = puzzle.sectors[sourceSectorKey]?.constraintsMask ?? SECTOR_MASK_ALL
+
+          if (sourceMask === SECTOR_MASK_NOT_1) {
+            const opposite = oppositeCorner[sourceCorner]
+            rememberSectorMask(sourceSectorKey, sectorKey(r, c, opposite), SECTOR_MASK_NOT_1)
+            const [adjA, adjB] = adjacentCorners[sourceCorner]
+            rememberSectorMask(sourceSectorKey, sectorKey(r, c, adjA), SECTOR_MASK_ONLY_1)
+            rememberSectorMask(sourceSectorKey, sectorKey(r, c, adjB), SECTOR_MASK_ONLY_1)
+            continue
+          }
+
+          if (sourceMask === SECTOR_MASK_NOT_2) {
+            const opposite = oppositeCorner[sourceCorner]
+            rememberSectorMask(sourceSectorKey, sectorKey(r, c, opposite), SECTOR_MASK_NOT_0)
+            continue
+          }
+
+          if (sourceMask === SECTOR_MASK_NOT_0) {
+            const opposite = oppositeCorner[sourceCorner]
+            rememberSectorMask(sourceSectorKey, sectorKey(r, c, opposite), SECTOR_MASK_NOT_2)
+          }
+        }
+
+        const [topEdge, bottomEdge, leftEdge, rightEdge] = getCellEdgeKeys(r, c)
+        const cellEdges = [topEdge, bottomEdge, leftEdge, rightEdge]
+        const lineEdges = cellEdges.filter((edge) => (puzzle.edges[edge]?.mark ?? 'unknown') === 'line')
+        const blankEdges = cellEdges.filter((edge) => (puzzle.edges[edge]?.mark ?? 'unknown') === 'blank')
+
+        const nonOverlappingCornersByEdge: Record<string, [SectorCorner, SectorCorner]> = {
+          [topEdge]: ['sw', 'se'],
+          [bottomEdge]: ['nw', 'ne'],
+          [leftEdge]: ['ne', 'se'],
+          [rightEdge]: ['nw', 'sw'],
+        }
+
+        if (lineEdges.length === 1) {
+          const [cornerA, cornerB] = nonOverlappingCornersByEdge[lineEdges[0]]
+          rememberSectorMask(null, sectorKey(r, c, cornerA), SECTOR_MASK_NOT_2)
+          rememberSectorMask(null, sectorKey(r, c, cornerB), SECTOR_MASK_NOT_2)
+        }
+
+        if (blankEdges.length === 1) {
+          const [cornerA, cornerB] = nonOverlappingCornersByEdge[blankEdges[0]]
+          rememberSectorMask(null, sectorKey(r, c, cornerA), SECTOR_MASK_NOT_0)
+          rememberSectorMask(null, sectorKey(r, c, cornerB), SECTOR_MASK_NOT_0)
+        }
+      }
+    }
+
+    const diffs: RuleApplication['diffs'] = []
+    for (const [sectorKeyValue, toMask] of nextMasks.entries()) {
+      const fromMask = puzzle.sectors[sectorKeyValue]?.constraintsMask ?? SECTOR_MASK_ALL
+      if (fromMask === toMask) {
+        continue
+      }
+      diffs.push({
+        kind: 'sector',
+        sectorKey: sectorKeyValue,
+        fromMask,
+        toMask,
+      })
+    }
+
+    if (diffs.length === 0) {
+      return null
+    }
+
+    return {
+      message: 'Clue-2 in-cell sector propagation tightens opposite and non-overlapping corner constraints.',
+      diffs,
+      affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
+    }
+  },
+})
+
 const createSectorConstraintEdgePropagationRule = (): Rule => ({
   id: 'sector-constraint-edge-propagation',
   name: 'Sector Constraint Edge Propagation',
@@ -619,6 +745,7 @@ export const slitherRules: Rule[] = [
   createVertexDegreeRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),
+  createSectorClueTwoIntraCellPropagationRule(),
   createSectorConstraintEdgePropagationRule(),
   createSectorNotOneClueTwoPropagationRule(),
 ]

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { decodeSlitherFromPuzzlink } from '../../parsers/puzzlink'
-import { cellKey, edgeKey, getCornerEdgeKeys, sectorKey } from '../../ir/keys'
+import { cellKey, edgeKey, getCellEdgeKeys, getCornerEdgeKeys, sectorKey } from '../../ir/keys'
 import { createSlitherPuzzle } from '../../ir/slither'
 import {
   SECTOR_MASK_ALL,
@@ -282,7 +282,10 @@ describe('slither sector notOne clue-2 propagation rule', () => {
       if (!step) {
         break
       }
-      if (step.ruleId === 'sector-not-one-clue-two-propagation') {
+      if (
+        step.ruleId === 'sector-not-one-clue-two-propagation' ||
+        step.ruleId === 'sector-clue-two-intra-cell-propagation'
+      ) {
         triggered = true
         break
       }
@@ -414,6 +417,185 @@ describe('slither sector diagonal shared-vertex propagation rule', () => {
         break
       }
       if (step.ruleId === 'sector-diagonal-shared-vertex-propagation') {
+        triggered = true
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(triggered).toBe(true)
+  })
+})
+
+describe('slither sector clue-2 intra-cell propagation rule', () => {
+  const intraCellRule = slitherRules.find((rule) => rule.id === 'sector-clue-two-intra-cell-propagation')
+  if (!intraCellRule) {
+    throw new Error('Expected sector-clue-two-intra-cell-propagation rule')
+  }
+
+  it('propagates notOne to opposite notOne and both adjacent sectors to onlyOne', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toHaveLength(3)
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'se'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_1,
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'ne'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'sw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+    expect(result?.affectedCells).toEqual([cellKey(1, 1)])
+  })
+
+  it('propagates notTwo to opposite notZero', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_NOT_2
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(1, 1, 'se'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_0,
+      },
+    ])
+  })
+
+  it('propagates notZero to opposite notTwo', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_NOT_0
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      {
+        kind: 'sector',
+        sectorKey: sectorKey(1, 1, 'se'),
+        fromMask: SECTOR_MASK_ALL,
+        toMask: SECTOR_MASK_NOT_2,
+      },
+    ])
+  })
+
+  it('marks non-overlapping sectors as notTwo when clue=2 has exactly one line edge', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    const [topEdge] = getCellEdgeKeys(1, 1)
+    puzzle.edges[topEdge].mark = 'line'
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'sw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_2,
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'se'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_2,
+    })
+  })
+
+  it('marks non-overlapping sectors as notZero when clue=2 has exactly one blank edge', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    const [, , leftEdge] = getCellEdgeKeys(1, 1)
+    puzzle.edges[leftEdge].mark = 'blank'
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'ne'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_0,
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'se'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_0,
+    })
+  })
+
+  it('is idempotent when all implied sectors are already tightened', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_NOT_0
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_2
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('skips conflicting target when intersection would be zero', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_NOT_0
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_2
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('appears during stepwise solving for the provided 5x5 line-case puzzle', () => {
+    let current = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/5/5/hdhdhcp')
+    let triggered = false
+
+    for (let stepNumber = 1; stepNumber <= 1000; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (step.ruleId === 'sector-clue-two-intra-cell-propagation') {
+        triggered = true
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(triggered).toBe(true)
+  })
+
+  it('appears during stepwise solving for the provided 5x5 blank-case puzzle', () => {
+    let current = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/5/5/mahcp')
+    let triggered = false
+
+    for (let stepNumber = 1; stepNumber <= 1000; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (step.ruleId === 'sector-clue-two-intra-cell-propagation') {
         triggered = true
         break
       }
