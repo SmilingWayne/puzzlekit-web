@@ -39,9 +39,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toBe(
-      'Contiguous 3-run in row 1 forces all vertical run boundaries to be lines.',
-    )
+    expect(result?.message).toBe('Contiguous 3-run boundaries forced (e.g., row 1 cols 1\u20133).')
     expect(result?.affectedCells).toEqual(['1,1', '1,2', '1,3'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([1, 1], [2, 1]),
@@ -63,9 +61,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toBe(
-      'Contiguous 3-run in column 2 forces all horizontal run boundaries to be lines.',
-    )
+    expect(result?.message).toBe('Contiguous 3-run boundaries forced (e.g., col 2 rows 1\u20133).')
     expect(result?.affectedCells).toEqual(['1,2', '2,2', '3,2'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([1, 2], [1, 3]),

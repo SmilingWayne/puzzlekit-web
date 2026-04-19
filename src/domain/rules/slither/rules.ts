@@ -18,7 +18,7 @@ import {
   SECTOR_MASK_ONLY_2,
   sectorMaskAllows,
   sectorMaskIntersect,
-  sectorMaskIsSingle,
+  type EdgeMark,
   type PuzzleIR,
   type SectorConstraintMask,
   type SectorCorner,
@@ -125,6 +125,10 @@ const createContiguousThreeRunBoundariesRule = (): Rule => ({
   id: 'contiguous-three-run-boundaries',
   name: 'Contiguous 3-Run Boundaries',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    const allAffectedCells = new Set<string>()
+    let firstExample: string | null = null
+
     for (let r = 0; r < puzzle.rows; r += 1) {
       let c = 0
       while (c < puzzle.cols) {
@@ -141,25 +145,18 @@ const createContiguousThreeRunBoundariesRule = (): Rule => ({
           continue
         }
 
-        const affectedCells: string[] = []
-        const diffs: RuleApplication['diffs'] = []
-        for (let col = cStart; col <= cEnd; col += 1) {
-          affectedCells.push(cellKey(r, col))
-        }
+        const runEdges: string[] = []
         for (let boundaryCol = cStart; boundaryCol <= cEnd + 1; boundaryCol += 1) {
           const key = edgeKey([r, boundaryCol], [r + 1, boundaryCol])
-          const mark = puzzle.edges[key]?.mark ?? 'unknown'
-          if (mark === 'unknown') {
-            diffs.push({ kind: 'edge', edgeKey: key, from: 'unknown', to: 'line' })
+          if ((puzzle.edges[key]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(key)) {
+            runEdges.push(key)
           }
         }
 
-        if (diffs.length > 0) {
-          return {
-            message: `Contiguous 3-run in row ${r} forces all vertical run boundaries to be lines.`,
-            diffs,
-            affectedCells,
-          }
+        if (runEdges.length > 0) {
+          for (const key of runEdges) decidedEdges.set(key, 'line')
+          for (let col = cStart; col <= cEnd; col += 1) allAffectedCells.add(cellKey(r, col))
+          if (firstExample === null) firstExample = `row ${r} cols ${cStart}\u2013${cEnd}`
         }
       }
     }
@@ -180,30 +177,37 @@ const createContiguousThreeRunBoundariesRule = (): Rule => ({
           continue
         }
 
-        const affectedCells: string[] = []
-        const diffs: RuleApplication['diffs'] = []
-        for (let row = rStart; row <= rEnd; row += 1) {
-          affectedCells.push(cellKey(row, c))
-        }
+        const runEdges: string[] = []
         for (let boundaryRow = rStart; boundaryRow <= rEnd + 1; boundaryRow += 1) {
           const key = edgeKey([boundaryRow, c], [boundaryRow, c + 1])
-          const mark = puzzle.edges[key]?.mark ?? 'unknown'
-          if (mark === 'unknown') {
-            diffs.push({ kind: 'edge', edgeKey: key, from: 'unknown', to: 'line' })
+          if ((puzzle.edges[key]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(key)) {
+            runEdges.push(key)
           }
         }
 
-        if (diffs.length > 0) {
-          return {
-            message: `Contiguous 3-run in column ${c} forces all horizontal run boundaries to be lines.`,
-            diffs,
-            affectedCells,
-          }
+        if (runEdges.length > 0) {
+          for (const key of runEdges) decidedEdges.set(key, 'line')
+          for (let row = rStart; row <= rEnd; row += 1) allAffectedCells.add(cellKey(row, c))
+          if (firstExample === null) firstExample = `col ${c} rows ${rStart}\u2013${rEnd}`
         }
       }
     }
 
-    return null
+    if (decidedEdges.size === 0) return null
+
+    return {
+      message:
+        firstExample !== null
+          ? `Contiguous 3-run boundaries forced (e.g., ${firstExample}).`
+          : 'Contiguous 3-run boundaries forced.',
+      diffs: [...decidedEdges.entries()].map(([k, to]) => ({
+        kind: 'edge' as const,
+        edgeKey: k,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...allAffectedCells],
+    }
   },
 })
 
@@ -211,6 +215,9 @@ const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
   id: 'diagonal-adjacent-three-outer-corners',
   name: 'Diagonal Adjacent 3 Outer Corners',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    const allAffectedCells = new Set<string>()
+
     for (let r = 0; r < puzzle.rows - 1; r += 1) {
       for (let c = 0; c < puzzle.cols - 1; c += 1) {
         const mainDiagonal = isClueThree(puzzle, r, c) && isClueThree(puzzle, r + 1, c + 1)
@@ -219,12 +226,9 @@ const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
           continue
         }
 
-        const affectedCellKeys = new Set<string>()
         const candidateEdgeKeys = new Set<string>()
 
         if (mainDiagonal) {
-          affectedCellKeys.add(cellKey(r, c))
-          affectedCellKeys.add(cellKey(r + 1, c + 1))
           candidateEdgeKeys.add(edgeKey([r, c], [r + 1, c]))
           candidateEdgeKeys.add(edgeKey([r, c], [r, c + 1]))
           candidateEdgeKeys.add(edgeKey([r + 1, c + 2], [r + 2, c + 2]))
@@ -232,31 +236,45 @@ const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
         }
 
         if (antiDiagonal) {
-          affectedCellKeys.add(cellKey(r, c + 1))
-          affectedCellKeys.add(cellKey(r + 1, c))
           candidateEdgeKeys.add(edgeKey([r, c + 1], [r, c + 2]))
           candidateEdgeKeys.add(edgeKey([r, c + 2], [r + 1, c + 2]))
           candidateEdgeKeys.add(edgeKey([r + 1, c], [r + 2, c]))
           candidateEdgeKeys.add(edgeKey([r + 2, c], [r + 2, c + 1]))
         }
 
-        const diffs = [...candidateEdgeKeys].flatMap((key) =>
-          (puzzle.edges[key]?.mark ?? 'unknown') === 'unknown'
-            ? [{ kind: 'edge' as const, edgeKey: key, from: 'unknown' as const, to: 'line' as const }]
-            : [],
-        )
-        if (diffs.length === 0) {
-          continue
+        let positionAddedAny = false
+        for (const key of candidateEdgeKeys) {
+          if ((puzzle.edges[key]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(key)) {
+            decidedEdges.set(key, 'line')
+            positionAddedAny = true
+          }
         }
 
-        return {
-          message: 'Diagonal adjacent 3s force outer-corner boundary edges to be lines.',
-          diffs,
-          affectedCells: [...affectedCellKeys],
+        if (positionAddedAny) {
+          if (mainDiagonal) {
+            allAffectedCells.add(cellKey(r, c))
+            allAffectedCells.add(cellKey(r + 1, c + 1))
+          }
+          if (antiDiagonal) {
+            allAffectedCells.add(cellKey(r, c + 1))
+            allAffectedCells.add(cellKey(r + 1, c))
+          }
         }
       }
     }
-    return null
+
+    if (decidedEdges.size === 0) return null
+
+    return {
+      message: 'Diagonal adjacent 3s force outer-corner boundary edges to be lines.',
+      diffs: [...decidedEdges.entries()].map(([k, to]) => ({
+        kind: 'edge' as const,
+        edgeKey: k,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...allAffectedCells],
+    }
   },
 })
 
@@ -264,6 +282,10 @@ const createCellCountRule = (): Rule => ({
   id: 'cell-count-completion',
   name: 'Cell Clue Completion',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    const affectedCells = new Set<string>()
+    let firstExample: string | null = null
+
     for (const [key, cell] of Object.entries(puzzle.cells)) {
       if (cell.clue?.kind !== 'number' || cell.clue.value === '?') {
         continue
@@ -278,32 +300,44 @@ const createCellCountRule = (): Rule => ({
         continue
       }
 
+      let toMark: EdgeMark | null = null
       if (lines.length === clue) {
-        return {
-          message: `Cell (${row}, ${col}) already has ${clue} lines, remaining edges are blank.`,
-          diffs: unknown.map(([edge]) => ({
-            kind: 'edge',
-            edgeKey: edge,
-            from: 'unknown',
-            to: 'blank',
-          })),
-          affectedCells: [key],
+        toMark = 'blank'
+      } else if (lines.length + unknown.length === clue) {
+        toMark = 'line'
+      }
+      if (toMark === null) continue
+
+      let addedAny = false
+      for (const [edge] of unknown) {
+        if (!decidedEdges.has(edge)) {
+          decidedEdges.set(edge, toMark)
+          addedAny = true
         }
       }
-      if (lines.length + unknown.length === clue) {
-        return {
-          message: `Cell (${row}, ${col}) needs all remaining edges to reach clue ${clue}.`,
-          diffs: unknown.map(([edge]) => ({
-            kind: 'edge',
-            edgeKey: edge,
-            from: 'unknown',
-            to: 'line',
-          })),
-          affectedCells: [key],
-        }
+
+      if (addedAny) {
+        affectedCells.add(key)
+        if (firstExample === null) firstExample = `(${row}, ${col})`
       }
     }
-    return null
+
+    if (decidedEdges.size === 0) return null
+
+    const extra = affectedCells.size - 1
+    return {
+      message:
+        firstExample !== null
+          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: clue completion applied.`
+          : 'Cell clue completion applied.',
+      diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
+        kind: 'edge' as const,
+        edgeKey,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...affectedCells],
+    }
   },
 })
 
@@ -311,6 +345,9 @@ const createVertexDegreeRule = (): Rule => ({
   id: 'vertex-degree',
   name: 'Vertex Degree Rule',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    let firstVertex: string | null = null
+
     for (let r = 0; r <= puzzle.rows; r += 1) {
       for (let c = 0; c <= puzzle.cols; c += 1) {
         const incident = getVertexIncidentEdges(r, c, puzzle.rows, puzzle.cols)
@@ -324,49 +361,51 @@ const createVertexDegreeRule = (): Rule => ({
           continue
         }
 
+        let toMark: EdgeMark | null = null
+        let edgesToDecide: string[] = []
+
         if (lineCount === 2) {
-          return {
-            message: `Vertex (${r}, ${c}) already has 2 lines, remaining incident edges are blank.`,
-            diffs: unknown.map(([edge]) => ({
-              kind: 'edge',
-              edgeKey: edge,
-              from: 'unknown',
-              to: 'blank',
-            })),
-            affectedCells: [],
+          toMark = 'blank'
+          edgesToDecide = unknown.map(([e]) => e)
+        } else if (lineCount === 1 && unknown.length === 1) {
+          toMark = 'line'
+          edgesToDecide = [unknown[0][0]]
+        } else if (lineCount === 0 && unknown.length === 1) {
+          toMark = 'blank'
+          edgesToDecide = [unknown[0][0]]
+        }
+
+        if (toMark === null) continue
+
+        let addedAny = false
+        for (const edge of edgesToDecide) {
+          if (!decidedEdges.has(edge)) {
+            decidedEdges.set(edge, toMark)
+            addedAny = true
           }
         }
-        if (lineCount === 1 && unknown.length === 1) {
-          return {
-            message: `Vertex (${r}, ${c}) must continue the loop with the last undecided edge.`,
-            diffs: [
-              {
-                kind: 'edge',
-                edgeKey: unknown[0][0],
-                from: 'unknown',
-                to: 'line',
-              },
-            ],
-            affectedCells: [],
-          }
-        }
-        if (lineCount === 0 && unknown.length === 1) {
-          return {
-            message: `Vertex (${r}, ${c}) cannot have degree 1, last undecided edge is blank.`,
-            diffs: [
-              {
-                kind: 'edge',
-                edgeKey: unknown[0][0],
-                from: 'unknown',
-                to: 'blank',
-              },
-            ],
-            affectedCells: [],
-          }
+
+        if (addedAny && firstVertex === null) {
+          firstVertex = `(${r}, ${c})`
         }
       }
     }
-    return null
+
+    if (decidedEdges.size === 0) return null
+
+    return {
+      message:
+        firstVertex !== null
+          ? `Vertex ${firstVertex}: degree rule applied.`
+          : 'Vertex degree rule applied.',
+      diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
+        kind: 'edge' as const,
+        edgeKey,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [],
+    }
   },
 })
 
@@ -620,6 +659,11 @@ const createSectorConstraintEdgePropagationRule = (): Rule => ({
   id: 'sector-constraint-edge-propagation',
   name: 'Sector Constraint Edge Propagation',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+    let firstExample: string | null = null
+
     for (let r = 0; r < puzzle.rows; r += 1) {
       for (let c = 0; c < puzzle.cols; c += 1) {
         const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
@@ -636,45 +680,61 @@ const createSectorConstraintEdgePropagationRule = (): Rule => ({
             continue
           }
 
-          if (mask === SECTOR_MASK_ONLY_2 || mask === SECTOR_MASK_ONLY_0) {
-            const toMark = mask === SECTOR_MASK_ONLY_2 ? 'line' : 'blank'
-            return {
-              message: `Sector (${r}, ${c}, ${corner}) is exact-${toMark === 'line' ? 'two-lines' : 'zero-lines'}, so undecided corner edges are ${toMark}.`,
-              diffs: unknownEdges.map((edge) => ({
-                kind: 'edge',
-                edgeKey: edge,
-                from: 'unknown',
-                to: toMark,
-              })),
-              affectedCells: [cellKey(r, c)],
-              affectedSectors: [key],
+          let toMark: EdgeMark | null = null
+          let edgesToDecide: string[] = []
+
+          if (mask === SECTOR_MASK_ONLY_2) {
+            toMark = 'line'
+            edgesToDecide = unknownEdges
+          } else if (mask === SECTOR_MASK_ONLY_0) {
+            toMark = 'blank'
+            edgesToDecide = unknownEdges
+          } else if (mask === SECTOR_MASK_ONLY_1) {
+            if (lineCount === 1 && blankCount === 0 && unknownEdges.length === 1) {
+              toMark = 'blank'
+              edgesToDecide = [unknownEdges[0]]
+            } else if (blankCount === 1 && lineCount === 0 && unknownEdges.length === 1) {
+              toMark = 'line'
+              edgesToDecide = [unknownEdges[0]]
             }
           }
 
-          if (!sectorMaskIsSingle(mask) || mask !== SECTOR_MASK_ONLY_1) {
-            continue
-          }
-          if (lineCount === 1 && blankCount === 0 && unknownEdges.length === 1) {
-            return {
-              message: `Sector (${r}, ${c}, ${corner}) is exact-one-line; the remaining corner edge is blank.`,
-              diffs: [{ kind: 'edge', edgeKey: unknownEdges[0], from: 'unknown', to: 'blank' }],
-              affectedCells: [cellKey(r, c)],
-              affectedSectors: [key],
+          if (toMark === null || edgesToDecide.length === 0) continue
+
+          let addedAny = false
+          for (const edge of edgesToDecide) {
+            if (!decidedEdges.has(edge)) {
+              decidedEdges.set(edge, toMark)
+              addedAny = true
             }
           }
-          if (blankCount === 1 && lineCount === 0 && unknownEdges.length === 1) {
-            return {
-              message: `Sector (${r}, ${c}, ${corner}) is exact-one-line; the remaining corner edge is line.`,
-              diffs: [{ kind: 'edge', edgeKey: unknownEdges[0], from: 'unknown', to: 'line' }],
-              affectedCells: [cellKey(r, c)],
-              affectedSectors: [key],
-            }
+
+          if (addedAny) {
+            affectedCells.add(cellKey(r, c))
+            affectedSectors.add(key)
+            if (firstExample === null) firstExample = `(${r}, ${c}, ${corner})`
           }
         }
       }
     }
 
-    return null
+    if (decidedEdges.size === 0) return null
+
+    const extra = affectedSectors.size - 1
+    return {
+      message:
+        firstExample !== null
+          ? `Sector ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: constraint propagated to edges.`
+          : 'Sector constraint edge propagation applied.',
+      diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
+        kind: 'edge' as const,
+        edgeKey,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
+    }
   },
 })
 
@@ -688,6 +748,11 @@ const createSectorNotOneClueTwoPropagationRule = (): Rule => ({
       { target: 'ne', opposite: 'sw' },
       { target: 'sw', opposite: 'ne' },
     ]
+
+    const decidedEdges = new Map<string, EdgeMark>()
+    const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+    let firstExample: string | null = null
 
     for (let r = 0; r < puzzle.rows; r += 1) {
       for (let c = 0; c < puzzle.cols; c += 1) {
@@ -715,26 +780,42 @@ const createSectorNotOneClueTwoPropagationRule = (): Rule => ({
             continue
           }
 
-          const diffs = targetEdges.flatMap((edgeKeyValue) =>
-            (puzzle.edges[edgeKeyValue]?.mark ?? 'unknown') === 'unknown'
-              ? [{ kind: 'edge' as const, edgeKey: edgeKeyValue, from: 'unknown' as const, to: 'blank' as const }]
-              : [],
+          const edgesToBlank = targetEdges.filter(
+            (edgeKeyValue) =>
+              (puzzle.edges[edgeKeyValue]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(edgeKeyValue),
           )
-          if (diffs.length === 0) {
+          if (edgesToBlank.length === 0) {
             continue
           }
 
-          return {
-            message: `Cell (${r}, ${c}) has clue 2; ${target} sector is notOne and opposite ${opposite} already has a line, so ${target} edges are blank.`,
-            diffs,
-            affectedCells: [cellKey(r, c)],
-            affectedSectors: [targetSectorKey, sectorKey(r, c, opposite)],
+          for (const edgeKeyValue of edgesToBlank) {
+            decidedEdges.set(edgeKeyValue, 'blank')
           }
+          affectedCells.add(cellKey(r, c))
+          affectedSectors.add(targetSectorKey)
+          affectedSectors.add(sectorKey(r, c, opposite))
+          if (firstExample === null) firstExample = `(${r}, ${c})`
         }
       }
     }
 
-    return null
+    if (decidedEdges.size === 0) return null
+
+    const extra = affectedCells.size - 1
+    return {
+      message:
+        firstExample !== null
+          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: clue-2 notOne propagation applied.`
+          : 'Clue-2 notOne propagation applied.',
+      diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
+        kind: 'edge' as const,
+        edgeKey,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
+    }
   },
 })
 
