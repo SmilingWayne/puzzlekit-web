@@ -1,6 +1,10 @@
 import { edgeKey, sectorKey } from './keys'
 import { defaultPuzzleIR, SECTOR_MASK_ALL, type PuzzleIR } from './types'
 
+/** Inclusive bounds for custom grid and puzz.link export validation. */
+export const SLITHER_CUSTOM_GRID_MIN = 3
+export const SLITHER_CUSTOM_GRID_MAX = 100
+
 export const createSlitherPuzzle = (rows: number, cols: number): PuzzleIR => {
   const puzzle = defaultPuzzleIR()
   puzzle.puzzleType = 'slitherlink'

@@ -12,3 +12,7 @@ export type Exporter = {
   label: string
   export: (context: ExportContext) => string
 }
+
+export type PuzzlinkEncodeResult =
+  | { ok: true; url: string }
+  | { ok: false; message: string }

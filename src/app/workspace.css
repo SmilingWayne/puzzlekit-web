@@ -53,6 +53,28 @@
   color: #f8fafc;
 }
 
+.board-panel-header h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.board-dimensions {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.board-focus-shell {
+  outline: none;
+}
+
+.board-focus-shell:focus-visible {
+  box-shadow: 0 0 0 2px #334155;
+  border-radius: 12px;
+}
+
 .panel-header small {
   color: #94a3b8;
 }
@@ -121,6 +143,85 @@ button[data-active='true'] {
 
 .label-row.compact {
   margin-bottom: 4px;
+}
+
+.type-row-wrap {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.type-row-label {
+  display: block;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.type-row-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-row-controls select {
+  flex: 1;
+  min-width: 140px;
+}
+
+.custom-grid-anchor {
+  position: relative;
+}
+
+.button-compact {
+  white-space: nowrap;
+  padding: 7px 10px;
+}
+
+.custom-grid-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.custom-grid-popover-title {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.custom-grid-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 0.86rem;
+  color: #cbd5e1;
+}
+
+.custom-grid-field input {
+  max-width: 100%;
+}
+
+.custom-grid-popover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.custom-grid-hint {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.35;
 }
 
 .check-row {
