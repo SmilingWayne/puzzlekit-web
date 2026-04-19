@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getCellEdgeKeys, parseCellKey, parseEdgeKey, parseSectorKey } from '../../domain/ir/keys'
+import {
+  getCellEdgeKeys,
+  getCornerEdgeKeys,
+  parseCellKey,
+  parseEdgeKey,
+  parseSectorKey,
+} from '../../domain/ir/keys'
 import {
   SECTOR_MASK_ALL,
   sectorMaskAllows,
@@ -120,6 +126,13 @@ export const CanvasBoard = ({
         continue
       }
       const [r, c, corner] = parseSectorKey(key)
+      const cornerEdges = getCornerEdgeKeys(r, c, corner)
+      const isCornerResolved = cornerEdges.every(
+        (edge) => (puzzle.edges[edge]?.mark ?? 'unknown') !== 'unknown',
+      )
+      if (isCornerResolved) {
+        continue
+      }
       const baseX = PADDING + c * CELL_SIZE
       const baseY = PADDING + r * CELL_SIZE
       const cornerX = corner === 'ne' || corner === 'se' ? baseX + CELL_SIZE : baseX
