@@ -495,6 +495,22 @@ describe('slither sector clue-2 intra-cell propagation rule', () => {
     ])
   })
 
+  it('propagates onlyOne on one corner to diagonally opposite onlyOne when clue is 2', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'ne')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const result = intraCellRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'sw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+  })
+
   it('marks non-overlapping sectors as notTwo when clue=2 has exactly one line edge', () => {
     const puzzle = createSlitherPuzzle(3, 3)
     setClue(puzzle, 1, 1, 2)
@@ -711,6 +727,28 @@ describe('slither apply sectors rule', () => {
     expect(result?.diffs).toContainEqual({
       kind: 'sector',
       sectorKey: sectorKey(0, 0, 'nw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+  })
+
+  it('infers onlyOne for (0,3) nw on a boundary vertex with three incident edges (puzz.link 4×4)', () => {
+    const puzzle = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/4/4/183aibi')
+    expect(puzzle.cells[cellKey(0, 3)]?.clue).toEqual({ kind: 'number', value: 3 })
+
+    // Vertex (0,3) has only three incident edges; the edge west of that vertex is outside the
+    // (0,3)-nw sector. One line there forces the sector to contribute exactly one line (step 1.2).
+    const westOfVertex = edgeKey([0, 2], [0, 3])
+    puzzle.edges[westOfVertex].mark = 'line'
+
+    const result = applySectorsRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    const nw03 = sectorKey(0, 3, 'nw')
+    expect(result?.affectedSectors).toContain(nw03)
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: nw03,
       fromMask: SECTOR_MASK_ALL,
       toMask: SECTOR_MASK_ONLY_1,
     })

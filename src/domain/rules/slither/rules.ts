@@ -71,12 +71,24 @@ const inferSectorMaskByVertex = (
   const diagSecCrossNum = diagSectorEdges.filter(e => puzzle.edges[e]?.mark === 'blank').length 
   
   // step 1.2 basic infer
-  if (nonSecLineNum === 1 && nonSecCrossNum === 1) {
+  // Generalized logic: check if all remaining unknown edges at the vertex belong to this sector
+  const nonSecKnownNum = nonSecLineNum + nonSecCrossNum
+  const vertexDegree = incidentEdges.length
+  const sectorKnownNum = secLineNum + secCrossNum
+  const remainingUnknowns = vertexDegree - nonSecKnownNum - sectorKnownNum
+  const sectorUnknownNum = 2 - sectorKnownNum
+
+  // If vertex has 1 line already and all remaining unknowns are in this sector,
+  // then sector must contribute exactly 1 line to make vertex degree = 2
+  if (nonSecLineNum === 1 && remainingUnknowns === sectorUnknownNum && sectorUnknownNum > 0) {
     tighten(SECTOR_MASK_ONLY_1)
   }
+  // If all non-sector edges are lines (2 lines), vertex degree is already 2
   if (nonSecLineNum === 2 ) {
     tighten(SECTOR_MASK_ONLY_0)
   }
+  // If all non-sector edges are blanks (2 blanks), sector cannot be 1
+  // (vertex would have degree 1 if sector contributes 1, or degree 0/2 if sector contributes 0/2)
   if (nonSecCrossNum === 2) {
     tighten(SECTOR_MASK_NOT_1)
   }
@@ -600,6 +612,14 @@ const createSectorClueTwoIntraCellPropagationRule = (): Rule => ({
             const opposite = oppositeCorner[sourceCorner]
             rememberSectorMask(sourceSectorKey, sectorKey(r, c, opposite), SECTOR_MASK_NOT_2)
           }
+
+          // Clue 2: opposite corners partition the four cell edges (nw/se and ne/sw). Each pair's
+          // line-count sums to 2 total, so if one corner is exactly 1 line, the opposite corner is too.
+          if (sourceMask === SECTOR_MASK_ONLY_1) {
+            const opposite = oppositeCorner[sourceCorner]
+            rememberSectorMask(sourceSectorKey, sectorKey(r, c, opposite), SECTOR_MASK_ONLY_1)
+            continue
+          }
         }
 
         const [topEdge, bottomEdge, leftEdge, rightEdge] = getCellEdgeKeys(r, c)
@@ -647,7 +667,8 @@ const createSectorClueTwoIntraCellPropagationRule = (): Rule => ({
     }
 
     return {
-      message: 'Clue-2 in-cell sector propagation tightens opposite and non-overlapping corner constraints.',
+      message:
+        'Clue-2 in-cell sector propagation tightens opposite corners (including onlyOne pairs) and non-overlapping corner constraints.',
       diffs,
       affectedCells: [...affectedCells],
       affectedSectors: [...affectedSectors],
