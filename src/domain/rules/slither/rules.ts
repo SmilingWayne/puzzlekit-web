@@ -18,6 +18,7 @@ import {
   SECTOR_MASK_ONLY_2,
   sectorMaskAllows,
   sectorMaskIntersect,
+  sectorMaskSingleValue,
   type EdgeMark,
   type PuzzleIR,
   type SectorConstraintMask,
@@ -676,6 +677,160 @@ const createSectorClueTwoIntraCellPropagationRule = (): Rule => ({
   },
 })
 
+const createSectorClueOneThreeIntraCellPropagationRule = (): Rule => ({
+  id: 'sector-clue-one-three-intra-cell-propagation',
+  name: 'Sector Clue-1/3 onlyOne Opposite Edges',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+    let firstExample: string | null = null
+
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        const clue = puzzle.cells[cellKey(r, c)]?.clue
+        if (clue?.kind !== 'number' || clue.value === '?') {
+          continue
+        }
+        const clueValue = Number(clue.value)
+        if (clueValue !== 1 && clueValue !== 3) {
+          continue
+        }
+
+        const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
+        for (const corner of corners) {
+          const sk = sectorKey(r, c, corner)
+          const mask = puzzle.sectors[sk]?.constraintsMask ?? SECTOR_MASK_ALL
+          if (sectorMaskSingleValue(mask) !== 1) {
+            continue
+          }
+
+          const sectorEdges = getCornerEdgeKeys(r, c, corner)
+          const cellEdges = getCellEdgeKeys(r, c)
+          const oppositeEdges = cellEdges.filter((e) => !sectorEdges.includes(e))
+          const toMark: EdgeMark = clueValue === 1 ? 'blank' : 'line'
+
+          for (const edge of oppositeEdges) {
+            if ((puzzle.edges[edge]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(edge)) {
+              decidedEdges.set(edge, toMark)
+              affectedCells.add(cellKey(r, c))
+              affectedSectors.add(sk)
+              if (firstExample === null) firstExample = `(${r}, ${c}, ${corner})`
+            }
+          }
+        }
+      }
+    }
+
+    if (decidedEdges.size === 0) return null
+
+    const extra = affectedSectors.size - 1
+    return {
+      message:
+        firstExample !== null
+          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: clue-1/3 onlyOne forces opposite cell edges.`
+          : 'Clue-1/3 onlyOne opposite edges applied.',
+      diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
+        kind: 'edge' as const,
+        edgeKey,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
+    }
+  },
+})
+
+const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
+  id: 'vertex-onlyone-non-sector-balance',
+  name: 'Vertex onlyOne Non-Sector Balance',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+    let firstExample: string | null = null
+
+    const { rows, cols } = puzzle
+
+    for (let vr = 1; vr < rows; vr += 1) {
+      for (let vc = 1; vc < cols; vc += 1) {
+        const incident = getVertexIncidentEdges(vr, vc, rows, cols)
+        if (incident.length !== 4) {
+          continue
+        }
+
+        const sectorACases: Array<{ row: number; col: number; corner: SectorCorner }> = [
+          { row: vr - 1, col: vc - 1, corner: 'se' },
+          { row: vr - 1, col: vc, corner: 'sw' },
+          { row: vr, col: vc - 1, corner: 'ne' },
+          { row: vr, col: vc, corner: 'nw' },
+        ]
+
+        for (const { row, col, corner } of sectorACases) {
+          const sk = sectorKey(row, col, corner)
+          const mask = puzzle.sectors[sk]?.constraintsMask ?? SECTOR_MASK_ALL
+          if (sectorMaskSingleValue(mask) !== 1) {
+            continue
+          }
+
+          const sectorEdges = getCornerEdgeKeys(row, col, corner)
+          const nonSectorEdges = incident.filter((e) => !sectorEdges.includes(e))
+          if (nonSectorEdges.length !== 2) {
+            continue
+          }
+
+          const marks = nonSectorEdges.map((e) => puzzle.edges[e]?.mark ?? 'unknown')
+          const unknownCount = marks.filter((m) => m === 'unknown').length
+          if (unknownCount !== 1) {
+            continue
+          }
+
+          const lineIdx = marks.findIndex((m) => m === 'line')
+          const blankIdx = marks.findIndex((m) => m === 'blank')
+          const unknownIdx = marks.findIndex((m) => m === 'unknown')
+
+          let toMark: EdgeMark | null = null
+          if (blankIdx !== -1 && unknownIdx !== -1) {
+            toMark = 'line'
+          } else if (lineIdx !== -1 && unknownIdx !== -1) {
+            toMark = 'blank'
+          }
+
+          if (toMark === null) {
+            continue
+          }
+
+          const unknownEdge = nonSectorEdges[unknownIdx]
+          if (!decidedEdges.has(unknownEdge)) {
+            decidedEdges.set(unknownEdge, toMark)
+            affectedCells.add(cellKey(row, col))
+            affectedSectors.add(sk)
+            if (firstExample === null) firstExample = `(${vr}, ${vc})`
+          }
+        }
+      }
+    }
+
+    if (decidedEdges.size === 0) return null
+
+    return {
+      message:
+        firstExample !== null
+          ? `Vertex ${firstExample}: onlyOne non-sector balance applied.`
+          : 'Vertex onlyOne non-sector balance applied.',
+      diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
+        kind: 'edge' as const,
+        edgeKey,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
+    }
+  },
+})
+
 const createSectorConstraintEdgePropagationRule = (): Rule => ({
   id: 'sector-constraint-edge-propagation',
   name: 'Sector Constraint Edge Propagation',
@@ -848,6 +1003,8 @@ export const slitherRules: Rule[] = [
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),
   createSectorClueTwoIntraCellPropagationRule(),
+  createSectorClueOneThreeIntraCellPropagationRule(),
   createSectorConstraintEdgePropagationRule(),
+  createVertexOnlyOneNonSectorBalanceRule(),
   createSectorNotOneClueTwoPropagationRule(),
 ]

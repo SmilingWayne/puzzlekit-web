@@ -665,6 +665,90 @@ describe('slither sector constraint edge propagation rule', () => {
   })
 })
 
+describe('slither sector clue-1/3 onlyOne opposite edges rule', () => {
+  const clueOneThreeRule = slitherRules.find((rule) => rule.id === 'sector-clue-one-three-intra-cell-propagation')
+  if (!clueOneThreeRule) {
+    throw new Error('Expected sector-clue-one-three-intra-cell-propagation rule')
+  }
+
+  it('forces the two edges not in the sector to blank when clue is 1 and sector is onlyOne', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 1)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+    const cellEdges = getCellEdgeKeys(0, 0)
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+    const opposite = cellEdges.filter((e) => e !== nwTop && e !== nwLeft)
+
+    const result = clueOneThreeRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(opposite).toHaveLength(2)
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        { kind: 'edge', edgeKey: opposite[0], from: 'unknown', to: 'blank' },
+        { kind: 'edge', edgeKey: opposite[1], from: 'unknown', to: 'blank' },
+      ]),
+    )
+    expect(result?.diffs).toHaveLength(2)
+    expect(result?.affectedCells).toEqual(['0,0'])
+    expect(result?.affectedSectors).toContain(sectorKey(0, 0, 'nw'))
+  })
+
+  it('forces the two edges not in the sector to line when clue is 3 and sector is onlyOne', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 3)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+    const cellEdges = getCellEdgeKeys(0, 0)
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+    const opposite = cellEdges.filter((e) => e !== nwTop && e !== nwLeft)
+
+    const result = clueOneThreeRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        { kind: 'edge', edgeKey: opposite[0], from: 'unknown', to: 'line' },
+        { kind: 'edge', edgeKey: opposite[1], from: 'unknown', to: 'line' },
+      ]),
+    )
+    expect(result?.diffs).toHaveLength(2)
+  })
+})
+
+describe('slither vertex onlyOne non-sector balance rule', () => {
+  const vertexBalanceRule = slitherRules.find((rule) => rule.id === 'vertex-onlyone-non-sector-balance')
+  if (!vertexBalanceRule) {
+    throw new Error('Expected vertex-onlyone-non-sector-balance rule')
+  }
+
+  it('forces the other non-sector edge to line when one non-sector edge is blank', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    const bottom = edgeKey([1, 1], [2, 1])
+    const right = edgeKey([1, 1], [1, 2])
+    puzzle.edges[bottom].mark = 'blank'
+
+    const result = vertexBalanceRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' }])
+    expect(result?.affectedSectors).toContain(sectorKey(0, 0, 'se'))
+  })
+
+  it('forces the other non-sector edge to blank when one non-sector edge is line', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    const bottom = edgeKey([1, 1], [2, 1])
+    const right = edgeKey([1, 1], [1, 2])
+    puzzle.edges[right].mark = 'line'
+
+    const result = vertexBalanceRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' }])
+  })
+})
+
 describe('slither apply sectors rule', () => {
   const applySectorsRule = slitherRules.find((rule) => rule.id === 'sector-inference')
   if (!applySectorsRule) {
