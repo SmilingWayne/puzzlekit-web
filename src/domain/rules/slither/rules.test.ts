@@ -926,3 +926,60 @@ describe('slither apply sectors rule', () => {
     expect(second).toBeNull()
   })
 })
+
+describe('slither strong inference rule', () => {
+  const strongRule = slitherRules.find((rule) => rule.id === 'strong-inference')
+  if (!strongRule) {
+    throw new Error('Expected strong-inference rule')
+  }
+
+  it('is placed at the end of slitherRules', () => {
+    expect(slitherRules[slitherRules.length - 1]?.id).toBe('strong-inference')
+  })
+
+  it('uses contradiction on onlyOne sector branches to force opposite assignment', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([1, 0], [2, 0])].mark = 'blank'
+
+    const result = strongRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    const bottom = edgeKey([1, 0], [1, 1])
+    const right = edgeKey([0, 1], [1, 1])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+    ])
+    expect(result?.affectedSectors).toEqual([sectorKey(0, 0, 'se')])
+  })
+
+  it('returns null when both onlyOne branches remain feasible', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const result = strongRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('can run on the provided 10x10 puzzle after deterministic stabilization', () => {
+    const rulesWithoutStrong = slitherRules.filter((rule) => rule.id !== 'strong-inference')
+    let current = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/10/10/c3ch08c0d22aodh1bgdbjbag3dhdo12c3a52ah3b0',
+    )
+
+    for (let stepNumber = 1; stepNumber <= 400; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, rulesWithoutStrong, stepNumber)
+      if (!step) {
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(() => strongRule.apply(current)).not.toThrow()
+    const result = strongRule.apply(current)
+    expect(result === null || result.diffs.length > 0).toBe(true)
+  })
+})
