@@ -6,6 +6,7 @@ import {
   getCornerEdgeKeys,
   getCornerVertex,
   parseCellKey,
+  parseEdgeKey,
   sectorKey,
 } from '../../ir/keys'
 import {
@@ -414,6 +415,82 @@ const createVertexDegreeRule = (): Rule => ({
       diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
         kind: 'edge' as const,
         edgeKey,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [],
+    }
+  },
+})
+
+const createPreventPrematureLoopRule = (): Rule => ({
+  id: 'prevent-premature-loop',
+  name: 'Prevent Premature Loop',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const vertexCols = puzzle.cols + 1
+    const vertexCount = (puzzle.rows + 1) * vertexCols
+    const parent = Array.from({ length: vertexCount }, (_, idx) => idx)
+    const rank = new Array<number>(vertexCount).fill(0)
+    const toVertexIndex = (row: number, col: number): number => row * vertexCols + col
+    const find = (idx: number): number => {
+      if (parent[idx] !== idx) {
+        parent[idx] = find(parent[idx])
+      }
+      return parent[idx]
+    }
+    const union = (a: number, b: number): void => {
+      const rootA = find(a)
+      const rootB = find(b)
+      if (rootA === rootB) {
+        return
+      }
+      if (rank[rootA] < rank[rootB]) {
+        parent[rootA] = rootB
+      } else if (rank[rootA] > rank[rootB]) {
+        parent[rootB] = rootA
+      } else {
+        parent[rootB] = rootA
+        rank[rootA] += 1
+      }
+    }
+
+    for (const [edgeKeyValue, state] of Object.entries(puzzle.edges)) {
+      if ((state?.mark ?? 'unknown') !== 'line') {
+        continue
+      }
+      const [left, right] = parseEdgeKey(edgeKeyValue)
+      union(toVertexIndex(left[0], left[1]), toVertexIndex(right[0], right[1]))
+    }
+
+    const decidedEdges = new Map<string, EdgeMark>()
+    let firstExample: string | null = null
+
+    for (const [edgeKeyValue, state] of Object.entries(puzzle.edges)) {
+      if ((state?.mark ?? 'unknown') !== 'unknown') {
+        continue
+      }
+      const [left, right] = parseEdgeKey(edgeKeyValue)
+      if (find(toVertexIndex(left[0], left[1])) !== find(toVertexIndex(right[0], right[1]))) {
+        continue
+      }
+      decidedEdges.set(edgeKeyValue, 'blank')
+      if (firstExample === null) {
+        firstExample = edgeKeyValue
+      }
+    }
+
+    if (decidedEdges.size === 0) {
+      return null
+    }
+
+    return {
+      message:
+        firstExample !== null
+          ? `Edge ${firstExample} would close a premature loop, so matching edges are blanked.`
+          : 'Edges that would close a premature loop are blanked.',
+      diffs: [...decidedEdges.entries()].map(([edgeKeyValue, to]) => ({
+        kind: 'edge' as const,
+        edgeKey: edgeKeyValue,
         from: 'unknown' as const,
         to,
       })),
@@ -1000,6 +1077,7 @@ export const slitherRules: Rule[] = [
   createDiagonalAdjacentThreeOuterCornersRule(),
   createCellCountRule(),
   createVertexDegreeRule(),
+  createPreventPrematureLoopRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),
   createSectorClueTwoIntraCellPropagationRule(),

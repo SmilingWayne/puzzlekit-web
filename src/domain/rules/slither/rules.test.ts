@@ -207,6 +207,76 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
   })
 })
 
+describe('slither prevent premature loop rule', () => {
+  const antiLoopRule = slitherRules.find((rule) => rule.id === 'prevent-premature-loop')
+  if (!antiLoopRule) {
+    throw new Error('Expected prevent-premature-loop rule')
+  }
+
+  it('is ordered immediately after vertex-degree', () => {
+    const vertexRuleIdx = slitherRules.findIndex((rule) => rule.id === 'vertex-degree')
+    const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
+    expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
+    expect(antiLoopRuleIdx).toBe(vertexRuleIdx + 1)
+  })
+
+  it('marks an unknown edge blank when it would close a loop', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const top = edgeKey([0, 0], [0, 1])
+    const right = edgeKey([0, 1], [1, 1])
+    const bottom = edgeKey([1, 0], [1, 1])
+    const closing = edgeKey([0, 0], [1, 0])
+    puzzle.edges[top].mark = 'line'
+    puzzle.edges[right].mark = 'line'
+    puzzle.edges[bottom].mark = 'line'
+
+    const result = antiLoopRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(getEdgeDiffKeys(result)).toEqual([closing])
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: closing, from: 'unknown', to: 'blank' }])
+  })
+
+  it('marks all loop-closing unknown edges in one application', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+
+    const topLeftTop = edgeKey([0, 0], [0, 1])
+    const topLeftRight = edgeKey([0, 1], [1, 1])
+    const topLeftBottom = edgeKey([1, 0], [1, 1])
+    const topLeftClosing = edgeKey([0, 0], [1, 0])
+
+    const bottomRightTop = edgeKey([2, 2], [2, 3])
+    const bottomRightRight = edgeKey([2, 3], [3, 3])
+    const bottomRightBottom = edgeKey([3, 2], [3, 3])
+    const bottomRightClosing = edgeKey([2, 2], [3, 2])
+
+    puzzle.edges[topLeftTop].mark = 'line'
+    puzzle.edges[topLeftRight].mark = 'line'
+    puzzle.edges[topLeftBottom].mark = 'line'
+    puzzle.edges[bottomRightTop].mark = 'line'
+    puzzle.edges[bottomRightRight].mark = 'line'
+    puzzle.edges[bottomRightBottom].mark = 'line'
+
+    const result = antiLoopRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(getEdgeDiffKeys(result)).toEqual([topLeftClosing, bottomRightClosing])
+    expect(
+      result?.diffs.every((d) => d.kind === 'edge' && d.from === 'unknown' && d.to === 'blank'),
+    ).toBe(true)
+  })
+
+  it('does not apply when unknown edges do not close a loop', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 1], [2, 1])].mark = 'line'
+
+    const result = antiLoopRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+})
+
 describe('slither sector notOne clue-2 propagation rule', () => {
   const propagationRule = slitherRules.find((rule) => rule.id === 'sector-not-one-clue-two-propagation')
   if (!propagationRule) {
