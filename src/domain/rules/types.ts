@@ -14,7 +14,14 @@ export type SectorDiff = {
   toMask: SectorConstraintMask
 }
 
-export type RuleDiff = EdgeDiff | SectorDiff
+export type CellDiff = {
+  kind: 'cell'
+  cellKey: string
+  fromFill: string | null
+  toFill: string | null
+}
+
+export type RuleDiff = EdgeDiff | SectorDiff | CellDiff
 
 export type RuleStep = {
   id: string

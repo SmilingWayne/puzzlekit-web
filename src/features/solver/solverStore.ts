@@ -22,6 +22,7 @@ type SolverStore = {
   steps: RuleStep[]
   pointer: number
   highlightedCells: string[]
+  highlightedColorCells: string[]
   highlightedEdges: string[]
   isRunning: boolean
   includeVertexNumbers: boolean
@@ -52,10 +53,21 @@ const buildStateFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer
         }
         continue
       }
-      if (!next.sectors[diff.sectorKey]) {
-        next.sectors[diff.sectorKey] = { constraintsMask: diff.toMask }
+      if (diff.kind === 'sector') {
+        if (!next.sectors[diff.sectorKey]) {
+          next.sectors[diff.sectorKey] = { constraintsMask: diff.toMask }
+        } else {
+          next.sectors[diff.sectorKey].constraintsMask = diff.toMask
+        }
+        continue
+      }
+      if (!next.cells[diff.cellKey]) {
+        next.cells[diff.cellKey] = {}
+      }
+      if (diff.toFill === null) {
+        delete next.cells[diff.cellKey].fill
       } else {
-        next.sectors[diff.sectorKey].constraintsMask = diff.toMask
+        next.cells[diff.cellKey].fill = diff.toFill
       }
     }
   }
@@ -63,6 +75,9 @@ const buildStateFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer
 }
 
 const getActiveSteps = (steps: RuleStep[], pointer: number): RuleStep[] => steps.slice(0, pointer)
+
+const getStepColorCells = (step?: RuleStep): string[] =>
+  step?.diffs.flatMap((diff) => (diff.kind === 'cell' && diff.toFill !== null ? [diff.cellKey] : [])) ?? []
 
 export const buildDifficultySnapshot = (steps: RuleStep[]): DifficultySnapshot => {
   const ruleUsage: Record<string, number> = {}
@@ -102,6 +117,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   steps: [],
   pointer: 0,
   highlightedCells: [],
+  highlightedColorCells: [],
   highlightedEdges: [],
   isRunning: false,
   includeVertexNumbers: false,
@@ -125,6 +141,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       steps: [],
       pointer: 0,
       highlightedCells: [],
+      highlightedColorCells: [],
       highlightedEdges: [],
       sourceUrl: '',
       importError: undefined,
@@ -168,6 +185,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       steps: [],
       pointer: 0,
       highlightedCells: [],
+      highlightedColorCells: [],
       highlightedEdges: [],
     })
   },
@@ -189,6 +207,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
         steps: [],
         pointer: 0,
         highlightedCells: [],
+        highlightedColorCells: [],
         highlightedEdges: [],
         selectedCellKey: null,
       })
@@ -214,6 +233,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       steps: nextSteps,
       pointer: nextSteps.length,
       highlightedCells: step.affectedCells,
+      highlightedColorCells: getStepColorCells(step),
       highlightedEdges: step.affectedEdges,
     })
   },
@@ -229,6 +249,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       currentPuzzle,
       pointer: nextPointer,
       highlightedCells: currentStep?.affectedCells ?? [],
+      highlightedColorCells: getStepColorCells(currentStep),
       highlightedEdges: currentStep?.affectedEdges ?? [],
     })
   },
@@ -254,6 +275,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       steps: [],
       pointer: 0,
       highlightedCells: [],
+      highlightedColorCells: [],
       highlightedEdges: [],
     })
   },

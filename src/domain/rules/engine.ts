@@ -13,10 +13,21 @@ const applyDiffs = (puzzle: PuzzleIR, step: RuleStep): PuzzleIR => {
       }
       continue
     }
-    if (!next.sectors[diff.sectorKey]) {
-      next.sectors[diff.sectorKey] = { constraintsMask: diff.toMask }
+    if (diff.kind === 'sector') {
+      if (!next.sectors[diff.sectorKey]) {
+        next.sectors[diff.sectorKey] = { constraintsMask: diff.toMask }
+      } else {
+        next.sectors[diff.sectorKey].constraintsMask = diff.toMask
+      }
+      continue
+    }
+    if (!next.cells[diff.cellKey]) {
+      next.cells[diff.cellKey] = {}
+    }
+    if (diff.toFill === null) {
+      delete next.cells[diff.cellKey].fill
     } else {
-      next.sectors[diff.sectorKey].constraintsMask = diff.toMask
+      next.cells[diff.cellKey].fill = diff.toFill
     }
   }
   return next

@@ -207,17 +207,190 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
   })
 })
 
+describe('slither color-edge propagation rule', () => {
+  const colorRule = slitherRules.find((rule) => rule.id === 'color-edge-propagation')
+  if (!colorRule) {
+    throw new Error('Expected color-edge-propagation rule')
+  }
+
+  it('marks edge blank when two adjacent cells have same color', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    const between = edgeKey([0, 1], [1, 1])
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'edge',
+      edgeKey: between,
+      from: 'unknown',
+      to: 'blank',
+    })
+  })
+
+  it('marks edge line when two adjacent cells have different colors', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+    const between = edgeKey([0, 1], [1, 1])
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'edge',
+      edgeKey: between,
+      from: 'unknown',
+      to: 'line',
+    })
+  })
+
+  it('infers opposite color across a line edge', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const between = edgeKey([0, 1], [1, 1])
+    puzzle.edges[between].mark = 'line'
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('infers same color across a blank edge', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const between = edgeKey([0, 1], [1, 1])
+    puzzle.edges[between].mark = 'blank'
+    puzzle.cells[cellKey(0, 0)] = { fill: 'yellow' }
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+})
+
+describe('slither color outside seeding rule', () => {
+  const outsideRule = slitherRules.find((rule) => rule.id === 'color-outside-seeding')
+  if (!outsideRule) {
+    throw new Error('Expected color-outside-seeding rule')
+  }
+
+  it('marks boundary-adjacent cell yellow when boundary edge is blank', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const topLeftTop = edgeKey([0, 0], [0, 1])
+    puzzle.edges[topLeftTop].mark = 'blank'
+
+    const result = outsideRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 0),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('marks boundary-adjacent cell green when boundary edge is line', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const topLeftTop = edgeKey([0, 0], [0, 1])
+    puzzle.edges[topLeftTop].mark = 'line'
+
+    const result = outsideRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 0),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+})
+
+describe('slither color clue propagation rule', () => {
+  const clueColorRule = slitherRules.find((rule) => rule.id === 'color-clue-propagation')
+  if (!clueColorRule) {
+    throw new Error('Expected color-clue-propagation rule')
+  }
+
+  it('colors numbered cell green when clue is less than innercnt', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 1)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
+
+    const result = clueColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('propagates yellow neighbors when yellow numbered cell has clue equal to innercnt', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 1)
+    puzzle.cells[cellKey(1, 1)] = { ...puzzle.cells[cellKey(1, 1)], fill: 'yellow' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+
+    const result = clueColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(2, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 0),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 2),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+})
+
 describe('slither prevent premature loop rule', () => {
   const antiLoopRule = slitherRules.find((rule) => rule.id === 'prevent-premature-loop')
   if (!antiLoopRule) {
     throw new Error('Expected prevent-premature-loop rule')
   }
 
-  it('is ordered immediately after vertex-degree', () => {
+  it('is ordered after vertex-degree, outside-seeding, edge-propagation, and clue-propagation', () => {
     const vertexRuleIdx = slitherRules.findIndex((rule) => rule.id === 'vertex-degree')
+    const outsideRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-outside-seeding')
+    const colorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-edge-propagation')
+    const clueRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-clue-propagation')
     const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
     expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
-    expect(antiLoopRuleIdx).toBe(vertexRuleIdx + 1)
+    expect(outsideRuleIdx).toBe(vertexRuleIdx + 1)
+    expect(colorRuleIdx).toBe(outsideRuleIdx + 1)
+    expect(clueRuleIdx).toBe(colorRuleIdx + 1)
+    expect(antiLoopRuleIdx).toBe(clueRuleIdx + 1)
   })
 
   it('marks an unknown edge blank when it would close a loop', () => {

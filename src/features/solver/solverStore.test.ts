@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { cellKey } from '../../domain/ir/keys'
 import { useSolverStore } from './solverStore'
+import type { RuleStep } from '../../domain/rules/types'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
 
@@ -72,5 +73,75 @@ describe('custom slither grid and clue editing', () => {
     expect(after.currentPuzzle.cols).toBe(3)
     expect(after.steps.length).toBe(0)
     expect(after.sourceUrl).toBe(SAMPLE_URL)
+  })
+})
+
+describe('solver store cell color replay', () => {
+  it('replays cell fill diffs and tracks highlightedColorCells', () => {
+    const colorCell = cellKey(0, 0)
+    const mockStep: RuleStep = {
+      id: 'step-1',
+      ruleId: 'color-edge-propagation',
+      ruleName: 'Color-Edge Propagation',
+      message: 'test',
+      diffs: [
+        {
+          kind: 'cell',
+          cellKey: colorCell,
+          fromFill: null,
+          toFill: 'green',
+        },
+      ],
+      affectedCells: [colorCell],
+      affectedEdges: [],
+      affectedSectors: [],
+      timestamp: Date.now(),
+    }
+    const state = useSolverStore.getState()
+    const originalNextStep = state.nextStep
+    useSolverStore.setState({
+      ...state,
+      steps: [],
+      pointer: 0,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      nextStep: () => {
+        const now = useSolverStore.getState()
+        useSolverStore.setState({
+          ...now,
+          currentPuzzle: {
+            ...now.currentPuzzle,
+            cells: {
+              ...now.currentPuzzle.cells,
+              [colorCell]: {
+                ...now.currentPuzzle.cells[colorCell],
+                fill: 'green',
+              },
+            },
+          },
+          steps: [mockStep],
+          pointer: 1,
+          highlightedCells: mockStep.affectedCells,
+          highlightedColorCells: [colorCell],
+          highlightedEdges: [],
+        })
+      },
+    })
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().currentPuzzle.cells[colorCell]?.fill).toBe('green')
+    expect(useSolverStore.getState().highlightedColorCells).toEqual([colorCell])
+
+    useSolverStore.getState().prevStep()
+    expect(useSolverStore.getState().currentPuzzle.cells[colorCell]?.fill).toBeUndefined()
+    expect(useSolverStore.getState().highlightedColorCells).toEqual([])
+
+    useSolverStore.getState().nextStep()
+    expect(useSolverStore.getState().currentPuzzle.cells[colorCell]?.fill).toBe('green')
+    expect(useSolverStore.getState().highlightedColorCells).toEqual([colorCell])
+
+    useSolverStore.setState((prev) => ({ ...prev, nextStep: originalNextStep }))
   })
 })

@@ -19,6 +19,7 @@ type Props = {
   puzzle: PuzzleIR
   highlightedEdges: string[]
   highlightedCells: string[]
+  highlightedColorCells: string[]
   showVertexNumbers: boolean
   selectedCellKey?: string | null
   onCellSelect?: (key: string | null) => void
@@ -49,6 +50,7 @@ export const CanvasBoard = ({
   puzzle,
   highlightedEdges,
   highlightedCells,
+  highlightedColorCells,
   showVertexNumbers,
   selectedCellKey = null,
   onCellSelect,
@@ -87,9 +89,32 @@ export const CanvasBoard = ({
     ctx.fillStyle = '#0f172a'
     ctx.fillRect(0, 0, width, height)
 
+    for (const [key, cell] of Object.entries(puzzle.cells)) {
+      const fill = cell.fill
+      if (fill !== 'green' && fill !== 'yellow') {
+        continue
+      }
+      const [r, c] = parseCellKey(key)
+      ctx.fillStyle = fill === 'green' ? 'rgba(34, 197, 94, 0.24)' : 'rgba(245, 158, 11, 0.24)'
+      ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    }
+
     for (const cell of highlightedCells) {
       const [r, c] = parseCellKey(cell)
       ctx.fillStyle = 'rgba(99, 102, 241, 0.25)'
+      ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    }
+
+    for (const cell of highlightedColorCells) {
+      const fill = puzzle.cells[cell]?.fill
+      const [r, c] = parseCellKey(cell)
+      if (fill === 'green') {
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.44)'
+      } else if (fill === 'yellow') {
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.44)'
+      } else {
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.2)'
+      }
       ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
     }
 
@@ -259,6 +284,7 @@ export const CanvasBoard = ({
   }, [
     height,
     highlightedCells,
+    highlightedColorCells,
     highlightedEdges,
     offset.x,
     offset.y,

@@ -23,6 +23,7 @@ export const WorkspacePage = () => {
     steps,
     pointer,
     highlightedCells,
+    highlightedColorCells,
     highlightedEdges,
     includeVertexNumbers,
     pluginId,
@@ -85,6 +86,7 @@ export const WorkspacePage = () => {
             <CanvasBoard
               puzzle={currentPuzzle}
               highlightedCells={highlightedCells}
+              highlightedColorCells={highlightedColorCells}
               highlightedEdges={highlightedEdges}
               showVertexNumbers={includeVertexNumbers}
               selectedCellKey={pluginId === 'slitherlink' ? selectedCellKey : null}
