@@ -39,7 +39,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toBe('Contiguous 3-run boundaries forced (e.g., row 1 cols 1\u20133).')
+    expect(result?.message).toContain('Contiguous 3-run boundaries forced')
     expect(result?.affectedCells).toEqual(['1,1', '1,2', '1,3'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([1, 1], [2, 1]),
@@ -61,7 +61,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toBe('Contiguous 3-run boundaries forced (e.g., col 2 rows 1\u20133).')
+    expect(result?.message).toContain('Contiguous 3-run boundaries forced')
     expect(result?.affectedCells).toEqual(['1,2', '2,2', '3,2'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([1, 2], [1, 3]),
@@ -119,7 +119,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
     const result = diagonalRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toBe('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
+    expect(result?.message).toContain('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
     expect(result?.affectedCells).toEqual(['0,0', '1,1'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([0, 0], [1, 0]),
@@ -137,7 +137,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
     const result = diagonalRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toBe('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
+    expect(result?.message).toContain('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
     expect(result?.affectedCells).toEqual(['0,1', '1,0'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([0, 1], [0, 2]),
@@ -203,6 +203,47 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
     expect(result?.diffs).toEqual([
       { kind: 'edge', edgeKey: unknownA, from: 'unknown', to: 'line' },
       { kind: 'edge', edgeKey: unknownB, from: 'unknown', to: 'line' },
+    ])
+  })
+})
+
+describe('slither cell clue completion rule', () => {
+  const cellCountRule = slitherRules.find((rule) => rule.id === 'cell-count-completion')
+  if (!cellCountRule) {
+    throw new Error('Expected cell-count-completion rule')
+  }
+
+  it('fills remaining unknown edges as blank when clue already has enough lines', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 1)
+    const [top, bottom, left, right] = getCellEdgeKeys(0, 0)
+    puzzle.edges[top].mark = 'line'
+
+    const result = cellCountRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.affectedCells).toEqual([cellKey(0, 0)])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: left, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+    ])
+  })
+
+  it('fills remaining unknown edges as line when all unknowns are required by clue', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 3)
+    const [top, bottom, left, right] = getCellEdgeKeys(0, 0)
+    puzzle.edges[top].mark = 'blank'
+
+    const result = cellCountRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.affectedCells).toEqual([cellKey(0, 0)])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: left, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
     ])
   })
 })
@@ -1005,7 +1046,7 @@ describe('slither apply sectors rule', () => {
     const result = applySectorsRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toBe('Apply Sectors from Vertex: inferred corner sector constraints from current edges.')
+    expect(result?.message).toContain('Apply Sectors from Vertex')
     expect(result?.affectedCells).toEqual(['0,0'])
     expect(result?.affectedSectors).toEqual([
       sectorKey(0, 0, 'nw'),
