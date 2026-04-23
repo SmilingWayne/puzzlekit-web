@@ -13,7 +13,6 @@ import { createApplySectorsInference } from './rules/sectorInference'
 import {
   createSectorClueOneThreeIntraCellPropagationRule,
   createSectorClueTwoCombinationFeasibilityRule,
-  createSectorClueTwoIntraCellPropagationRule,
   createSectorConstraintEdgePropagationRule,
   createSectorDiagonalSharedVertexPropagationRule,
   createSectorNotOneClueTwoPropagationRule,
@@ -32,7 +31,6 @@ export const deterministicSlitherRules: Rule[] = [
   createPreventPrematureLoopRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),
-  createSectorClueTwoIntraCellPropagationRule(),
   createSectorClueTwoCombinationFeasibilityRule(),
   createSectorClueOneThreeIntraCellPropagationRule(),
   createSectorConstraintEdgePropagationRule(),
