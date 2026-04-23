@@ -500,10 +500,10 @@ export const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
 
     const { rows, cols } = puzzle
 
-    for (let vr = 1; vr < rows; vr += 1) {
-      for (let vc = 1; vc < cols; vc += 1) {
+    for (let vr = 0; vr <= rows; vr += 1) {
+      for (let vc = 0; vc <= cols; vc += 1) {
         const incident = getVertexIncidentEdges(vr, vc, rows, cols)
-        if (incident.length !== 4) {
+        if (incident.length === 0) {
           continue
         }
 
@@ -515,6 +515,9 @@ export const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
         ]
 
         for (const { row, col, corner } of sectorACases) {
+          if (row < 0 || row >= rows || col < 0 || col >= cols) {
+            continue
+          }
           const sk = sectorKey(row, col, corner)
           const mask = puzzle.sectors[sk]?.constraintsMask ?? SECTOR_MASK_ALL
           if (sectorMaskSingleValue(mask) !== 1) {
@@ -523,6 +526,20 @@ export const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
 
           const sectorEdges = getCornerEdgeKeys(row, col, corner)
           const nonSectorEdges = incident.filter((e) => !sectorEdges.includes(e))
+          if (nonSectorEdges.length === 1) {
+            const forcedEdge = nonSectorEdges[0]
+            if ((puzzle.edges[forcedEdge]?.mark ?? 'unknown') !== 'unknown') {
+              continue
+            }
+            if (!decidedEdges.has(forcedEdge)) {
+              decidedEdges.set(forcedEdge, 'line')
+              affectedCells.add(cellKey(row, col))
+              affectedSectors.add(sk)
+              if (firstExample === null) firstExample = `(${vr}, ${vc})`
+            }
+            continue
+          }
+
           if (nonSectorEdges.length !== 2) {
             continue
           }

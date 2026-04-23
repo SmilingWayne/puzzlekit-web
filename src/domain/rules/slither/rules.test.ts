@@ -1263,6 +1263,77 @@ describe('slither vertex onlyOne non-sector balance rule', () => {
     expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: oppositeDiagonalEdgeB, from: 'unknown', to: 'line' }])
     expect(result?.affectedSectors).toContain(sectorKey(0, 1, 'sw'))
   })
+
+  it('forces the single non-sector boundary edge to line when a boundary corner sector is onlyOne', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(0, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const result = vertexBalanceRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([0, 0], [0, 1]), from: 'unknown', to: 'line' },
+    ])
+    expect(result?.affectedSectors).toContain(sectorKey(0, 1, 'nw'))
+  })
+
+  it('is idempotent on boundary single non-sector case when edge is already decided', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(0, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+    const forced = edgeKey([0, 0], [0, 1])
+    puzzle.edges[forced].mark = 'line'
+
+    const result = vertexBalanceRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not force boundary non-sector edge when sector is not onlyOne', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(0, 1, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+
+    const result = vertexBalanceRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('appears during stepwise solving for the provided 5x5 cgcx puzzle with boundary line diff', () => {
+    let current = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/5/5/cgcx')
+    let triggered = false
+    let sawBoundaryLine = false
+
+    for (let stepNumber = 1; stepNumber <= 1000; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (step.ruleId === 'vertex-onlyone-non-sector-balance') {
+        triggered = true
+        for (const diff of step.diffs) {
+          if (diff.kind !== 'edge' || diff.to !== 'line') {
+            continue
+          }
+          const [a, b] = parseEdgeKey(diff.edgeKey)
+          const isBoundary =
+            (a[0] === 0 && b[0] === 0) ||
+            (a[0] === current.rows && b[0] === current.rows) ||
+            (a[1] === 0 && b[1] === 0) ||
+            (a[1] === current.cols && b[1] === current.cols)
+          if (isBoundary) {
+            sawBoundaryLine = true
+            break
+          }
+        }
+        if (sawBoundaryLine) {
+          break
+        }
+      }
+      current = nextPuzzle
+    }
+
+    expect(triggered).toBe(true)
+    expect(sawBoundaryLine).toBe(true)
+  })
 })
 
 describe('slither apply sectors rule', () => {
