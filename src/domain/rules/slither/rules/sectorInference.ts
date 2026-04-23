@@ -55,6 +55,12 @@ const inferSectorMaskByVertex = (
   const remainingUnknowns = vertexDegree - nonSecKnownNum - sectorKnownNum
   const sectorUnknownNum = 2 - sectorKnownNum
 
+  if (nonSectorEdges.length === 0) {
+    tighten(SECTOR_MASK_NOT_1)
+  }
+  if (nonSectorEdges.length === 1 && nonSecCrossNum === 1) {
+    tighten(SECTOR_MASK_NOT_1)
+  }
   if (nonSecLineNum === 1 && remainingUnknowns === sectorUnknownNum && sectorUnknownNum > 0) {
     tighten(SECTOR_MASK_ONLY_1)
   }

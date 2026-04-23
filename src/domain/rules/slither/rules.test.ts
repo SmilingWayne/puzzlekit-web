@@ -1345,6 +1345,9 @@ describe('slither apply sectors rule', () => {
   it('applies notZero sectors for clue 3 corners', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     setClue(puzzle, 0, 0, 3)
+    puzzle.sectors[sectorKey(0, 1, 'ne')].constraintsMask = SECTOR_MASK_NOT_1
+    puzzle.sectors[sectorKey(1, 0, 'sw')].constraintsMask = SECTOR_MASK_NOT_1
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_1
 
     const result = applySectorsRule.apply(puzzle)
 
@@ -1363,7 +1366,7 @@ describe('slither apply sectors rule', () => {
         kind: 'sector',
         sectorKey: sectorKey(0, 0, 'nw'),
         fromMask: SECTOR_MASK_ALL,
-        toMask: SECTOR_MASK_NOT_0,
+        toMask: SECTOR_MASK_ONLY_2,
       },
       {
         kind: 'sector',
@@ -1387,17 +1390,17 @@ describe('slither apply sectors rule', () => {
   })
 
   it('applies onlyOne mask when corner has one line and one blank edge', () => {
-    const puzzle = createSlitherPuzzle(2, 2)
+    const puzzle = createSlitherPuzzle(2, 3)
     puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
-    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'blank'
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'blank'
 
     const result = applySectorsRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.affectedSectors).toContain(sectorKey(0, 0, 'nw'))
+    expect(result?.affectedSectors).toContain(sectorKey(0, 0, 'ne'))
     expect(result?.diffs).toContainEqual({
       kind: 'sector',
-      sectorKey: sectorKey(0, 0, 'nw'),
+      sectorKey: sectorKey(0, 0, 'ne'),
       fromMask: SECTOR_MASK_ALL,
       toMask: SECTOR_MASK_ONLY_1,
     })
@@ -1423,6 +1426,83 @@ describe('slither apply sectors rule', () => {
       fromMask: SECTOR_MASK_ALL,
       toMask: SECTOR_MASK_ONLY_1,
     })
+  })
+
+  it('tightens board-corner sectors to notOne from natural boundary geometry', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+
+    const result = applySectorsRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 0, 'nw'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_NOT_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 1, 'ne'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_NOT_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(1, 0, 'sw'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_NOT_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(1, 1, 'se'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_NOT_1,
+        },
+      ]),
+    )
+  })
+
+  it('does not relax already-strong corner sector masks', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_0
+    puzzle.sectors[sectorKey(0, 1, 'ne')].constraintsMask = SECTOR_MASK_ONLY_2
+    puzzle.sectors[sectorKey(1, 0, 'sw')].constraintsMask = SECTOR_MASK_ONLY_0
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_2
+
+    const result = applySectorsRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('tightens edge non-corner sector to notOne when its only non-sector edge is blank', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    const nonSectorEdge = edgeKey([0, 0], [0, 1])
+    puzzle.edges[nonSectorEdge].mark = 'blank'
+
+    const result = applySectorsRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(0, 1, 'nw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_1,
+    })
+  })
+
+  it('does not relax already-strong edge non-corner sector masks under boundary blank evidence', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    const nonSectorEdge = edgeKey([0, 0], [0, 1])
+    puzzle.edges[nonSectorEdge].mark = 'blank'
+    const targetSector = sectorKey(0, 1, 'nw')
+    puzzle.sectors[targetSector].constraintsMask = SECTOR_MASK_ONLY_0
+
+    const result = applySectorsRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs.some((d) => d.kind === 'sector' && d.sectorKey === targetSector)).toBe(false)
   })
 
   it('returns null when sectors are already up to date', () => {
