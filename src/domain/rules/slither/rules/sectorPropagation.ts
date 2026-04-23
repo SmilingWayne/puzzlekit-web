@@ -1,5 +1,8 @@
 import { cellKey, getCellEdgeKeys, getCornerEdgeKeys, getVertexIncidentEdges, sectorKey } from '../../../ir/keys'
 import {
+  SECTOR_ALLOW_0,
+  SECTOR_ALLOW_1,
+  SECTOR_ALLOW_2,
   SECTOR_MASK_ALL,
   SECTOR_MASK_NOT_0,
   SECTOR_MASK_NOT_1,
@@ -16,6 +19,82 @@ import {
   type SectorCorner,
 } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
+
+type ClueTwoCombo = {
+  id: 'ns' | 'we' | 'nw' | 'ne' | 'sw' | 'se'
+  marks: [EdgeMark, EdgeMark, EdgeMark, EdgeMark]
+}
+
+const CLUE_TWO_COMBINATIONS: ClueTwoCombo[] = [
+  { id: 'ns', marks: ['line', 'line', 'blank', 'blank'] },
+  { id: 'we', marks: ['blank', 'blank', 'line', 'line'] },
+  { id: 'nw', marks: ['line', 'blank', 'line', 'blank'] },
+  { id: 'ne', marks: ['line', 'blank', 'blank', 'line'] },
+  { id: 'sw', marks: ['blank', 'line', 'line', 'blank'] },
+  { id: 'se', marks: ['blank', 'line', 'blank', 'line'] },
+]
+
+const cornerVertices = (row: number, col: number): Array<{ corner: SectorCorner; vr: number; vc: number }> => [
+  { corner: 'nw', vr: row, vc: col },
+  { corner: 'ne', vr: row, vc: col + 1 },
+  { corner: 'sw', vr: row + 1, vc: col },
+  { corner: 'se', vr: row + 1, vc: col + 1 },
+]
+
+const isComboConsistentWithKnownEdges = (
+  puzzle: PuzzleIR,
+  cellEdges: [string, string, string, string],
+  combo: ClueTwoCombo,
+): boolean => {
+  for (let i = 0; i < cellEdges.length; i += 1) {
+    const current = puzzle.edges[cellEdges[i]]?.mark ?? 'unknown'
+    if (current === 'unknown') continue
+    if (current !== combo.marks[i]) return false
+  }
+  return true
+}
+
+const isComboVertexFeasible = (
+  puzzle: PuzzleIR,
+  row: number,
+  col: number,
+  cellEdges: [string, string, string, string],
+  combo: ClueTwoCombo,
+): boolean => {
+  const overrides = new Map<string, EdgeMark>()
+  for (let i = 0; i < cellEdges.length; i += 1) {
+    overrides.set(cellEdges[i], combo.marks[i])
+  }
+
+  const getEffectiveMark = (edgeKeyValue: string): EdgeMark =>
+    overrides.get(edgeKeyValue) ?? (puzzle.edges[edgeKeyValue]?.mark ?? 'unknown')
+
+  for (const vertex of cornerVertices(row, col)) {
+    const incident = getVertexIncidentEdges(vertex.vr, vertex.vc, puzzle.rows, puzzle.cols)
+    const marks = incident.map(getEffectiveMark)
+    const lineCount = marks.filter((mark) => mark === 'line').length
+    const unknownCount = marks.filter((mark) => mark === 'unknown').length
+
+    if (lineCount > 2) {
+      return false
+    }
+
+    // A vertex already activated with one line must still have an available continuation.
+    if (lineCount === 1 && unknownCount === 0) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const maskForAllowedCounts = (counts: Set<number>): SectorConstraintMask => {
+  let mask: SectorConstraintMask = 0
+  if (counts.has(0)) mask |= SECTOR_ALLOW_0
+  if (counts.has(1)) mask |= SECTOR_ALLOW_1
+  if (counts.has(2)) mask |= SECTOR_ALLOW_2
+  return mask
+}
 
 export const createSectorDiagonalSharedVertexPropagationRule = (): Rule => ({
   id: 'sector-diagonal-shared-vertex-propagation',
@@ -222,6 +301,90 @@ export const createSectorClueTwoIntraCellPropagationRule = (): Rule => ({
     return {
       message:
         'Clue-2 in-cell sector propagation tightens opposite corners (including onlyOne pairs) and non-overlapping corner constraints.',
+      diffs,
+      affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
+    }
+  },
+})
+
+export const createSectorClueTwoCombinationFeasibilityRule = (): Rule => ({
+  id: 'sector-clue-two-combination-feasibility',
+  name: 'Sector Clue-2 Combination Feasibility',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const nextMasks = new Map<string, SectorConstraintMask>()
+    const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+    const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
+
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        const clue = puzzle.cells[cellKey(r, c)]?.clue
+        if (clue?.kind !== 'number' || clue.value !== 2) {
+          continue
+        }
+
+        const [topEdge, bottomEdge, leftEdge, rightEdge] = getCellEdgeKeys(r, c)
+        const cellEdges: [string, string, string, string] = [topEdge, bottomEdge, leftEdge, rightEdge]
+
+        const feasibleCombos = CLUE_TWO_COMBINATIONS.filter((combo) => {
+          if (!isComboConsistentWithKnownEdges(puzzle, cellEdges, combo)) {
+            return false
+          }
+          return isComboVertexFeasible(puzzle, r, c, cellEdges, combo)
+        })
+
+        if (feasibleCombos.length === 0) {
+          continue
+        }
+
+        for (const corner of corners) {
+          const cornerEdges = getCornerEdgeKeys(r, c, corner)
+          const allowedCounts = new Set<number>()
+
+          for (const combo of feasibleCombos) {
+            const lineCount = cornerEdges.filter((edgeKeyValue) => {
+              const edgeIndex = cellEdges.indexOf(edgeKeyValue)
+              return edgeIndex !== -1 && combo.marks[edgeIndex] === 'line'
+            }).length
+            allowedCounts.add(lineCount)
+          }
+
+          const impliedMask = maskForAllowedCounts(allowedCounts)
+          const key = sectorKey(r, c, corner)
+          const currentMask = nextMasks.get(key) ?? (puzzle.sectors[key]?.constraintsMask ?? SECTOR_MASK_ALL)
+          const narrowedMask = sectorMaskIntersect(currentMask, impliedMask)
+          if (narrowedMask === 0 || narrowedMask === currentMask) {
+            continue
+          }
+
+          nextMasks.set(key, narrowedMask)
+          affectedCells.add(cellKey(r, c))
+          affectedSectors.add(key)
+        }
+      }
+    }
+
+    const diffs: RuleApplication['diffs'] = []
+    for (const [key, toMask] of nextMasks.entries()) {
+      const fromMask = puzzle.sectors[key]?.constraintsMask ?? SECTOR_MASK_ALL
+      if (fromMask === toMask) {
+        continue
+      }
+      diffs.push({
+        kind: 'sector',
+        sectorKey: key,
+        fromMask,
+        toMask,
+      })
+    }
+
+    if (diffs.length === 0) {
+      return null
+    }
+
+    return {
+      message: 'Clue-2 combination feasibility pruned invalid edge patterns and tightened sector masks.',
       diffs,
       affectedCells: [...affectedCells],
       affectedSectors: [...affectedSectors],

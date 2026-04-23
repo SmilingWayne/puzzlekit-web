@@ -902,6 +902,87 @@ describe('slither sector clue-2 intra-cell propagation rule', () => {
   })
 })
 
+describe('slither sector clue-2 combination feasibility rule', () => {
+  const combinationRule = slitherRules.find((rule) => rule.id === 'sector-clue-two-combination-feasibility')
+  if (!combinationRule) {
+    throw new Error('Expected sector-clue-two-combination-feasibility rule')
+  }
+
+  it('at (0,0) with clue=2 prunes impossible patterns and tightens sectors to notOne/onlyOne', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 0, 0, 2)
+
+    const result = combinationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 0, 'nw'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_NOT_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 0, 'se'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_NOT_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 0, 'ne'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 0, 'sw'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_1,
+        },
+      ]),
+    )
+    expect(result?.diffs).toHaveLength(4)
+  })
+
+  it('when one edge is pre-marked, keeps only feasible combos and can force exact sector masks', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 0, 0, 2)
+    const [topEdge] = getCellEdgeKeys(0, 0)
+    puzzle.edges[topEdge].mark = 'line'
+
+    const result = combinationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 0, 'nw'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_2,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(0, 0, 'se'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_0,
+        },
+      ]),
+    )
+  })
+
+  it('returns null when clue=2 combinations do not tighten any sector', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+
+    const result = combinationRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+})
+
 describe('slither sector constraint edge propagation rule', () => {
   const edgePropagationRule = slitherRules.find((rule) => rule.id === 'sector-constraint-edge-propagation')
   if (!edgePropagationRule) {
