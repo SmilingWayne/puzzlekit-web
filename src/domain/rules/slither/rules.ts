@@ -3,6 +3,7 @@ import {
   createColorCluePropagationRule,
   createColorEdgePropagationRule,
   createColorOutsideSeedingRule,
+  createColorSectorMaskPropagationRule,
 } from './rules/color'
 import { createCellCountRule, createPreventPrematureLoopRule, createVertexDegreeRule } from './rules/core'
 import {
@@ -28,6 +29,7 @@ export const deterministicSlitherRules: Rule[] = [
   createColorOutsideSeedingRule(),
   createColorEdgePropagationRule(),
   createColorCluePropagationRule(),
+  createColorSectorMaskPropagationRule(),
   createPreventPrematureLoopRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),

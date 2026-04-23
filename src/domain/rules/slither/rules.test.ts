@@ -482,6 +482,121 @@ describe('slither color clue propagation rule', () => {
   })
 })
 
+describe('slither color sector-mask propagation rule', () => {
+  const sectorColorRule = slitherRules.find((rule) => rule.id === 'color-sector-mask-propagation')
+  if (!sectorColorRule) {
+    throw new Error('Expected color-sector-mask-propagation rule')
+  }
+
+  it('infers same color from notOne sector when one adjacent cell color is known', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_1
+    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(2, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('infers opposite color from onlyOne sector when one adjacent cell color is known', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(2, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('treats onlyZero and onlyTwo as notOne and infers same color', () => {
+    const onlyZeroPuzzle = createSlitherPuzzle(3, 3)
+    onlyZeroPuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_0
+    onlyZeroPuzzle.cells[cellKey(1, 2)] = { fill: 'yellow' }
+
+    const onlyZeroResult = sectorColorRule.apply(onlyZeroPuzzle)
+
+    expect(onlyZeroResult).not.toBeNull()
+    expect(onlyZeroResult?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(2, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+
+    const onlyTwoPuzzle = createSlitherPuzzle(3, 3)
+    onlyTwoPuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_2
+    onlyTwoPuzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+
+    const onlyTwoResult = sectorColorRule.apply(onlyTwoPuzzle)
+
+    expect(onlyTwoResult).not.toBeNull()
+    expect(onlyTwoResult?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(2, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('treats out-of-bounds adjacent cell as yellow at boundary', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'ne')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('does not apply when both adjacent cells are unknown and in bounds', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_1
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not apply when both adjacent cells are already colored', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_1
+    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+    puzzle.cells[cellKey(2, 1)] = { fill: 'yellow' }
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('skips conflicting inference and returns null when no other updates exist', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+    puzzle.cells[cellKey(2, 1)] = { fill: 'green' }
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+})
+
 describe('slither prevent premature loop rule', () => {
   const antiLoopRule = slitherRules.find((rule) => rule.id === 'prevent-premature-loop')
   if (!antiLoopRule) {
@@ -493,12 +608,14 @@ describe('slither prevent premature loop rule', () => {
     const outsideRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-outside-seeding')
     const colorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-edge-propagation')
     const clueRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-clue-propagation')
+    const sectorColorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-sector-mask-propagation')
     const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
     expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
     expect(outsideRuleIdx).toBe(vertexRuleIdx + 1)
     expect(colorRuleIdx).toBe(outsideRuleIdx + 1)
     expect(clueRuleIdx).toBe(colorRuleIdx + 1)
-    expect(antiLoopRuleIdx).toBe(clueRuleIdx + 1)
+    expect(sectorColorRuleIdx).toBe(clueRuleIdx + 1)
+    expect(antiLoopRuleIdx).toBe(sectorColorRuleIdx + 1)
   })
 
   it('marks an unknown edge blank when it would close a loop', () => {

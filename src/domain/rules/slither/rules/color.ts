@@ -1,4 +1,11 @@
-import type { EdgeMark, PuzzleIR } from '../../../ir/types'
+import { cellKey, sectorKey } from '../../../ir/keys'
+import {
+  SECTOR_MASK_ONLY_1,
+  type EdgeMark,
+  type PuzzleIR,
+  type SectorCorner,
+  sectorMaskAllows,
+} from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
 import {
   getCellNeighborKeys,
@@ -254,6 +261,138 @@ export const createColorCluePropagationRule = (): Rule => ({
 
     return {
       message: `Color clue propagation applied (${decidedCellFills.size} color update(s)).`,
+      diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
+        kind: 'cell' as const,
+        cellKey: k,
+        fromFill: (puzzle.cells[k]?.fill ?? null) as string | null,
+        toFill,
+      })),
+      affectedCells: [...affectedCells],
+    }
+  },
+})
+
+type CornerNeighbor = { row: number; col: number }
+
+const getCornerOutsideNeighbors = (row: number, col: number, corner: SectorCorner): [CornerNeighbor, CornerNeighbor] => {
+  if (corner === 'nw') {
+    return [
+      { row: row - 1, col },
+      { row, col: col - 1 },
+    ]
+  }
+  if (corner === 'ne') {
+    return [
+      { row: row - 1, col },
+      { row, col: col + 1 },
+    ]
+  }
+  if (corner === 'sw') {
+    return [
+      { row: row + 1, col },
+      { row, col: col - 1 },
+    ]
+  }
+  return [
+    { row: row + 1, col },
+    { row, col: col + 1 },
+  ]
+}
+
+export const createColorSectorMaskPropagationRule = (): Rule => ({
+  id: 'color-sector-mask-propagation',
+  name: 'Color Sector-Mask Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
+    const decidedCellFills = new Map<string, SlitherCellColor>()
+    const affectedCells = new Set<string>()
+
+    const inBounds = (row: number, col: number): boolean =>
+      row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols
+
+    const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
+      const decided = decidedCellFills.get(key)
+      if (decided) {
+        return decided
+      }
+      const current = puzzle.cells[key]?.fill
+      return isSlitherCellColor(current) ? current : null
+    }
+
+    const rememberCellFill = (key: string, to: SlitherCellColor): boolean => {
+      const current = getEffectiveCellColor(key)
+      if (current === to) {
+        return true
+      }
+      if (current !== null) {
+        return false
+      }
+      decidedCellFills.set(key, to)
+      affectedCells.add(key)
+      return true
+    }
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const sourceCellKey = cellKey(row, col)
+        for (const corner of corners) {
+          const mask = puzzle.sectors[sectorKey(row, col, corner)]?.constraintsMask
+          const isOnlyOne = mask === SECTOR_MASK_ONLY_1
+          const isNotOne = mask !== undefined && !sectorMaskAllows(mask, 1)
+          if (!isOnlyOne && !isNotOne) {
+            continue
+          }
+
+          const relation = isOnlyOne ? 'different' : 'same'
+          const [firstNeighbor, secondNeighbor] = getCornerOutsideNeighbors(row, col, corner)
+          const firstInBounds = inBounds(firstNeighbor.row, firstNeighbor.col)
+          const secondInBounds = inBounds(secondNeighbor.row, secondNeighbor.col)
+          const firstKey = firstInBounds ? cellKey(firstNeighbor.row, firstNeighbor.col) : null
+          const secondKey = secondInBounds ? cellKey(secondNeighbor.row, secondNeighbor.col) : null
+
+          const firstColor: SlitherCellColor | null = firstInBounds ? getEffectiveCellColor(firstKey) : 'yellow'
+          const secondColor: SlitherCellColor | null = secondInBounds ? getEffectiveCellColor(secondKey) : 'yellow'
+
+          if (firstColor === null && secondColor === null) {
+            continue
+          }
+
+          if (firstColor !== null && secondColor !== null) {
+            continue
+          }
+
+          if (firstColor === null && firstKey && secondColor !== null) {
+            const inferred = relation === 'same' ? secondColor : oppositeSlitherCellColor(secondColor)
+            if (!rememberCellFill(firstKey, inferred)) {
+              continue
+            }
+            affectedCells.add(sourceCellKey)
+            if (secondKey) {
+              affectedCells.add(secondKey)
+            }
+            continue
+          }
+
+          if (secondColor === null && secondKey && firstColor !== null) {
+            const inferred = relation === 'same' ? firstColor : oppositeSlitherCellColor(firstColor)
+            if (!rememberCellFill(secondKey, inferred)) {
+              continue
+            }
+            affectedCells.add(sourceCellKey)
+            if (firstKey) {
+              affectedCells.add(firstKey)
+            }
+          }
+        }
+      }
+    }
+
+    if (decidedCellFills.size === 0) {
+      return null
+    }
+
+    return {
+      message: `Color sector-mask propagation applied (${decidedCellFills.size} color update(s)).`,
       diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
