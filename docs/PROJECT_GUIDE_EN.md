@@ -1,229 +1,184 @@
 # PuzzleKit Web Project Guide (English)
 
-## 1. Project Purpose
+## 1. Project Intent (Read This First)
 
-PuzzleKit Web is a frontend-first, explainable logic puzzle workspace focused on:
+PuzzleKit Web is a frontend-first, rule-based logic puzzle solver focused on **machine reasoning quality**, not maximum solve rate.
 
-- Parsing puzzle URLs into a unified in-browser IR (no backend dependency)
-- Running non-SAT, rule-based deduction step by step
-- Visualizing board state and reasoning history in real time
-- Supporting multi-puzzle extensibility (Slitherlink implemented; Masyu/Nonogram planned)
+Core intent:
 
-The product goal is **human-readable deduction**, not black-box solving.
+- Emphasize explicit computer deduction over black-box search/SAT solving
+- Produce step-by-step, replayable, explainable reasoning
+- Accept that some puzzles may remain unsolved by current rule coverage
+- Prioritize solver traceability and reasoning playback over rich interactive tooling
 
----
-
-## 2. What Changed Recently (Important)
-
-The largest recent change is the Slither sector model:
-
-- Sector state is no longer a single enum-like marker.
-- Sector state is now a **bitmask constraint set** over allowed corner line counts `{0,1,2}`.
-- Rule diffs for sectors are now `fromMask -> toMask` transitions.
-- Inference now works by **constraint intersection** (narrowing), then edge propagation from exact masks.
-- Canvas rendering now visualizes overlapping constraints with layered arcs.
-
-This guide now documents that new model as the current baseline.
+In short: this project is a **logic reasoning engine with a UI**, not a UI-first puzzle editor.
 
 ---
 
-## 3. Tech Stack and Toolchain
+## 2. Product Philosophy and Non-Goals
 
-- **Language**: TypeScript
-- **UI Framework**: React 19
-- **Build Tool**: Vite
-- **Routing**: React Router
-- **State Management**: Zustand
-- **Validation**: Zod
-- **Testing**:
-  - Unit/Component: Vitest + Testing Library
-  - E2E: Playwright
-- **Quality**: ESLint + Prettier + lint-staged + Husky
+### 2.1 Philosophy
 
-Key scripts (root `package.json`):
+- Every step should be understandable: what changed, why it changed, and which rule produced it
+- The system should be deterministic and replay-safe
+- Rule growth should happen incrementally by adding human-readable inference rules
 
-- `npm run dev`: start local dev server
-- `npm run build`: production build
-- `npm run preview`: preview build artifact
-- `npm run lint`: lint check
-- `npm run test:run`: run unit/component tests once
-- `npm run test:e2e`: run Playwright E2E tests
+### 2.2 Explicit Non-Goals
+
+- No guarantee to solve every valid puzzle instance
+- No requirement to optimize for shortest solution path
+- No requirement to prioritize advanced user interaction over deduction transparency
 
 ---
 
-## 4. Architecture Overview
+## 3. High-Level Architecture
 
 ```text
 src/
-  app/              # page composition and layout
-  domain/           # pure puzzle/business logic
-    ir/             # IR types, keys, normalize/clone
-    parsers/        # URL decode/encode adapters
-    rules/          # deduction engine and puzzle rules
-    plugins/        # puzzle plugin contracts and registry
-    exporters/      # output/export abstraction
-    difficulty/     # derived difficulty snapshots
-  features/         # board, controls, explanation, stats
-  test/             # test runtime setup
+  app/              # page composition and top-level routing/layout
+  domain/           # puzzle logic source of truth
+    ir/             # puzzle IR schemas, key utilities, normalize/clone
+    parsers/        # puzz.link/penpa adapters
+    rules/          # rule contracts, step engine, puzzle-specific rule sets
+    plugins/        # plugin contracts and registry
+    exporters/      # export adapters
+    difficulty/     # difficulty snapshot and rule usage aggregation
+  features/         # board, controls, replay, explanation, stats
+  test/             # test setup/runtime helpers
 ```
 
-Design principles:
+Design rule:
 
-- Keep puzzle behavior in `domain/`, not in view components
-- Keep puzzle-family differences in plugins + domain rules
-- Keep every deduction step as explicit diffs for replay and explanation
-
----
-
-## 5. Slither Sector Model (Current Truth)
-
-### 5.1 IR representation
-
-Defined in `src/domain/ir/types.ts`:
-
-- `SectorState` stores `constraintsMask`
-- Mask encodes allowed line counts at a corner sector:
-  - `SECTOR_ALLOW_0`, `SECTOR_ALLOW_1`, `SECTOR_ALLOW_2`
-  - `SECTOR_MASK_ALL`, `SECTOR_MASK_ONLY_0/1/2`, `SECTOR_MASK_NOT_0/1/2`
-- Helpers:
-  - `sectorMaskAllows(mask, n)`
-  - `sectorMaskIntersect(a, b)`
-  - `sectorMaskIsSingle(mask)`
-  - `sectorMaskSingleValue(mask)`
-
-### 5.2 Rule diff representation
-
-Defined in `src/domain/rules/types.ts`:
-
-- `SectorDiff` now uses:
-  - `fromMask`
-  - `toMask`
-
-No legacy `SectorMark` field is used in core rule flow.
-
-### 5.3 Inference flow
-
-Defined in `src/domain/rules/slither/rules.ts`:
-
-- `inferSectorMaskByVertex(...)` computes mask constraints from current local evidence
-- `createApplySectorsInference()` intersects current and inferred masks
-- `createSectorConstraintEdgePropagationRule()` pushes exact masks to edges:
-  - only-two => both sector edges are `line`
-  - only-zero => both sector edges are `blank`
-  - only-one + one decided edge => infer the remaining edge
-- `createSectorNotOneClueTwoPropagationRule()` now checks "not one" via mask semantics (line-count 1 disallowed)
+- UI should render and orchestrate.
+- Domain should decide logic.
 
 ---
 
-## 6. Engine and Replay Invariants
+## 4. End-to-End Data Flow
 
-Critical files:
+1. Parser converts URL/input into IR (`PuzzleIR`).
+2. Rule engine runs ordered rules and returns one step at a time.
+3. Each step stores rule metadata + explicit diffs.
+4. Timeline store replays diffs forward/backward.
+5. Board and explanation panel render current state + reasoning history.
+
+This guarantees the same inference chain can be replayed and inspected later.
+
+---
+
+## 5. Slitherlink Rule Architecture (Current)
+
+The Slitherlink rules are now modularized under `src/domain/rules/slither/rules/`.
+
+### 5.1 Aggregation entrypoint
+
+- `src/domain/rules/slither/rules.ts`
+  - Exports `deterministicSlitherRules` in a fixed order
+  - Exports `slitherRules = deterministic + strong-inference`
+  - Serves as the single place for execution-order control
+
+### 5.2 Rule modules
+
+- `patterns.ts`
+  - pattern-style clue rules (e.g. contiguous 3-run, diagonal adjacent 3)
+- `core.ts`
+  - generic Slither constraints (cell count, vertex degree, premature loop prevention)
+- `color.ts`
+  - cell color seeding and propagation rules
+- `sectorInference.ts`
+  - corner-sector inference from local edge/vertex/cell evidence
+- `sectorPropagation.ts`
+  - sector-to-sector and sector-to-edge propagation family
+- `strongInference.ts`
+  - conservative branch-based contradiction inference
+- `shared.ts`
+  - reusable helpers (geometry adjacency, clue/color utilities, mask helpers)
+
+### 5.3 Strong inference decoupling
+
+`strongInference` no longer self-references the exported `slitherRules` array.
+Instead, it receives deterministic rules via dependency injection:
+
+- `createStrongInferenceRule(() => deterministicSlitherRules)`
+
+This prevents circular coupling and keeps strong-inference reusable/testable.
+
+---
+
+## 6. Sector Constraint Model (Critical)
+
+Sector state is represented as a bitmask of allowed corner line counts `{0,1,2}`.
+
+- IR source: `src/domain/ir/types.ts`
+- Rule diff source: `src/domain/rules/types.ts`
+- Sector diffs use `fromMask -> toMask`
+- Rule semantics are narrowing by mask intersection, then propagating when masks become strict enough
+
+Do not revert to old single-label sector semantics.
+
+---
+
+## 7. Replay and Determinism Contract
+
+Two files must stay behaviorally aligned:
 
 - `src/domain/rules/engine.ts`
 - `src/features/solver/solverStore.ts`
 
-Both must apply sector diffs identically:
+Both apply the same `RuleDiff` semantics, especially sector mask writes:
 
-- `SectorDiff.toMask` is written to `puzzle.sectors[sectorKey].constraintsMask`
+- `puzzle.sectors[sectorKey].constraintsMask = diff.toMask`
 
-If one side changes and the other does not, rewind/replay diverges. Treat these two paths as a paired contract.
-
----
-
-## 7. Core Code Map (Where to Modify)
-
-### 7.1 Deduction engine and rules
-
-- Rule loop and step creation: `src/domain/rules/engine.ts`
-- Rule contracts: `src/domain/rules/types.ts`
-- Slither rules: `src/domain/rules/slither/rules.ts`
-- Timeline state (`next/prev/solve/reset`): `src/features/solver/solverStore.ts`
-
-### 7.2 IR and serialization
-
-- IR types + sector mask helpers: `src/domain/ir/types.ts`
-- Slither puzzle initialization: `src/domain/ir/slither.ts`
-- Normalized JSON snapshot + semantic compare: `src/domain/ir/normalize.ts`
-- Export entry: `src/domain/exporters/index.ts`
-
-### 7.3 Parsing / encoding
-
-- Unified parse/encode entry: `src/domain/parsers/index.ts`
-- Slither puzz.link codec: `src/domain/parsers/puzzlink/slitherPuzzlink.ts`
-- Penpa adapter placeholder: `src/domain/parsers/penpa/index.ts`
-
-### 7.4 Board and explanation UI
-
-- Canvas rendering and interactions: `src/features/board/CanvasBoard.tsx`
-- Reasoning list UI: `src/features/explanation/ExplanationPanel.tsx`
-- Controls and export panel: `src/features/solver/ControlPanel.tsx`
+If these two paths diverge, timeline replay and solver state will drift.
 
 ---
 
-## 8. Current Feature Status
+## 8. Current Capability Snapshot
 
 Implemented:
 
-- Slitherlink puzz.link decode/encode (clue-centric baseline)
-- Rule-based progression (`Next`, `Previous`, `Solve to End`)
-- Rewind-safe timeline replay using stored diffs
-- Sector **multi-constraint mask semantics** in IR/rules/engine/replay
-- Sector-to-edge propagation from exact masks
-- Canvas sector visualization for overlapping constraints (layered arcs)
-- Explanation panel with newest-first step order and display modes (`Recent 30` / `Show All`)
-- Export panel:
-  - puzz.link URL output
-  - penpa placeholder output
-  - normalized JSON output
-  - clipboard copy
+- Slitherlink puzz.link parse/encode baseline
+- Ordered rule execution with step metadata
+- Step replay (`Next`, `Previous`, `Solve to End`)
+- Explanation-oriented deduction trace
+- Sector mask inference/propagation pipeline
+- Strong-inference fallback for harder states
 
-Partially implemented / placeholder:
+Partially implemented / planned:
 
-- Penpa parsing/encoding
-- Additional puzzle families beyond Slitherlink
-- Puzzle-specific interaction tools on board
-- Difficulty model calibration (current snapshot is structural/basic)
+- Penpa adapter completeness
+- More puzzle families (e.g. Masyu/Nonogram)
+- Richer puzzle-specific interaction tools
+- Better calibrated difficulty modeling
+
+Important expectation: difficult puzzles may stop at a stable but incomplete state if no rule applies.
 
 ---
 
-## 9. Development Workflow
+## 9. AI Agent Quick Start
 
-1. Make a small, scoped change.
-2. Add/update tests with the logic change.
-3. Run:
-   - `npm run lint`
-   - `npm run test:run`
-   - `npm run build`
-4. For UI-critical flows, optionally run:
-   - `npx playwright install` (first time)
-   - `npm run test:e2e`
+If you are an AI agent onboarding this repository, do this first:
 
----
+1. Read `src/domain/rules/types.ts` and `src/domain/rules/engine.ts`.
+2. Read `src/domain/rules/slither/rules.ts` to understand execution order.
+3. Read `src/domain/rules/slither/rules/*.ts` by module category.
+4. Verify replay contract in `src/features/solver/solverStore.ts`.
+5. Use `src/domain/rules/slither/rules.test.ts` as behavior reference.
 
-## 10. Known Risks and Documentation Gaps to Watch
+When editing:
 
-Areas that historically caused drift and must stay aligned:
-
-- **Sector semantics drift**: do not reintroduce single-label logic in new rules.
-- **Engine/replay split-brain**: when `RuleDiff` shape changes, update both `engine.ts` and `solverStore.ts`.
-- **Doc staleness after model upgrades**: update this guide whenever IR schema changes (especially `types.ts`, `rules/types.ts`, and `CanvasBoard` assumptions).
+- Keep changes domain-first and minimally scoped.
+- Preserve diff/message explainability.
+- Preserve ordered deterministic behavior unless intentionally changed.
+- Add/adjust tests alongside rule changes.
 
 ---
 
-## 11. Contributor Guidelines
+## 10. Development Commands
 
-When modifying this codebase:
-
-- Treat `domain/` as the source of truth for puzzle behavior.
-- Keep puzzle-specific deduction out of generic UI layout files.
-- Emit explicit diffs + messages for each rule application.
-- Preserve timeline semantics (`steps + pointer`) and replay determinism.
-- Add tests next to changed logic (`*.test.ts` / `*.test.tsx`).
-
-If introducing a new puzzle:
-
-1. Add parser/encoder adapter.
-2. Add plugin implementation and register it.
-3. Add rule set and tests.
-4. Add puzzle-specific UI labels/config through plugin interfaces.
+- `npm run dev` - local development
+- `npm run lint` - linting
+- `npm run test:run` - unit/component tests
+- `npm run build` - production build
+- `npm run test:e2e` - Playwright end-to-end tests
 

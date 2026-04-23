@@ -1031,6 +1031,21 @@ describe('slither vertex onlyOne non-sector balance rule', () => {
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' }])
   })
+
+  it('supports diagonal-sector narrative: onlyOne on one diagonal plus blank on opposite diagonal edge forces line', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.sectors[sectorKey(0, 1, 'sw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const oppositeDiagonalEdgeA = edgeKey([1, 0], [1, 1])
+    const oppositeDiagonalEdgeB = edgeKey([1, 1], [2, 1])
+    puzzle.edges[oppositeDiagonalEdgeA].mark = 'blank'
+
+    const result = vertexBalanceRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: oppositeDiagonalEdgeB, from: 'unknown', to: 'line' }])
+    expect(result?.affectedSectors).toContain(sectorKey(0, 1, 'sw'))
+  })
 })
 
 describe('slither apply sectors rule', () => {
