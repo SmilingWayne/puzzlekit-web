@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { decodeSlitherFromPuzzlink } from '../../parsers/puzzlink'
-import { cellKey, edgeKey, getCellEdgeKeys, getCornerEdgeKeys, sectorKey } from '../../ir/keys'
+import { cellKey, edgeKey, getCellEdgeKeys, getCornerEdgeKeys, parseEdgeKey, sectorKey } from '../../ir/keys'
 import { createSlitherPuzzle } from '../../ir/slither'
 import {
   SECTOR_MASK_ALL,
@@ -39,17 +39,18 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Contiguous 3-run boundaries forced')
+    expect(result?.message).toContain('Contiguous 3-run pattern forced')
     expect(result?.affectedCells).toEqual(['1,1', '1,2', '1,3'])
-    expect(getEdgeDiffKeys(result)).toEqual([
-      edgeKey([1, 1], [2, 1]),
-      edgeKey([1, 2], [2, 2]),
-      edgeKey([1, 3], [2, 3]),
-      edgeKey([1, 4], [2, 4]),
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([1, 1], [2, 1]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([1, 2], [2, 2]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([1, 3], [2, 3]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([1, 4], [2, 4]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([0, 2], [1, 2]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([2, 2], [3, 2]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([0, 3], [1, 3]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([2, 3], [3, 3]), from: 'unknown', to: 'blank' },
     ])
-    expect(
-      result?.diffs.every((d) => d.kind === 'edge' && d.from === 'unknown' && d.to === 'line'),
-    ).toBe(true)
   })
 
   it('forces all horizontal run boundaries for a vertical 3-run', () => {
@@ -61,17 +62,18 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Contiguous 3-run boundaries forced')
+    expect(result?.message).toContain('Contiguous 3-run pattern forced')
     expect(result?.affectedCells).toEqual(['1,2', '2,2', '3,2'])
-    expect(getEdgeDiffKeys(result)).toEqual([
-      edgeKey([1, 2], [1, 3]),
-      edgeKey([2, 2], [2, 3]),
-      edgeKey([3, 2], [3, 3]),
-      edgeKey([4, 2], [4, 3]),
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([1, 2], [1, 3]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([2, 2], [2, 3]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([3, 2], [3, 3]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([4, 2], [4, 3]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([2, 1], [2, 2]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([2, 3], [2, 4]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([3, 1], [3, 2]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([3, 3], [3, 4]), from: 'unknown', to: 'blank' },
     ])
-    expect(
-      result?.diffs.every((d) => d.kind === 'edge' && d.from === 'unknown' && d.to === 'line'),
-    ).toBe(true)
   })
 
   it('does not apply for an isolated single clue-3 cell', () => {
@@ -97,11 +99,76 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
+    const extensionBlank = edgeKey([1, 2], [2, 2])
     expect(result?.affectedCells).toEqual(['0,1', '0,2'])
-    expect(getEdgeDiffKeys(result)).toEqual([unknownEdge])
+    expect(getEdgeDiffKeys(result)).toEqual([unknownEdge, extensionBlank])
     expect(result?.diffs).toEqual([
       { kind: 'edge', edgeKey: unknownEdge, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: extensionBlank, from: 'unknown', to: 'blank' },
     ])
+  })
+
+  it('only emits in-bounds extension blanks near board edge', () => {
+    const puzzle = createSlitherPuzzle(5, 4)
+    setClue(puzzle, 1, 0, 3)
+    setClue(puzzle, 2, 0, 3)
+    setClue(puzzle, 3, 0, 3)
+
+    const result = threeRunRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'edge',
+      edgeKey: edgeKey([2, 1], [2, 2]),
+      from: 'unknown',
+      to: 'blank',
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'edge',
+      edgeKey: edgeKey([3, 1], [3, 2]),
+      from: 'unknown',
+      to: 'blank',
+    })
+    const blankEdgeKeys =
+      result?.diffs.flatMap((d) => (d.kind === 'edge' && d.to === 'blank' ? [d.edgeKey] : [])) ?? []
+    expect(blankEdgeKeys).toEqual([edgeKey([2, 1], [2, 2]), edgeKey([3, 1], [3, 2])])
+  })
+
+  it('appears on provided 6x6 puzzle and emits both horizontal/vertical extension blanks', () => {
+    let current = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/6/6/mdidi833dp')
+    let sawVerticalBlank = false
+    let sawHorizontalBlank = false
+
+    for (let stepNumber = 1; stepNumber <= 500; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (step.ruleId !== 'contiguous-three-run-boundaries') {
+        current = nextPuzzle
+        continue
+      }
+
+      for (const diff of step.diffs) {
+        if (diff.kind !== 'edge' || diff.to !== 'blank') {
+          continue
+        }
+        const [a, b] = parseEdgeKey(diff.edgeKey)
+        if (a[0] !== b[0]) {
+          sawVerticalBlank = true
+        } else {
+          sawHorizontalBlank = true
+        }
+      }
+
+      if (sawVerticalBlank && sawHorizontalBlank) {
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(sawVerticalBlank).toBe(true)
+    expect(sawHorizontalBlank).toBe(true)
   })
 })
 

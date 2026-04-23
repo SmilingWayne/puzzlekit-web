@@ -10,6 +10,19 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
     const decidedEdges = new Map<string, EdgeMark>()
     const allAffectedCells = new Set<string>()
     let firstExample: string | null = null
+    const decideUnknownEdge = (key: string, to: EdgeMark): boolean => {
+      if (!puzzle.edges[key]) {
+        return false
+      }
+      if ((puzzle.edges[key]?.mark ?? 'unknown') !== 'unknown') {
+        return false
+      }
+      if (decidedEdges.has(key)) {
+        return false
+      }
+      decidedEdges.set(key, to)
+      return true
+    }
 
     for (let r = 0; r < puzzle.rows; r += 1) {
       let c = 0
@@ -27,16 +40,24 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
           continue
         }
 
-        const runEdges: string[] = []
+        let runAddedAny = false
         for (let boundaryCol = cStart; boundaryCol <= cEnd + 1; boundaryCol += 1) {
           const key = edgeKey([r, boundaryCol], [r + 1, boundaryCol])
-          if ((puzzle.edges[key]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(key)) {
-            runEdges.push(key)
+          runAddedAny = decideUnknownEdge(key, 'line') || runAddedAny
+        }
+
+        for (let innerCol = cStart + 1; innerCol <= cEnd; innerCol += 1) {
+          if (r - 1 >= 0) {
+            const upKey = edgeKey([r - 1, innerCol], [r, innerCol])
+            runAddedAny = decideUnknownEdge(upKey, 'blank') || runAddedAny
+          }
+          if (r + 2 <= puzzle.rows) {
+            const downKey = edgeKey([r + 1, innerCol], [r + 2, innerCol])
+            runAddedAny = decideUnknownEdge(downKey, 'blank') || runAddedAny
           }
         }
 
-        if (runEdges.length > 0) {
-          for (const key of runEdges) decidedEdges.set(key, 'line')
+        if (runAddedAny) {
           for (let col = cStart; col <= cEnd; col += 1) allAffectedCells.add(cellKey(r, col))
           if (firstExample === null) firstExample = `row ${r} cols ${cStart}-${cEnd}`
         }
@@ -59,16 +80,24 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
           continue
         }
 
-        const runEdges: string[] = []
+        let runAddedAny = false
         for (let boundaryRow = rStart; boundaryRow <= rEnd + 1; boundaryRow += 1) {
           const key = edgeKey([boundaryRow, c], [boundaryRow, c + 1])
-          if ((puzzle.edges[key]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(key)) {
-            runEdges.push(key)
+          runAddedAny = decideUnknownEdge(key, 'line') || runAddedAny
+        }
+
+        for (let innerRow = rStart + 1; innerRow <= rEnd; innerRow += 1) {
+          if (c - 1 >= 0) {
+            const leftKey = edgeKey([innerRow, c - 1], [innerRow, c])
+            runAddedAny = decideUnknownEdge(leftKey, 'blank') || runAddedAny
+          }
+          if (c + 2 <= puzzle.cols) {
+            const rightKey = edgeKey([innerRow, c + 1], [innerRow, c + 2])
+            runAddedAny = decideUnknownEdge(rightKey, 'blank') || runAddedAny
           }
         }
 
-        if (runEdges.length > 0) {
-          for (const key of runEdges) decidedEdges.set(key, 'line')
+        if (runAddedAny) {
           for (let row = rStart; row <= rEnd; row += 1) allAffectedCells.add(cellKey(row, c))
           if (firstExample === null) firstExample = `col ${c} rows ${rStart}-${rEnd}`
         }
@@ -80,8 +109,8 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Contiguous 3-run boundaries forced (e.g., ${firstExample}).`
-          : 'Contiguous 3-run boundaries forced.',
+          ? `Contiguous 3-run pattern forced boundary lines and same-direction extension blanks (e.g., ${firstExample}).`
+          : 'Contiguous 3-run pattern forced boundary lines and same-direction extension blanks.',
       diffs: [...decidedEdges.entries()].map(([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,
