@@ -973,6 +973,75 @@ describe('slither sector clue-2 combination feasibility rule', () => {
     )
   })
 
+  it('uses sector prior masks to filter combos before projecting to all corners', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+
+    const result = combinationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(1, 1, 'ne'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(1, 1, 'sw'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_1,
+        },
+      ]),
+    )
+  })
+
+  it('can become single-combo from sector constraints and force stronger ONLY masks', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_2
+
+    const result = combinationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(1, 1, 'ne'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(1, 1, 'sw'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_1,
+        },
+        {
+          kind: 'sector',
+          sectorKey: sectorKey(1, 1, 'se'),
+          fromMask: SECTOR_MASK_ALL,
+          toMask: SECTOR_MASK_ONLY_0,
+        },
+      ]),
+    )
+  })
+
+  it('returns null when sector priors remove all clue-2 combinations (strategy B)', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_2
+    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_2
+
+    const result = combinationRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
   it('returns null when clue=2 combinations do not tighten any sector', () => {
     const puzzle = createSlitherPuzzle(3, 3)
     setClue(puzzle, 1, 1, 2)

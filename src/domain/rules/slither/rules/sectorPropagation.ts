@@ -15,6 +15,7 @@ import {
   sectorMaskSingleValue,
   type EdgeMark,
   type PuzzleIR,
+  type SectorLineCount,
   type SectorConstraintMask,
   type SectorCorner,
 } from '../../../ir/types'
@@ -85,6 +86,37 @@ const isComboVertexFeasible = (
     }
   }
 
+  return true
+}
+
+const comboCornerLineCount = (
+  cellEdges: [string, string, string, string],
+  combo: ClueTwoCombo,
+  cornerEdges: [string, string],
+): SectorLineCount => {
+  const edgeToMark = new Map<string, EdgeMark>()
+  for (let i = 0; i < cellEdges.length; i += 1) {
+    edgeToMark.set(cellEdges[i], combo.marks[i])
+  }
+  return cornerEdges.filter((edgeKeyValue) => edgeToMark.get(edgeKeyValue) === 'line').length as SectorLineCount
+}
+
+const isComboConsistentWithSectorMasks = (
+  puzzle: PuzzleIR,
+  row: number,
+  col: number,
+  cellEdges: [string, string, string, string],
+  combo: ClueTwoCombo,
+): boolean => {
+  const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
+  for (const corner of corners) {
+    const cornerEdges = getCornerEdgeKeys(row, col, corner)
+    const lineCount = comboCornerLineCount(cellEdges, combo, cornerEdges)
+    const currentMask = puzzle.sectors[sectorKey(row, col, corner)]?.constraintsMask ?? SECTOR_MASK_ALL
+    if (!sectorMaskAllows(currentMask, lineCount)) {
+      return false
+    }
+  }
   return true
 }
 
@@ -331,7 +363,10 @@ export const createSectorClueTwoCombinationFeasibilityRule = (): Rule => ({
           if (!isComboConsistentWithKnownEdges(puzzle, cellEdges, combo)) {
             return false
           }
-          return isComboVertexFeasible(puzzle, r, c, cellEdges, combo)
+          if (!isComboVertexFeasible(puzzle, r, c, cellEdges, combo)) {
+            return false
+          }
+          return isComboConsistentWithSectorMasks(puzzle, r, c, cellEdges, combo)
         })
 
         if (feasibleCombos.length === 0) {
@@ -343,10 +378,7 @@ export const createSectorClueTwoCombinationFeasibilityRule = (): Rule => ({
           const allowedCounts = new Set<number>()
 
           for (const combo of feasibleCombos) {
-            const lineCount = cornerEdges.filter((edgeKeyValue) => {
-              const edgeIndex = cellEdges.indexOf(edgeKeyValue)
-              return edgeIndex !== -1 && combo.marks[edgeIndex] === 'line'
-            }).length
+            const lineCount = comboCornerLineCount(cellEdges, combo, cornerEdges)
             allowedCounts.add(lineCount)
           }
 
