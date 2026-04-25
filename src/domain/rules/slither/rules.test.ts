@@ -13,7 +13,9 @@ import {
   type PuzzleIR,
 } from '../../ir/types'
 import { runNextRule } from '../engine'
+import type { Rule } from '../types'
 import { slitherRules } from './rules'
+import { createStrongInferenceRule } from './rules/strongInference'
 
 const setClue = (puzzle: PuzzleIR, row: number, col: number, value: number): void => {
   puzzle.cells[cellKey(row, col)] = {
@@ -1631,6 +1633,8 @@ describe('slither strong inference rule', () => {
       { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
     ])
     expect(result?.affectedSectors).toEqual([sectorKey(0, 0, 'se')])
+    expect(result?.message).toContain('candidate=sector-only-one')
+    expect(result?.message).toContain('result=contradiction')
   })
 
   it('returns null when both onlyOne branches remain feasible', () => {
@@ -1640,6 +1644,63 @@ describe('slither strong inference rule', () => {
     const result = strongRule.apply(puzzle)
 
     expect(result).toBeNull()
+  })
+
+  it('supports vertex-two-choice contradiction on a boundary vertex', () => {
+    const directStrongRule = createStrongInferenceRule(() => [])
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 1)
+
+    const up = edgeKey([0, 0], [1, 0])
+    const down = edgeKey([1, 0], [2, 0])
+    const right = edgeKey([1, 0], [1, 1])
+    puzzle.edges[right].mark = 'line'
+
+    const result = directStrongRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: up, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: down, from: 'unknown', to: 'line' },
+    ])
+    expect(result?.message).toContain('candidate=vertex-two-choice((1, 0))')
+    expect(result?.message).toContain('result=contradiction')
+  })
+
+  it('extracts shared consequences when both feasible branches agree downstream', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const sector = sectorKey(0, 0, 'se')
+    puzzle.sectors[sector].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const [bottom, right] = getCornerEdgeKeys(0, 0, 'se')
+    const top = edgeKey([0, 0], [0, 1])
+    const sharedConsequenceRule: Rule = {
+      id: 'shared-consequence-test',
+      name: 'Shared Consequence Test',
+      apply: (trial) => {
+        if ((trial.edges[top]?.mark ?? 'unknown') !== 'unknown') {
+          return null
+        }
+        const bottomMark = trial.edges[bottom]?.mark ?? 'unknown'
+        const rightMark = trial.edges[right]?.mark ?? 'unknown'
+        if (bottomMark !== 'line' && rightMark !== 'line') {
+          return null
+        }
+        return {
+          message: 'test shared consequence',
+          diffs: [{ kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' }],
+          affectedCells: [cellKey(0, 0)],
+        }
+      },
+    }
+    const sharedStrongRule = createStrongInferenceRule(() => [sharedConsequenceRule])
+
+    const result = sharedStrongRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' }])
+    expect(result?.message).toContain('candidate=sector-only-one')
+    expect(result?.message).toContain('result=shared-consequence')
   })
 
   it('can run on the provided 10x10 puzzle after deterministic stabilization', () => {
@@ -1659,5 +1720,54 @@ describe('slither strong inference rule', () => {
     expect(() => strongRule.apply(current)).not.toThrow()
     const result = strongRule.apply(current)
     expect(result === null || result.diffs.length > 0).toBe(true)
+  })
+
+  it('unlocks the provided 6x100 target edge after deterministic stabilization', () => {
+    const rulesWithoutStrong = slitherRules.filter((rule) => rule.id !== 'strong-inference')
+    const target = edgeKey([23, 0], [24, 0])
+    let current = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/6/100/h1dgdabdg3bgdddbg2cgcddag0bgdcbag0bgdbcdg1cgbdddg1bgbdddg2dgaadbg1cgaddbg0bgdbacg1bgadccg3cgaacdg2cgbbadg3agbbbag3cgdcddg2bgcddag2bgaabdg2bgdbdag3bgcdbcg2cgdddbg2cgdddag2bgddcag2bgcdaag3bgdddcg2cgcaddg2bgabddg1bgdadcg3bgbdcdg1bgddddg1dgdbbdg3agbbdag1dgbdddg2agadddg1d',
+    )
+
+    for (let stepNumber = 1; stepNumber <= 2000; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, rulesWithoutStrong, stepNumber)
+      if (!step) {
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(current.edges[target]?.mark ?? 'unknown').toBe('unknown')
+
+    let sawStrongInference = false
+    let targetDiff: { kind: 'edge'; edgeKey: string; from: 'unknown' | 'line' | 'blank'; to: 'unknown' | 'line' | 'blank' } | null =
+      null
+
+    for (let stepNumber = 1; stepNumber <= 120; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (step.ruleId === 'strong-inference') {
+        sawStrongInference = true
+      }
+      const edgeDiff = step.diffs.find(
+        (diff): diff is Extract<(typeof step.diffs)[number], { kind: 'edge' }> =>
+          diff.kind === 'edge' && diff.edgeKey === target,
+      )
+      current = nextPuzzle
+      if (edgeDiff) {
+        targetDiff = edgeDiff
+        break
+      }
+    }
+
+    expect(sawStrongInference).toBe(true)
+    expect(targetDiff).toEqual({
+      kind: 'edge',
+      edgeKey: target,
+      from: 'unknown',
+      to: 'blank',
+    })
   })
 })

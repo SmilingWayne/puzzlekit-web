@@ -16,7 +16,7 @@ import {
 // const STRONG_MAX_MS = 1000
 const STRONG_MAX_CANDIDATES = 200
 const STRONG_MAX_TRIAL_STEPS = 120
-const STRONG_MAX_MS = 60
+const STRONG_MAX_MS = 1000
 
 type StrongCandidate =
   | {
@@ -28,13 +28,24 @@ type StrongCandidate =
       edgeB: string
     }
   | {
+      kind: 'vertex-two-choice'
+      vertexRow: number
+      vertexCol: number
+      edgeA: string
+      edgeB: string
+    }
+  | {
       kind: 'edge'
       edgeKey: string
     }
 
 const collectStrongCandidates = (puzzle: PuzzleIR, maxCandidates: number): StrongCandidate[] => {
-  const candidates: StrongCandidate[] = []
+  const sectorCandidates: StrongCandidate[] = []
+  const vertexCandidates: StrongCandidate[] = []
+  const edgeCandidates: StrongCandidate[] = []
   const seenOnlyOneEdges = new Set<string>()
+  const seenBinaryPairs = new Set<string>()
+  const getPairKey = (edgeA: string, edgeB: string): string => [edgeA, edgeB].sort().join('|')
 
   for (const [sectorKeyValue, sectorState] of Object.entries(puzzle.sectors)) {
     const mask = sectorState?.constraintsMask ?? SECTOR_MASK_ALL
@@ -49,7 +60,7 @@ const collectStrongCandidates = (puzzle: PuzzleIR, maxCandidates: number): Stron
     if ((puzzle.edges[edgeB]?.mark ?? 'unknown') !== 'unknown') {
       continue
     }
-    candidates.push({
+    sectorCandidates.push({
       kind: 'sector-only-one',
       sectorKey: sectorKeyValue,
       row,
@@ -57,10 +68,43 @@ const collectStrongCandidates = (puzzle: PuzzleIR, maxCandidates: number): Stron
       edgeA,
       edgeB,
     })
+    seenBinaryPairs.add(getPairKey(edgeA, edgeB))
     seenOnlyOneEdges.add(edgeA)
     seenOnlyOneEdges.add(edgeB)
-    if (candidates.length >= maxCandidates) {
-      return candidates
+  }
+
+  for (let vertexRow = 0; vertexRow <= puzzle.rows; vertexRow += 1) {
+    for (let vertexCol = 0; vertexCol <= puzzle.cols; vertexCol += 1) {
+      const incident = getVertexIncidentEdges(vertexRow, vertexCol, puzzle.rows, puzzle.cols)
+      if (incident.length < 3) {
+        continue
+      }
+      const lineEdges: string[] = []
+      const unknownEdges: string[] = []
+      for (const edgeKeyValue of incident) {
+        const mark = puzzle.edges[edgeKeyValue]?.mark ?? 'unknown'
+        if (mark === 'line') {
+          lineEdges.push(edgeKeyValue)
+        } else if (mark === 'unknown') {
+          unknownEdges.push(edgeKeyValue)
+        }
+      }
+      if (lineEdges.length !== 1 || unknownEdges.length !== 2) {
+        continue
+      }
+      const [edgeA, edgeB] = unknownEdges
+      const pairKey = getPairKey(edgeA, edgeB)
+      if (seenBinaryPairs.has(pairKey)) {
+        continue
+      }
+      vertexCandidates.push({
+        kind: 'vertex-two-choice',
+        vertexRow,
+        vertexCol,
+        edgeA,
+        edgeB,
+      })
+      seenBinaryPairs.add(pairKey)
     }
   }
 
@@ -71,13 +115,22 @@ const collectStrongCandidates = (puzzle: PuzzleIR, maxCandidates: number): Stron
     if (seenOnlyOneEdges.has(edgeKeyValue)) {
       continue
     }
-    candidates.push({ kind: 'edge', edgeKey: edgeKeyValue })
-    if (candidates.length >= maxCandidates) {
-      break
-    }
+    edgeCandidates.push({ kind: 'edge', edgeKey: edgeKeyValue })
   }
 
-  return candidates
+  return [...vertexCandidates, ...sectorCandidates, ...edgeCandidates].slice(0, maxCandidates)
+}
+
+type StrongTrialResult = {
+  contradiction: boolean
+  timedOut: boolean
+  exhausted: boolean
+  puzzle: PuzzleIR
+}
+
+type StrongCandidateBranch = {
+  setupOk: boolean
+  diffs: RuleApplication['diffs']
 }
 
 const applyEdgeAssumption = (puzzle: PuzzleIR, edgeKeyValue: string, to: EdgeMark): boolean => {
@@ -252,26 +305,114 @@ const runTrialUntilFixpoint = (
   deterministicRules: Rule[],
   maxTrialSteps: number,
   deadlineMs: number,
-): { contradiction: boolean; timedOut: boolean } => {
+): StrongTrialResult => {
   if (detectHardContradiction(puzzle)) {
-    return { contradiction: true, timedOut: false }
+    return { contradiction: true, timedOut: false, exhausted: false, puzzle }
   }
 
   let trial = puzzle
   for (let stepNumber = 1; stepNumber <= maxTrialSteps; stepNumber += 1) {
     if (Date.now() > deadlineMs) {
-      return { contradiction: false, timedOut: true }
+      return { contradiction: false, timedOut: true, exhausted: false, puzzle: trial }
     }
     const { nextPuzzle, step } = runNextRule(trial, deterministicRules, stepNumber)
     if (!step) {
-      return { contradiction: detectHardContradiction(trial), timedOut: false }
+      return {
+        contradiction: detectHardContradiction(trial),
+        timedOut: false,
+        exhausted: false,
+        puzzle: trial,
+      }
     }
     trial = nextPuzzle
     if (detectHardContradiction(trial)) {
-      return { contradiction: true, timedOut: false }
+      return { contradiction: true, timedOut: false, exhausted: false, puzzle: trial }
     }
   }
-  return { contradiction: false, timedOut: Date.now() > deadlineMs }
+  return { contradiction: false, timedOut: false, exhausted: true, puzzle: trial }
+}
+
+const buildBinaryCandidateBranches = (
+  puzzle: PuzzleIR,
+  edgeA: string,
+  edgeB: string,
+): { branchA: PuzzleIR; branchB: PuzzleIR; branchAInfo: StrongCandidateBranch; branchBInfo: StrongCandidateBranch } => {
+  const branchA = clonePuzzle(puzzle)
+  const branchB = clonePuzzle(puzzle)
+
+  const branchASetupOk = applyEdgeAssumption(branchA, edgeA, 'line') && applyEdgeAssumption(branchA, edgeB, 'blank')
+  const branchBSetupOk = applyEdgeAssumption(branchB, edgeA, 'blank') && applyEdgeAssumption(branchB, edgeB, 'line')
+
+  return {
+    branchA,
+    branchB,
+    branchAInfo: {
+      setupOk: branchASetupOk,
+      diffs: [
+        { kind: 'edge', edgeKey: edgeA, from: 'unknown', to: 'line' },
+        { kind: 'edge', edgeKey: edgeB, from: 'unknown', to: 'blank' },
+      ],
+    },
+    branchBInfo: {
+      setupOk: branchBSetupOk,
+      diffs: [
+        { kind: 'edge', edgeKey: edgeA, from: 'unknown', to: 'blank' },
+        { kind: 'edge', edgeKey: edgeB, from: 'unknown', to: 'line' },
+      ],
+    },
+  }
+}
+
+const collectSharedEdgeDiffs = (basePuzzle: PuzzleIR, branchA: PuzzleIR, branchB: PuzzleIR): RuleApplication['diffs'] => {
+  const diffs: RuleApplication['diffs'] = []
+  for (const [edgeKeyValue, edgeState] of Object.entries(basePuzzle.edges)) {
+    if ((edgeState?.mark ?? 'unknown') !== 'unknown') {
+      continue
+    }
+    const branchAMark = branchA.edges[edgeKeyValue]?.mark ?? 'unknown'
+    const branchBMark = branchB.edges[edgeKeyValue]?.mark ?? 'unknown'
+    if (branchAMark === 'unknown' || branchAMark !== branchBMark) {
+      continue
+    }
+    diffs.push({
+      kind: 'edge',
+      edgeKey: edgeKeyValue,
+      from: 'unknown',
+      to: branchAMark,
+    })
+  }
+  return diffs
+}
+
+const describeCandidate = (candidate: StrongCandidate): string => {
+  if (candidate.kind === 'sector-only-one') {
+    return `candidate=sector-only-one(${candidate.sectorKey})`
+  }
+  if (candidate.kind === 'vertex-two-choice') {
+    return `candidate=vertex-two-choice((${candidate.vertexRow}, ${candidate.vertexCol}))`
+  }
+  return `candidate=edge(${candidate.edgeKey})`
+}
+
+const describeBranch = (diffs: RuleApplication['diffs']): string =>
+  diffs
+    .filter((diff): diff is Extract<(typeof diffs)[number], { kind: 'edge' }> => diff.kind === 'edge')
+    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .join(', ')
+
+const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
+  const edgeDiffs = diffs.filter((diff): diff is Extract<(typeof diffs)[number], { kind: 'edge' }> => diff.kind === 'edge')
+  if (edgeDiffs.length === 0) {
+    return 'fixed no edges'
+  }
+  if (edgeDiffs.length <= 3) {
+    return `fixed ${edgeDiffs.map((diff) => `${diff.edgeKey}=${diff.to}`).join(', ')}`
+  }
+  const preview = edgeDiffs
+    .slice(0, 3)
+    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .join(', ')
+  return `fixed ${edgeDiffs.length} edges (${preview}, ...)`
 }
 
 export const createStrongInferenceRule = (getDeterministicRules: () => Rule[]): Rule => ({
@@ -290,65 +431,71 @@ export const createStrongInferenceRule = (getDeterministicRules: () => Rule[]): 
         break
       }
 
-      const branchA = clonePuzzle(puzzle)
-      const branchB = clonePuzzle(puzzle)
-      let branchASetupOk = true
-      let branchBSetupOk = true
-      const branchADiffs: RuleApplication['diffs'] = []
-      const branchBDiffs: RuleApplication['diffs'] = []
+      let branchA: PuzzleIR
+      let branchB: PuzzleIR
+      let branchAInfo: StrongCandidateBranch
+      let branchBInfo: StrongCandidateBranch
 
-      if (candidate.kind === 'sector-only-one') {
-        branchASetupOk =
-          applyEdgeAssumption(branchA, candidate.edgeA, 'line') &&
-          applyEdgeAssumption(branchA, candidate.edgeB, 'blank')
-        branchBSetupOk =
-          applyEdgeAssumption(branchB, candidate.edgeA, 'blank') &&
-          applyEdgeAssumption(branchB, candidate.edgeB, 'line')
-        branchADiffs.push(
-          { kind: 'edge', edgeKey: candidate.edgeA, from: 'unknown', to: 'line' },
-          { kind: 'edge', edgeKey: candidate.edgeB, from: 'unknown', to: 'blank' },
-        )
-        branchBDiffs.push(
-          { kind: 'edge', edgeKey: candidate.edgeA, from: 'unknown', to: 'blank' },
-          { kind: 'edge', edgeKey: candidate.edgeB, from: 'unknown', to: 'line' },
-        )
+      if (candidate.kind === 'sector-only-one' || candidate.kind === 'vertex-two-choice') {
+        ;({ branchA, branchB, branchAInfo, branchBInfo } = buildBinaryCandidateBranches(
+          puzzle,
+          candidate.edgeA,
+          candidate.edgeB,
+        ))
       } else {
-        branchASetupOk = applyEdgeAssumption(branchA, candidate.edgeKey, 'line')
-        branchBSetupOk = applyEdgeAssumption(branchB, candidate.edgeKey, 'blank')
-        branchADiffs.push({ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'line' })
-        branchBDiffs.push({ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'blank' })
+        branchA = clonePuzzle(puzzle)
+        branchB = clonePuzzle(puzzle)
+        branchAInfo = {
+          setupOk: applyEdgeAssumption(branchA, candidate.edgeKey, 'line'),
+          diffs: [{ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'line' }],
+        }
+        branchBInfo = {
+          setupOk: applyEdgeAssumption(branchB, candidate.edgeKey, 'blank'),
+          diffs: [{ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'blank' }],
+        }
       }
 
-      const branchAResult = branchASetupOk
+      const branchAResult = branchAInfo.setupOk
         ? runTrialUntilFixpoint(branchA, deterministicRules, STRONG_MAX_TRIAL_STEPS, deadlineMs)
-        : { contradiction: true, timedOut: false }
-      const branchBResult = branchBSetupOk
+        : { contradiction: true, timedOut: false, exhausted: false, puzzle: branchA }
+      const branchBResult = branchBInfo.setupOk
         ? runTrialUntilFixpoint(branchB, deterministicRules, STRONG_MAX_TRIAL_STEPS, deadlineMs)
-        : { contradiction: true, timedOut: false }
+        : { contradiction: true, timedOut: false, exhausted: false, puzzle: branchB }
 
       if (branchAResult.timedOut || branchBResult.timedOut) {
         break
       }
-      if (branchAResult.contradiction === branchBResult.contradiction) {
+      if (branchAResult.exhausted || branchBResult.exhausted) {
         continue
       }
-
-      const forcedDiffs = branchAResult.contradiction ? branchBDiffs : branchADiffs
-      const diffs = forcedDiffs.filter((diff) => {
-        if (diff.kind !== 'edge') {
-          return false
+      if (branchAResult.contradiction !== branchBResult.contradiction) {
+        const contradictionBranch = branchAResult.contradiction ? branchAInfo : branchBInfo
+        const survivingBranch = branchAResult.contradiction ? branchBInfo : branchAInfo
+        const diffs = survivingBranch.diffs.filter((diff) => {
+          if (diff.kind !== 'edge') {
+            return false
+          }
+          return (puzzle.edges[diff.edgeKey]?.mark ?? 'unknown') === 'unknown'
+        })
+        if (diffs.length === 0) {
+          continue
         }
-        return (puzzle.edges[diff.edgeKey]?.mark ?? 'unknown') === 'unknown'
-      })
+
+        return {
+          message: `Strong inference ${describeCandidate(candidate)} result=contradiction: branch ${describeBranch(contradictionBranch.diffs)} fails, so ${summarizeFixedDiffs(diffs)}.`,
+          diffs,
+          affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
+          affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
+        }
+      }
+
+      const diffs = collectSharedEdgeDiffs(puzzle, branchAResult.puzzle, branchBResult.puzzle)
       if (diffs.length === 0) {
         continue
       }
 
       return {
-        message:
-          candidate.kind === 'sector-only-one'
-            ? `Strong inference on sector ${candidate.sectorKey} eliminated one branch and fixed both corner edges.`
-            : `Strong inference on edge ${candidate.edgeKey} eliminated one branch and fixed its state.`,
+        message: `Strong inference ${describeCandidate(candidate)} result=shared-consequence: both branches agree and ${summarizeFixedDiffs(diffs)}.`,
         diffs,
         affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
         affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
