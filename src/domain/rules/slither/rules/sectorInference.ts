@@ -30,24 +30,49 @@ const inferSectorMaskByVertex = (
   const incidentEdges = getVertexIncidentEdges(vertex[0], vertex[1], puzzle.rows, puzzle.cols)
   const cellEdges = getCellEdgeKeys(row, col)
   const sectorEdges = getCornerEdgeKeys(row, col, corner)
+  const sectorEdgeA = sectorEdges[0]
+  const sectorEdgeB = sectorEdges[1]
   let mask = SECTOR_MASK_ALL
   const tighten = (constraint: SectorConstraintMask): void => {
     mask = sectorMaskIntersect(mask, constraint)
   }
 
-  const secLineNum = sectorEdges.filter((e) => puzzle.edges[e]?.mark === 'line').length
-  const secCrossNum = sectorEdges.filter((e) => puzzle.edges[e]?.mark === 'blank').length
+  const markSectorA = puzzle.edges[sectorEdgeA]?.mark ?? 'unknown'
+  const markSectorB = puzzle.edges[sectorEdgeB]?.mark ?? 'unknown'
+  let secLineNum = 0
+  let secCrossNum = 0
+  if (markSectorA === 'line') secLineNum += 1
+  else if (markSectorA === 'blank') secCrossNum += 1
+  if (markSectorB === 'line') secLineNum += 1
+  else if (markSectorB === 'blank') secCrossNum += 1
+
   if (secLineNum + secCrossNum === 2) {
     tighten(maskForExactLineCount(secLineNum))
   }
 
-  const nonSectorEdges = incidentEdges.filter((e) => !sectorEdges.includes(e))
-  const diagSectorEdges = cellEdges.filter((e) => !sectorEdges.includes(e))
+  let nonSectorEdgeCount = 0
+  let nonSecLineNum = 0
+  let nonSecCrossNum = 0
+  for (const edge of incidentEdges) {
+    if (edge === sectorEdgeA || edge === sectorEdgeB) {
+      continue
+    }
+    nonSectorEdgeCount += 1
+    const mark = puzzle.edges[edge]?.mark ?? 'unknown'
+    if (mark === 'line') nonSecLineNum += 1
+    else if (mark === 'blank') nonSecCrossNum += 1
+  }
 
-  const nonSecLineNum = nonSectorEdges.filter((e) => puzzle.edges[e]?.mark === 'line').length
-  const nonSecCrossNum = nonSectorEdges.filter((e) => puzzle.edges[e]?.mark === 'blank').length
-  const diagSecLineNum = diagSectorEdges.filter((e) => puzzle.edges[e]?.mark === 'line').length
-  const diagSecCrossNum = diagSectorEdges.filter((e) => puzzle.edges[e]?.mark === 'blank').length
+  let diagSecLineNum = 0
+  let diagSecCrossNum = 0
+  for (const edge of cellEdges) {
+    if (edge === sectorEdgeA || edge === sectorEdgeB) {
+      continue
+    }
+    const mark = puzzle.edges[edge]?.mark ?? 'unknown'
+    if (mark === 'line') diagSecLineNum += 1
+    else if (mark === 'blank') diagSecCrossNum += 1
+  }
 
   const nonSecKnownNum = nonSecLineNum + nonSecCrossNum
   const vertexDegree = incidentEdges.length
@@ -55,10 +80,10 @@ const inferSectorMaskByVertex = (
   const remainingUnknowns = vertexDegree - nonSecKnownNum - sectorKnownNum
   const sectorUnknownNum = 2 - sectorKnownNum
 
-  if (nonSectorEdges.length === 0) {
+  if (nonSectorEdgeCount === 0) {
     tighten(SECTOR_MASK_NOT_1)
   }
-  if (nonSectorEdges.length === 1 && nonSecCrossNum === 1) {
+  if (nonSectorEdgeCount === 1 && nonSecCrossNum === 1) {
     tighten(SECTOR_MASK_NOT_1)
   }
   if (nonSecLineNum === 1 && remainingUnknowns === sectorUnknownNum && sectorUnknownNum > 0) {
@@ -71,20 +96,20 @@ const inferSectorMaskByVertex = (
     tighten(SECTOR_MASK_NOT_1)
   }
 
-  const clue = puzzle.cells[cellKey(row, col)]?.clue
+  const currentCellKey = cellKey(row, col)
+  const clue = puzzle.cells[currentCellKey]?.clue
   const clueValue = clue?.kind === 'number' && clue.value !== '?' ? Number(clue.value) : null
   if (clueValue !== null) {
-    const edgeKeys = getCellEdgeKeys(row, col)
-    const stats = edgeKeys.reduce(
-      (acc, key) => {
-        const mark = puzzle.edges[key]?.mark ?? 'unknown'
-        if (mark === 'line') acc.lineNum += 1
-        else if (mark === 'blank') acc.crossNum += 1
-        else acc.unknownNum += 1
-        return acc
-      },
-      { lineNum: 0, crossNum: 0, unknownNum: 0 },
-    )
+    let clueLineNum = 0
+    let clueCrossNum = 0
+    let clueUnknownNum = 0
+    for (const edge of cellEdges) {
+      const mark = puzzle.edges[edge]?.mark ?? 'unknown'
+      if (mark === 'line') clueLineNum += 1
+      else if (mark === 'blank') clueCrossNum += 1
+      else clueUnknownNum += 1
+    }
+    const stats = { lineNum: clueLineNum, crossNum: clueCrossNum, unknownNum: clueUnknownNum }
     if (stats.lineNum === clueValue) {
       tighten(maskForExactLineCount(secLineNum))
     }

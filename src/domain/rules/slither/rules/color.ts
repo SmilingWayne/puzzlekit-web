@@ -57,9 +57,19 @@ export const createColorEdgePropagationRule = (): Rule => ({
       return true
     }
 
-    for (const [edgeKeyValue] of Object.entries(puzzle.edges)) {
+    const edgeKeys = Object.keys(puzzle.edges)
+    const adjacentCellsByEdge = new Map<string, [string, string]>()
+    for (const edgeKeyValue of edgeKeys) {
       const adjacentCells = getEdgeAdjacentCellKeys(puzzle, edgeKeyValue)
       if (adjacentCells.length !== 2) {
+        continue
+      }
+      adjacentCellsByEdge.set(edgeKeyValue, [adjacentCells[0], adjacentCells[1]])
+    }
+
+    for (const edgeKeyValue of edgeKeys) {
+      const adjacentCells = adjacentCellsByEdge.get(edgeKeyValue)
+      if (!adjacentCells) {
         continue
       }
       const [cellA, cellB] = adjacentCells
@@ -78,17 +88,16 @@ export const createColorEdgePropagationRule = (): Rule => ({
       }
     }
 
-    const allEdges = Object.keys(puzzle.edges)
-    for (const edgeKeyValue of allEdges) {
+    for (const edgeKeyValue of edgeKeys) {
+      const adjacentCells = adjacentCellsByEdge.get(edgeKeyValue)
+      if (!adjacentCells) {
+        continue
+      }
+      const [cellA, cellB] = adjacentCells
       const effectiveMark = decidedEdges.get(edgeKeyValue) ?? (puzzle.edges[edgeKeyValue]?.mark ?? 'unknown')
       if (effectiveMark !== 'line' && effectiveMark !== 'blank') {
         continue
       }
-      const adjacentCells = getEdgeAdjacentCellKeys(puzzle, edgeKeyValue)
-      if (adjacentCells.length !== 2) {
-        continue
-      }
-      const [cellA, cellB] = adjacentCells
       const colorA = getEffectiveCellColor(cellA)
       const colorB = getEffectiveCellColor(cellB)
       if ((colorA === null) === (colorB === null)) {
@@ -112,13 +121,13 @@ export const createColorEdgePropagationRule = (): Rule => ({
     }
 
     const diffs: RuleApplication['diffs'] = [
-      ...[...decidedEdges.entries()].map(([k, to]) => ({
+      ...Array.from(decidedEdges.entries(), ([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,
         from: 'unknown' as const,
         to,
       })),
-      ...[...decidedCellFills.entries()].map(([k, toFill]) => ({
+      ...Array.from(decidedCellFills.entries(), ([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
         fromFill: (puzzle.cells[k]?.fill ?? null) as string | null,
@@ -447,8 +456,9 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
           const firstKey = firstInBounds ? cellKey(firstNeighbor.row, firstNeighbor.col) : null
           const secondKey = secondInBounds ? cellKey(secondNeighbor.row, secondNeighbor.col) : null
 
-          const firstColor: SlitherCellColor | null = firstInBounds ? getEffectiveCellColor(firstKey) : 'yellow'
-          const secondColor: SlitherCellColor | null = secondInBounds ? getEffectiveCellColor(secondKey) : 'yellow'
+          const firstColor: SlitherCellColor | null = firstKey !== null ? getEffectiveCellColor(firstKey) : 'yellow'
+          const secondColor: SlitherCellColor | null =
+            secondKey !== null ? getEffectiveCellColor(secondKey) : 'yellow'
 
           if (firstColor === null && secondColor === null) {
             continue

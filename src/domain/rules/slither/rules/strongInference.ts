@@ -16,7 +16,7 @@ import {
 // const STRONG_MAX_MS = 1000
 const STRONG_MAX_CANDIDATES = 200
 const STRONG_MAX_TRIAL_STEPS = 120
-const STRONG_MAX_MS = 1000
+const STRONG_MAX_MS = 2000
 
 type StrongCandidate =
   | {

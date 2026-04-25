@@ -9,6 +9,8 @@ import {
 
 export type SlitherCellColor = 'green' | 'yellow'
 
+const adjacentCellsByEdgeCache = new Map<string, string[]>()
+
 export const isSlitherCellColor = (fill: string | undefined): fill is SlitherCellColor =>
   fill === 'green' || fill === 'yellow'
 
@@ -21,6 +23,11 @@ export const isClueThree = (puzzle: PuzzleIR, row: number, col: number): boolean
 }
 
 export const getEdgeAdjacentCellKeys = (puzzle: PuzzleIR, edgeKeyValue: string): string[] => {
+  const cacheKey = `${puzzle.rows}x${puzzle.cols}:${edgeKeyValue}`
+  const cached = adjacentCellsByEdgeCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
   const [v1, v2] = parseEdgeKey(edgeKeyValue)
   if (v1[0] === v2[0]) {
     const row = v1[0]
@@ -32,6 +39,7 @@ export const getEdgeAdjacentCellKeys = (puzzle: PuzzleIR, edgeKeyValue: string):
     if (row < puzzle.rows) {
       result.push(cellKey(row, col))
     }
+    adjacentCellsByEdgeCache.set(cacheKey, result)
     return result
   }
   const row = Math.min(v1[0], v2[0])
@@ -43,6 +51,7 @@ export const getEdgeAdjacentCellKeys = (puzzle: PuzzleIR, edgeKeyValue: string):
   if (col < puzzle.cols) {
     result.push(cellKey(row, col))
   }
+  adjacentCellsByEdgeCache.set(cacheKey, result)
   return result
 }
 

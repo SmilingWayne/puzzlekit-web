@@ -2,6 +2,23 @@ import { getCellEdgeKeys, getVertexIncidentEdges, parseCellKey, parseEdgeKey } f
 import type { EdgeMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
 
+const numberClueCellKeysCache = new WeakMap<PuzzleIR['cells'], string[]>()
+
+const getNumberClueCellKeys = (puzzle: PuzzleIR): string[] => {
+  const cached = numberClueCellKeysCache.get(puzzle.cells)
+  if (cached) {
+    return cached
+  }
+  const keys: string[] = []
+  for (const [key, cell] of Object.entries(puzzle.cells)) {
+    if (cell.clue?.kind === 'number' && cell.clue.value !== '?') {
+      keys.push(key)
+    }
+  }
+  numberClueCellKeysCache.set(puzzle.cells, keys)
+  return keys
+}
+
 export const createCellCountRule = (): Rule => ({
   id: 'cell-count-completion',
   name: 'Cell Clue Completion',
@@ -10,30 +27,38 @@ export const createCellCountRule = (): Rule => ({
     const affectedCells = new Set<string>()
     let firstExample: string | null = null
 
-    for (const [key, cell] of Object.entries(puzzle.cells)) {
-      if (cell.clue?.kind !== 'number' || cell.clue.value === '?') {
+    for (const key of getNumberClueCellKeys(puzzle)) {
+      const cell = puzzle.cells[key]
+      if (!cell || cell.clue?.kind !== 'number' || cell.clue.value === '?') {
         continue
       }
       const clue = Number(cell.clue.value)
       const [row, col] = parseCellKey(key)
       const edgeKeys = getCellEdgeKeys(row, col)
-      const edges = edgeKeys.map((edge) => [edge, puzzle.edges[edge]?.mark ?? 'unknown'] as const)
-      const lines = edges.filter(([, mark]) => mark === 'line')
-      const unknown = edges.filter(([, mark]) => mark === 'unknown')
-      if (unknown.length === 0) {
+      let lineCount = 0
+      const unknownEdges: string[] = []
+      for (const edge of edgeKeys) {
+        const mark = puzzle.edges[edge]?.mark ?? 'unknown'
+        if (mark === 'line') {
+          lineCount += 1
+        } else if (mark === 'unknown') {
+          unknownEdges.push(edge)
+        }
+      }
+      if (unknownEdges.length === 0) {
         continue
       }
 
       let toMark: EdgeMark | null = null
-      if (lines.length === clue) {
+      if (lineCount === clue) {
         toMark = 'blank'
-      } else if (lines.length + unknown.length === clue) {
+      } else if (lineCount + unknownEdges.length === clue) {
         toMark = 'line'
       }
       if (toMark === null) continue
 
       let addedAny = false
-      for (const [edge] of unknown) {
+      for (const edge of unknownEdges) {
         if (!decidedEdges.has(edge)) {
           decidedEdges.set(edge, toMark)
           addedAny = true
@@ -78,10 +103,17 @@ export const createVertexDegreeRule = (): Rule => ({
         if (incident.length === 0) {
           continue
         }
-        const marks = incident.map((edge) => [edge, puzzle.edges[edge]?.mark ?? 'unknown'] as const)
-        const lineCount = marks.filter(([, mark]) => mark === 'line').length
-        const unknown = marks.filter(([, mark]) => mark === 'unknown')
-        if (unknown.length === 0) {
+        let lineCount = 0
+        const unknownEdges: string[] = []
+        for (const edge of incident) {
+          const mark = puzzle.edges[edge]?.mark ?? 'unknown'
+          if (mark === 'line') {
+            lineCount += 1
+          } else if (mark === 'unknown') {
+            unknownEdges.push(edge)
+          }
+        }
+        if (unknownEdges.length === 0) {
           continue
         }
 
@@ -90,13 +122,13 @@ export const createVertexDegreeRule = (): Rule => ({
 
         if (lineCount === 2) {
           toMark = 'blank'
-          edgesToDecide = unknown.map(([e]) => e)
-        } else if (lineCount === 1 && unknown.length === 1) {
+          edgesToDecide = unknownEdges
+        } else if (lineCount === 1 && unknownEdges.length === 1) {
           toMark = 'line'
-          edgesToDecide = [unknown[0][0]]
-        } else if (lineCount === 0 && unknown.length === 1) {
+          edgesToDecide = [unknownEdges[0]]
+        } else if (lineCount === 0 && unknownEdges.length === 1) {
           toMark = 'blank'
-          edgesToDecide = [unknown[0][0]]
+          edgesToDecide = [unknownEdges[0]]
         }
 
         if (toMark === null) continue

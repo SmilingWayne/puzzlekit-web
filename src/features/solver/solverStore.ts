@@ -226,7 +226,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedEdges: currentStep?.affectedEdges ?? [],
     })
   },
-  solveAll: (limit = 300) => {
+  solveAll: (limit = 100) => {
     set({ isRunning: true })
     let loops = 0
     let before = get().pointer
