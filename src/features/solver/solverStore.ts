@@ -8,7 +8,7 @@ import {
 } from '../../domain/ir/slither'
 import type { NumberClueValue, PuzzleIR } from '../../domain/ir/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
-import { runNextRule } from '../../domain/rules/engine'
+import { buildPuzzleFromSteps, rewindPuzzleByStep, runNextRule } from '../../domain/rules/engine'
 import type { RuleStep } from '../../domain/rules/types'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/i61ch28cg16dg122cg63bi3ah1di2dcg0bgb1bc6c8bchd8b6cd1cbg2cgb3ci1dh3ci18dg132bg72bg82bh36dg'
@@ -41,37 +41,7 @@ type SolverStore = {
 }
 
 const buildStateFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer: number): PuzzleIR => {
-  const clamped = Math.max(0, Math.min(pointer, steps.length))
-  const next = clonePuzzle(initialPuzzle)
-  for (let i = 0; i < clamped; i += 1) {
-    for (const diff of steps[i].diffs) {
-      if (diff.kind === 'edge') {
-        if (!next.edges[diff.edgeKey]) {
-          next.edges[diff.edgeKey] = { mark: diff.to }
-        } else {
-          next.edges[diff.edgeKey].mark = diff.to
-        }
-        continue
-      }
-      if (diff.kind === 'sector') {
-        if (!next.sectors[diff.sectorKey]) {
-          next.sectors[diff.sectorKey] = { constraintsMask: diff.toMask }
-        } else {
-          next.sectors[diff.sectorKey].constraintsMask = diff.toMask
-        }
-        continue
-      }
-      if (!next.cells[diff.cellKey]) {
-        next.cells[diff.cellKey] = {}
-      }
-      if (diff.toFill === null) {
-        delete next.cells[diff.cellKey].fill
-      } else {
-        next.cells[diff.cellKey].fill = diff.toFill
-      }
-    }
-  }
-  return next
+  return buildPuzzleFromSteps(initialPuzzle, steps, pointer)
 }
 
 const getActiveSteps = (steps: RuleStep[], pointer: number): RuleStep[] => steps.slice(0, pointer)
@@ -238,15 +208,18 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     })
   },
   prevStep: () => {
-    const { initialPuzzle, steps, pointer } = get()
+    const { initialPuzzle, currentPuzzle, steps, pointer } = get()
     if (pointer === 0) {
       return
     }
+    const stepToUndo = steps[pointer - 1]
     const nextPointer = pointer - 1
-    const currentPuzzle = buildStateFromSteps(initialPuzzle, steps, nextPointer)
+    const currentPuzzleAfterUndo = stepToUndo
+      ? rewindPuzzleByStep(currentPuzzle, stepToUndo)
+      : buildStateFromSteps(initialPuzzle, steps, nextPointer)
     const currentStep = steps[nextPointer - 1]
     set({
-      currentPuzzle,
+      currentPuzzle: currentPuzzleAfterUndo,
       pointer: nextPointer,
       highlightedCells: currentStep?.affectedCells ?? [],
       highlightedColorCells: getStepColorCells(currentStep),

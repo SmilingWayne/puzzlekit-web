@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { cellKey } from '../../domain/ir/keys'
+import { semanticEquals } from '../../domain/ir/normalize'
+import { buildPuzzleFromSteps } from '../../domain/rules/engine'
 import { useSolverStore } from './solverStore'
 import type { RuleStep } from '../../domain/rules/types'
 
@@ -23,6 +25,20 @@ describe('solver timeline behavior', () => {
     store.nextStep()
     expect(useSolverStore.getState().pointer).toBe(1)
     expect(useSolverStore.getState().steps.length).toBe(1)
+  })
+
+  it('keeps prevStep state consistent with replayed prefix state', () => {
+    const store = useSolverStore.getState()
+    store.nextStep()
+    store.nextStep()
+    const stateBeforePrev = useSolverStore.getState()
+    expect(stateBeforePrev.pointer).toBeGreaterThan(0)
+
+    store.prevStep()
+    const stateAfterPrev = useSolverStore.getState()
+    const replayed = buildPuzzleFromSteps(stateAfterPrev.initialPuzzle, stateAfterPrev.steps, stateAfterPrev.pointer)
+
+    expect(semanticEquals(stateAfterPrev.currentPuzzle, replayed)).toBe(true)
   })
 })
 
