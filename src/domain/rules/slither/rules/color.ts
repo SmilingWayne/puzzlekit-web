@@ -272,6 +272,103 @@ export const createColorCluePropagationRule = (): Rule => ({
   },
 })
 
+export const createColorOrthogonalConsensusPropagationRule = (): Rule => ({
+  id: 'color-orthogonal-consensus-propagation',
+  name: 'Color Orthogonal Consensus Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedCellFills = new Map<string, SlitherCellColor>()
+    const affectedCells = new Set<string>()
+
+    const inBounds = (row: number, col: number): boolean =>
+      row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols
+
+    const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
+      const decided = decidedCellFills.get(key)
+      if (decided) {
+        return decided
+      }
+      const current = puzzle.cells[key]?.fill
+      return isSlitherCellColor(current) ? current : null
+    }
+
+    const rememberCellFill = (key: string, to: SlitherCellColor): boolean => {
+      const current = getEffectiveCellColor(key)
+      if (current === to) {
+        return true
+      }
+      if (current !== null) {
+        return false
+      }
+      decidedCellFills.set(key, to)
+      affectedCells.add(key)
+      return true
+    }
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const currentKey = cellKey(row, col)
+        if (getEffectiveCellColor(currentKey) !== null) {
+          continue
+        }
+
+        const orthogonals: Array<[number, number]> = [
+          [row - 1, col],
+          [row + 1, col],
+          [row, col - 1],
+          [row, col + 1],
+        ]
+
+        const neighborColors: SlitherCellColor[] = []
+        let hasUnknownNeighbor = false
+        for (const [neighborRow, neighborCol] of orthogonals) {
+          if (!inBounds(neighborRow, neighborCol)) {
+            neighborColors.push('yellow')
+            continue
+          }
+          const neighborColor = getEffectiveCellColor(cellKey(neighborRow, neighborCol))
+          if (neighborColor === null) {
+            hasUnknownNeighbor = true
+            break
+          }
+          neighborColors.push(neighborColor)
+        }
+
+        if (hasUnknownNeighbor || neighborColors.length !== 4) {
+          continue
+        }
+
+        const [firstColor, ...rest] = neighborColors
+        if (!rest.every((color) => color === firstColor)) {
+          continue
+        }
+
+        if (rememberCellFill(currentKey, firstColor)) {
+          for (const [neighborRow, neighborCol] of orthogonals) {
+            if (inBounds(neighborRow, neighborCol)) {
+              affectedCells.add(cellKey(neighborRow, neighborCol))
+            }
+          }
+        }
+      }
+    }
+
+    if (decidedCellFills.size === 0) {
+      return null
+    }
+
+    return {
+      message: `Color orthogonal consensus propagation applied (${decidedCellFills.size} color update(s)).`,
+      diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
+        kind: 'cell' as const,
+        cellKey: k,
+        fromFill: (puzzle.cells[k]?.fill ?? null) as string | null,
+        toFill,
+      })),
+      affectedCells: [...affectedCells],
+    }
+  },
+})
+
 type CornerNeighbor = { row: number; col: number }
 
 const getCornerOutsideNeighbors = (row: number, col: number, corner: SectorCorner): [CornerNeighbor, CornerNeighbor] => {

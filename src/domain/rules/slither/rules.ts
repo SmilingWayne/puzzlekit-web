@@ -2,6 +2,7 @@ import type { Rule } from '../types'
 import {
   createColorCluePropagationRule,
   createColorEdgePropagationRule,
+  createColorOrthogonalConsensusPropagationRule,
   createColorOutsideSeedingRule,
   createColorSectorMaskPropagationRule,
 } from './rules/color'
@@ -30,6 +31,7 @@ export const deterministicSlitherRules: Rule[] = [
   createColorEdgePropagationRule(),
   createColorCluePropagationRule(),
   createColorSectorMaskPropagationRule(),
+  createColorOrthogonalConsensusPropagationRule(),
   createPreventPrematureLoopRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),

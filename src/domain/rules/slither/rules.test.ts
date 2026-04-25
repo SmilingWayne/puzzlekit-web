@@ -484,6 +484,97 @@ describe('slither color clue propagation rule', () => {
   })
 })
 
+describe('slither color orthogonal consensus propagation rule', () => {
+  const orthogonalColorRule = slitherRules.find((rule) => rule.id === 'color-orthogonal-consensus-propagation')
+  if (!orthogonalColorRule) {
+    throw new Error('Expected color-orthogonal-consensus-propagation rule')
+  }
+
+  it('colors an interior unknown cell green when four orthogonal neighbors are green', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(2, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+
+    const result = orthogonalColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('colors an interior unknown cell yellow when four orthogonal neighbors are yellow', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(2, 1)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(1, 2)] = { fill: 'yellow' }
+
+    const result = orthogonalColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('treats out-of-bounds orthogonals as yellow for boundary inference', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'yellow' }
+
+    const result = orthogonalColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 0),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('does not apply when an in-bounds orthogonal neighbor is unknown', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(2, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
+
+    const result = orthogonalColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not apply when orthogonal neighbors are mixed colors', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(2, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 2)] = { fill: 'yellow' }
+
+    const result = orthogonalColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not overwrite an already colored cell', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+
+    const result = orthogonalColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+})
+
 describe('slither color sector-mask propagation rule', () => {
   const sectorColorRule = slitherRules.find((rule) => rule.id === 'color-sector-mask-propagation')
   if (!sectorColorRule) {
@@ -611,13 +702,17 @@ describe('slither prevent premature loop rule', () => {
     const colorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-edge-propagation')
     const clueRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-clue-propagation')
     const sectorColorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-sector-mask-propagation')
+    const orthogonalConsensusRuleIdx = slitherRules.findIndex(
+      (rule) => rule.id === 'color-orthogonal-consensus-propagation',
+    )
     const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
     expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
     expect(outsideRuleIdx).toBe(vertexRuleIdx + 1)
     expect(colorRuleIdx).toBe(outsideRuleIdx + 1)
     expect(clueRuleIdx).toBe(colorRuleIdx + 1)
     expect(sectorColorRuleIdx).toBe(clueRuleIdx + 1)
-    expect(antiLoopRuleIdx).toBe(sectorColorRuleIdx + 1)
+    expect(orthogonalConsensusRuleIdx).toBe(sectorColorRuleIdx + 1)
+    expect(antiLoopRuleIdx).toBe(orthogonalConsensusRuleIdx + 1)
   })
 
   it('marks an unknown edge blank when it would close a loop', () => {
