@@ -137,7 +137,7 @@ If these two paths diverge, timeline replay and solver state will drift.
 
 Implemented:
 
-- Slitherlink puzz.link parse/encode baseline
+- Slitherlink puzz.link parse/encode baseline (URL input currently targets puzz.link; penpa-style URL support is planned)
 - Ordered rule execution with step metadata
 - Step replay (`Next`, `Previous`, `Solve to End`)
 - Explanation-oriented deduction trace

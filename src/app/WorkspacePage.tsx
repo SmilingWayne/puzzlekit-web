@@ -69,10 +69,9 @@ export const WorkspacePage = () => {
   return (
     <main className="workspace">
       <header className="workspace-title">
-        <h1>PuzzleKit Web - Logical Solver Workspace</h1>
+        <h1>PuzzleKit Web</h1>
         <p>
-          Incremental and explainable deduction flow for Slitherlink, with extension slots for
-          Masyu and Nonogram.
+          A Step-wise and Explainable Inference Solver for Slitherlink.
         </p>
       </header>
 

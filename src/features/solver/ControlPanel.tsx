@@ -151,7 +151,7 @@ export const ControlPanel = () => {
         </div>
       </div>
       <label className="label-row">
-        URL
+        URL (only puzz.link url supported for now)
         <textarea
           rows={2}
           value={localUrl}

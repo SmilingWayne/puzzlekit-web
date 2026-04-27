@@ -15,7 +15,7 @@ import {
 } from '../../domain/rules/slither/completion'
 import type { RuleStep } from '../../domain/rules/types'
 
-const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/i61ch28cg16dg122cg63bi3ah1di2dcg0bgb1bc6c8bchd8b6cd1cbg2cgb3ci1dh3ci18dg132bg72bg82bh36dg'
+const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb'
 
 export type TerminalSolveReport = SlitherCompletionReport & {
   stepCount: number
