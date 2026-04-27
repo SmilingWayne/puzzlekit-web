@@ -384,7 +384,8 @@ button[data-active='true'] {
 
 .steps-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
   gap: 8px;

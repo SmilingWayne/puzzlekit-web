@@ -61,6 +61,8 @@ npm run build      # TypeScript + Vite production build
 npm run test:e2e   # Playwright end-to-end tests
 ```
 
+
+
 ---
 
 ## 3) Features Implemented So Far
@@ -73,17 +75,14 @@ npm run test:e2e   # Playwright end-to-end tests
 
 > URL support note: URL import is currently focused on `puzz.link`. `penpa`-style URL support is planned next.
 
-**[Suggested Screenshot #1]** Control panel (`Puzzle Type`, URL input, `Import URL`, `Custom grid`).
-
 ### 3.2 Solving and Replay
 
 - `Next Step`: apply one inference step
 - `Previous Step`: rewind one step
-- `Solve to End`: auto-advance until no more progress (or limit reached)
+- `Solve Next 100 Steps`: auto-advance 100 steps until no more progress (or limit reached)
 - `Reset Replay`: return to initial puzzle state
 - Each rule step stores message + diffs + affected regions for replay and explanation
 
-**[Suggested Screenshot #2]** Before/after one inference step (board highlights + step explanation).
 
 ### 3.3 Explainability and Visualization
 
@@ -91,7 +90,6 @@ npm run test:e2e   # Playwright end-to-end tests
 - Toggle between latest 30 steps and full history
 - Vertex numbering overlay for board analysis
 
-**[Suggested Screenshot #3]** `Reasoning Steps` panel with rule names, messages, and edge/sector update counts.
 
 ### 3.4 Live Stats and Terminal Report
 
@@ -99,14 +97,10 @@ npm run test:e2e   # Playwright end-to-end tests
 - Terminal report when solving stalls: decided-edge ratio, unknown-edge count, blocker reasons
 - Rule usage statistics to analyze deduction paths
 
-**[Suggested Screenshot #4]** "No further progress found" terminal report dialog.
-
 ### 3.5 Export
 
 - Export current puzzle state (including puzz.link encoding attempts)
 - One-click copy to clipboard
-
-**[Suggested Screenshot #5]** Export panel (format selection, generate, copy flow).
 
 ---
 

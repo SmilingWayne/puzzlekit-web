@@ -179,7 +179,7 @@ export const ControlPanel = () => {
             void solveAll()
           }}
         >
-          Solve to End
+          Solve Next 100 steps
         </button>
         <button onClick={resetTimeline}>Reset Replay</button>
         <button
