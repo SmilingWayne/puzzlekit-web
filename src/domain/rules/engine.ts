@@ -100,6 +100,7 @@ export const runNextRule = (
   rules: Rule[],
   stepNumber: number,
 ): { nextPuzzle: PuzzleIR; step: RuleStep | null } => {
+  const startedAt = performance.now()
   for (const rule of rules) {
     const result = rule.apply(puzzle)
     if (!result || result.diffs.length === 0) {
@@ -117,6 +118,7 @@ export const runNextRule = (
         result.affectedSectors ??
         result.diffs.flatMap((d) => (d.kind === 'sector' ? [d.sectorKey] : [])),
       timestamp: Date.now(),
+      durationMs: Math.max(0, performance.now() - startedAt),
     }
     return {
       nextPuzzle: applyDiffs(puzzle, step),

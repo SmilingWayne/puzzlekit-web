@@ -10,6 +10,7 @@ describe('rule engine', () => {
     const result = runNextRule(puzzle, slitherRules, 1)
     expect(result.step).not.toBeNull()
     expect(result.step?.diffs.length).toBeGreaterThan(0)
+    expect(result.step?.durationMs).toBeGreaterThanOrEqual(0)
   })
 
   it('applies and reverts diffs without mutating input puzzle', () => {

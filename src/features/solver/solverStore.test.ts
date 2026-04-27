@@ -4,7 +4,7 @@ import { semanticEquals } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../../domain/ir/types'
 import { buildPuzzleFromSteps } from '../../domain/rules/engine'
-import { useSolverStore, type TerminalSolveReport } from './solverStore'
+import { sumRuleStepDurationMs, useSolverStore, type TerminalSolveReport } from './solverStore'
 import type { RuleStep } from '../../domain/rules/types'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
@@ -25,6 +25,7 @@ const createSolvedLoopPuzzle = (): PuzzleIR => {
 const mockTerminalReport: TerminalSolveReport = {
   status: 'stalled',
   stepCount: 0,
+  totalDurationMs: 0,
   reasons: ['No line edges have been drawn.'],
   stats: {
     totalEdges: 4,
@@ -138,8 +139,8 @@ describe('solver terminal reports', () => {
     }))
   })
 
-  it('writes a terminal report when nextStep finds no available rule', () => {
-    useSolverStore.getState().solveAll()
+  it('writes a terminal report when nextStep finds no available rule', async () => {
+    await useSolverStore.getState().solveAll()
     const terminalState = useSolverStore.getState()
     useSolverStore.setState((state) => ({ ...state, terminalReport: null }))
 
@@ -149,16 +150,21 @@ describe('solver terminal reports', () => {
       status: 'solved',
       stepCount: terminalState.pointer,
     })
+    expect(useSolverStore.getState().terminalReport?.totalDurationMs).toBeGreaterThanOrEqual(0)
   })
 
-  it('writes a terminal report when solveAll reaches no progress', () => {
-    useSolverStore.getState().solveAll()
+  it('writes a terminal report when solveAll reaches no progress', async () => {
+    const pending = useSolverStore.getState().solveAll()
+    expect(useSolverStore.getState().solveProgress).toEqual({ current: 0, total: 100 })
+    await pending
 
     expect(useSolverStore.getState().terminalReport).toMatchObject({
       status: 'solved',
       stepCount: useSolverStore.getState().pointer,
     })
+    expect(useSolverStore.getState().terminalReport?.totalDurationMs).toBeGreaterThanOrEqual(0)
     expect(useSolverStore.getState().isRunning).toBe(false)
+    expect(useSolverStore.getState().solveProgress).toBeNull()
   })
 
   it('clears terminal report when moving back in the timeline', () => {
@@ -179,6 +185,7 @@ describe('solver terminal reports', () => {
       affectedEdges: [edgeKey([0, 0], [0, 1])],
       affectedSectors: [],
       timestamp: Date.now(),
+      durationMs: 12,
     }
     const initialPuzzle = createSlitherPuzzle(1, 1)
     const currentPuzzle = createSolvedLoopPuzzle()
@@ -189,6 +196,7 @@ describe('solver terminal reports', () => {
       steps: [step],
       pointer: 1,
       terminalReport: mockTerminalReport,
+      solveProgress: null,
     }))
 
     useSolverStore.getState().prevStep()
@@ -213,6 +221,16 @@ describe('solver terminal reports', () => {
     useSolverStore.getState().applyCustomSlitherGrid(5, 5)
     expect(useSolverStore.getState().terminalReport).toBeNull()
   })
+
+  it('sums only provided active step durations and treats missing durations as zero', () => {
+    const steps = [
+      { durationMs: 10 },
+      {},
+      { durationMs: 2.5 },
+    ] as RuleStep[]
+
+    expect(sumRuleStepDurationMs(steps)).toBe(12.5)
+  })
 })
 
 describe('solver store cell color replay', () => {
@@ -235,6 +253,7 @@ describe('solver store cell color replay', () => {
       affectedEdges: [],
       affectedSectors: [],
       timestamp: Date.now(),
+      durationMs: 7,
     }
     const state = useSolverStore.getState()
     const originalNextStep = state.nextStep

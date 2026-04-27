@@ -48,6 +48,9 @@ export const ControlPanel = () => {
   const terminalCoverage = terminalReport
     ? `${(terminalReport.stats.decidedEdgeRatio * 100).toFixed(1)}%`
     : '0.0%'
+  const terminalDurationSeconds = terminalReport
+    ? `${(terminalReport.totalDurationMs / 1000).toFixed(2)} s`
+    : '0.00 s'
 
   useEffect(() => {
     setLocalUrl(sourceUrl)
@@ -166,11 +169,16 @@ export const ControlPanel = () => {
         >
           Import URL
         </button>
-        <button disabled={terminalReport !== null} onClick={nextStep}>
+        <button disabled={isRunning || terminalReport !== null} onClick={nextStep}>
           Next Step
         </button>
         <button onClick={prevStep}>Previous Step</button>
-        <button disabled={isRunning || terminalReport !== null} onClick={() => solveAll()}>
+        <button
+          disabled={isRunning || terminalReport !== null}
+          onClick={() => {
+            void solveAll()
+          }}
+        >
           Solve to End
         </button>
         <button onClick={resetTimeline}>Reset Replay</button>
@@ -200,17 +208,18 @@ export const ControlPanel = () => {
               <span>Total Steps</span>
               <strong>{terminalReport.stepCount}</strong>
             </div>
+            <div>
+              <span>Total Time</span>
+              <strong>{terminalDurationSeconds}</strong>
+            </div>
             {terminalReport.status === 'stalled' ? (
               <>
                 <div>
                   <span>Decided Edges</span>
                   <strong>
-                    {terminalReport.stats.decidedEdges} / {terminalReport.stats.totalEdges}
+                    {terminalReport.stats.decidedEdges} / {terminalReport.stats.totalEdges},{' '}
+                    {terminalCoverage}
                   </strong>
-                </div>
-                <div>
-                  <span>Coverage</span>
-                  <strong>{terminalCoverage}</strong>
                 </div>
                 <div>
                   <span>Unknown Edges</span>

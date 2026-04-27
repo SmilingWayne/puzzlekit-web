@@ -19,6 +19,12 @@ const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/i61ch28cg16dg122cg63bi3ah1
 
 export type TerminalSolveReport = SlitherCompletionReport & {
   stepCount: number
+  totalDurationMs: number
+}
+
+export type SolveProgress = {
+  current: number
+  total: number
 }
 
 type SolverStore = {
@@ -33,6 +39,7 @@ type SolverStore = {
   highlightedColorCells: string[]
   highlightedEdges: string[]
   isRunning: boolean
+  solveProgress: SolveProgress | null
   terminalReport: TerminalSolveReport | null
   includeVertexNumbers: boolean
   selectedCellKey: string | null
@@ -44,7 +51,7 @@ type SolverStore = {
   setSlitherCellClue: (cellKey: string, value: NumberClueValue | null) => void
   nextStep: () => void
   prevStep: () => void
-  solveAll: (limit?: number) => void
+  solveAll: (limit?: number) => Promise<void>
   resetTimeline: () => void
   setIncludeVertexNumbers: (enabled: boolean) => void
 }
@@ -58,17 +65,23 @@ const getActiveSteps = (steps: RuleStep[], pointer: number): RuleStep[] => steps
 const getStepColorCells = (step?: RuleStep): string[] =>
   step?.diffs.flatMap((diff) => (diff.kind === 'cell' && diff.toFill !== null ? [diff.cellKey] : [])) ?? []
 
+const yieldToBrowser = (): Promise<void> => new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+
+export const sumRuleStepDurationMs = (steps: RuleStep[]): number =>
+  steps.reduce((sum, step) => sum + (step.durationMs ?? 0), 0)
+
 const buildTerminalReport = (
   pluginId: string,
   puzzle: PuzzleIR,
-  activeStepCount: number,
+  activeSteps: RuleStep[],
 ): TerminalSolveReport | null => {
   if (pluginId !== 'slitherlink') {
     return null
   }
   return {
     ...analyzeSlitherCompletion(puzzle),
-    stepCount: activeStepCount,
+    stepCount: activeSteps.length,
+    totalDurationMs: sumRuleStepDurationMs(activeSteps),
   }
 }
 
@@ -113,10 +126,11 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   highlightedColorCells: [],
   highlightedEdges: [],
   isRunning: false,
+  solveProgress: null,
   terminalReport: null,
   includeVertexNumbers: false,
   selectedCellKey: null,
-  setPluginId: (pluginId) => set({ pluginId, terminalReport: null }),
+  setPluginId: (pluginId) => set({ pluginId, solveProgress: null, terminalReport: null }),
   setSourceUrl: (sourceUrl) => set({ sourceUrl }),
   setIncludeVertexNumbers: (includeVertexNumbers) => set({ includeVertexNumbers }),
   setSelectedCellKey: (selectedCellKey) => set({ selectedCellKey }),
@@ -137,6 +151,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: [],
       highlightedColorCells: [],
       highlightedEdges: [],
+      solveProgress: null,
       terminalReport: null,
       sourceUrl: '',
       importError: undefined,
@@ -182,6 +197,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: [],
       highlightedColorCells: [],
       highlightedEdges: [],
+      solveProgress: null,
       terminalReport: null,
     })
   },
@@ -205,6 +221,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
         highlightedCells: [],
         highlightedColorCells: [],
         highlightedEdges: [],
+        solveProgress: null,
         terminalReport: null,
         selectedCellKey: null,
       })
@@ -225,7 +242,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     const activeSteps = getActiveSteps(steps, pointer)
     const { nextPuzzle, step } = runNextRule(currentPuzzle, plugin.getRules(), activeSteps.length + 1)
     if (!step) {
-      const report = buildTerminalReport(pluginId, currentPuzzle, activeSteps.length)
+      const report = buildTerminalReport(pluginId, currentPuzzle, activeSteps)
       if (report) {
         set({ terminalReport: report })
       }
@@ -263,22 +280,27 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     })
   },
   solveAll: (limit = 100) => {
-    if (get().terminalReport) {
-      return
+    if (get().terminalReport || get().isRunning) {
+      return Promise.resolve()
     }
-    set({ isRunning: true })
-    let loops = 0
-    let before = get().pointer
-    while (loops < limit) {
-      get().nextStep()
-      loops += 1
-      const after = get().pointer
-      if (after === before) {
-        break
+    set({ isRunning: true, solveProgress: { current: 0, total: limit } })
+    return (async () => {
+      await yieldToBrowser()
+      let loops = 0
+      let before = get().pointer
+      while (loops < limit) {
+        get().nextStep()
+        loops += 1
+        const after = get().pointer
+        set({ solveProgress: { current: loops, total: limit } })
+        if (after === before || get().terminalReport) {
+          break
+        }
+        before = after
+        await yieldToBrowser()
       }
-      before = after
-    }
-    set({ isRunning: false })
+      set({ isRunning: false, solveProgress: null })
+    })()
   },
   resetTimeline: () => {
     const { initialPuzzle } = get()
@@ -289,6 +311,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: [],
       highlightedColorCells: [],
       highlightedEdges: [],
+      solveProgress: null,
       terminalReport: null,
     })
   },

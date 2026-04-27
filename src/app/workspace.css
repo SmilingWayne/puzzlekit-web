@@ -261,6 +261,58 @@ button[data-active='true'] {
   font-size: 0.86rem;
 }
 
+.solve-progress-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(2 6 23 / 0.62);
+}
+
+.solve-progress-modal {
+  width: min(360px, 100%);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #08111f;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.35);
+  padding: 16px;
+  color: #cbd5e1;
+}
+
+.solve-progress-modal h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.solve-progress-count {
+  margin: 10px 0 8px;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.solve-progress-bar {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  background: #020617;
+}
+
+.solve-progress-bar span {
+  display: block;
+  height: 100%;
+  background: #22d3ee;
+}
+
+.solve-progress-message {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
 .solve-report-dialog {
   margin-top: 10px;
   border: 1px solid #334155;

@@ -27,6 +27,7 @@ export const WorkspacePage = () => {
     highlightedEdges,
     includeVertexNumbers,
     pluginId,
+    solveProgress,
     selectedCellKey,
     setSelectedCellKey,
     setSlitherCellClue,
@@ -102,6 +103,30 @@ export const WorkspacePage = () => {
           <ExplanationPanel steps={activeSteps} />
         </div>
       </section>
+      {solveProgress ? (
+        <div className="solve-progress-overlay" role="dialog" aria-modal="true" aria-labelledby="solve-progress-title">
+          <div className="solve-progress-modal">
+            <h2 id="solve-progress-title">Solving to End</h2>
+            <p className="solve-progress-count">
+              Step {solveProgress.current} / {solveProgress.total}
+            </p>
+            <div
+              className="solve-progress-bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={solveProgress.total}
+              aria-valuenow={solveProgress.current}
+            >
+              <span
+                style={{
+                  width: `${Math.min(100, (solveProgress.current / solveProgress.total) * 100)}%`,
+                }}
+              />
+            </div>
+            <p className="solve-progress-message">Reasoning in progress...</p>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

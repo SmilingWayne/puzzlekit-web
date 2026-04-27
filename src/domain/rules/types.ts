@@ -33,6 +33,7 @@ export type RuleStep = {
   affectedEdges: string[]
   affectedSectors: string[]
   timestamp: number
+  durationMs: number
 }
 
 export type RuleApplication = {
