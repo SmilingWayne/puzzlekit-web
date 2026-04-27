@@ -53,6 +53,28 @@
   color: #f8fafc;
 }
 
+.board-panel-header h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.board-dimensions {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.board-focus-shell {
+  outline: none;
+}
+
+.board-focus-shell:focus-visible {
+  box-shadow: 0 0 0 2px #334155;
+  border-radius: 12px;
+}
+
 .panel-header small {
   color: #94a3b8;
 }
@@ -123,6 +145,85 @@ button[data-active='true'] {
   margin-bottom: 4px;
 }
 
+.type-row-wrap {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.type-row-label {
+  display: block;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.type-row-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-row-controls select {
+  flex: 1;
+  min-width: 140px;
+}
+
+.custom-grid-anchor {
+  position: relative;
+}
+
+.button-compact {
+  white-space: nowrap;
+  padding: 7px 10px;
+}
+
+.custom-grid-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.custom-grid-popover-title {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.custom-grid-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 0.86rem;
+  color: #cbd5e1;
+}
+
+.custom-grid-field input {
+  max-width: 100%;
+}
+
+.custom-grid-popover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.custom-grid-hint {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
 .check-row {
   margin-top: 10px;
   display: flex;
@@ -160,9 +261,131 @@ button[data-active='true'] {
   font-size: 0.86rem;
 }
 
+.solve-progress-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(2 6 23 / 0.62);
+}
+
+.solve-progress-modal {
+  width: min(360px, 100%);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #08111f;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.35);
+  padding: 16px;
+  color: #cbd5e1;
+}
+
+.solve-progress-modal h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.solve-progress-count {
+  margin: 10px 0 8px;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.solve-progress-bar {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  background: #020617;
+}
+
+.solve-progress-bar span {
+  display: block;
+  height: 100%;
+  background: #22d3ee;
+}
+
+.solve-progress-message {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.solve-report-dialog {
+  margin-top: 10px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #08111f;
+  padding: 10px;
+  color: #cbd5e1;
+}
+
+.solve-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.solve-report-header h3,
+.solve-report-section h4 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.solve-report-header h3 {
+  font-size: 0.98rem;
+}
+
+.solve-report-section h4 {
+  font-size: 0.9rem;
+}
+
+.solve-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.solve-report-grid > div {
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.solve-report-grid span {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.solve-report-grid strong {
+  color: #f8fafc;
+}
+
+.solve-report-section {
+  margin-top: 8px;
+}
+
+.solve-report-section p,
+.solve-report-section ul {
+  margin: 6px 0 0;
+}
+
+.solve-report-section ul {
+  padding-left: 18px;
+}
+
 .steps-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
   gap: 8px;

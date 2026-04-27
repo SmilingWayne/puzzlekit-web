@@ -20,7 +20,7 @@ export const createDifficultyCollector = (): DifficultyCollector => {
     },
     onStep: (step: RuleStep) => {
       state.totalSteps += 1
-      state.totalEdgeChanges += step.diffs.length
+      state.totalEdgeChanges += step.diffs.filter((diff) => diff.kind === 'edge').length
       state.ruleUsage[step.ruleId] = (state.ruleUsage[step.ruleId] ?? 0) + 1
       state.uniqueRules = Object.keys(state.ruleUsage).length
     },

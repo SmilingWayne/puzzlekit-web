@@ -1,26 +1,46 @@
-import type { EdgeMark, PuzzleIR } from '../ir/types'
+import type { EdgeMark, PuzzleIR, SectorConstraintMask } from '../ir/types'
 
 export type EdgeDiff = {
+  kind: 'edge'
   edgeKey: string
   from: EdgeMark
   to: EdgeMark
 }
+
+export type SectorDiff = {
+  kind: 'sector'
+  sectorKey: string
+  fromMask: SectorConstraintMask
+  toMask: SectorConstraintMask
+}
+
+export type CellDiff = {
+  kind: 'cell'
+  cellKey: string
+  fromFill: string | null
+  toFill: string | null
+}
+
+export type RuleDiff = EdgeDiff | SectorDiff | CellDiff
 
 export type RuleStep = {
   id: string
   ruleId: string
   ruleName: string
   message: string
-  diffs: EdgeDiff[]
+  diffs: RuleDiff[]
   affectedCells: string[]
   affectedEdges: string[]
+  affectedSectors: string[]
   timestamp: number
+  durationMs: number
 }
 
 export type RuleApplication = {
   message: string
-  diffs: EdgeDiff[]
+  diffs: RuleDiff[]
   affectedCells: string[]
+  affectedSectors?: string[]
 }
 
 export type Rule = {

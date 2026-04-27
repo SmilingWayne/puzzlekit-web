@@ -7,7 +7,10 @@ type Props = {
 }
 
 export const StatsPanel = ({ steps, difficulty }: Props) => {
-  const totalChanges = steps.reduce((sum, step) => sum + step.diffs.length, 0)
+  const totalChanges = steps.reduce(
+    (sum, step) => sum + step.diffs.filter((diff) => diff.kind === 'edge').length,
+    0,
+  )
   return (
     <section className="panel-card stats">
       <header className="panel-header">

@@ -1,18 +1,26 @@
 import { normalizePuzzle } from '../ir/normalize'
 import { puzzleRegistry } from '../plugins/registry'
-import type { ExportContext, ExportFormat, Exporter } from './types'
+import type { ExportContext, ExportFormat, Exporter, PuzzlinkEncodeResult } from './types'
 
-const exportPuzzlink = ({ puzzle, pluginId }: ExportContext): string => {
-  const plugin = puzzleRegistry.get(pluginId)
+export const tryEncodePuzzlink = (context: ExportContext): PuzzlinkEncodeResult => {
+  const plugin = puzzleRegistry.get(context.pluginId)
   if (!plugin) {
-    return `TODO: puzzle plugin "${pluginId}" not found`
+    return { ok: false, message: `Puzzle plugin "${context.pluginId}" not found.` }
   }
   try {
-    return plugin.encode(puzzle)
+    return { ok: true, url: plugin.encode(context.puzzle) }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return `TODO: puzzlink export not ready for "${pluginId}" (${message})`
+    return { ok: false, message }
   }
+}
+
+const exportPuzzlink = (context: ExportContext): string => {
+  const result = tryEncodePuzzlink(context)
+  if (!result.ok) {
+    throw new Error(result.message)
+  }
+  return result.url
 }
 
 const exportPenpa = ({ pluginId }: ExportContext): string =>

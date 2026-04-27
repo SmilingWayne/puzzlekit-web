@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { cellKey } from '../../ir/keys'
-import { createSlitherPuzzle } from '../../ir/slither'
+import {
+  createSlitherPuzzle,
+  SLITHER_CUSTOM_GRID_MAX,
+  SLITHER_CUSTOM_GRID_MIN,
+} from '../../ir/slither'
 import type { NumberClueValue, PuzzleIR } from '../../ir/types'
 import type { PuzzleFormatAdapter } from '../types'
 
@@ -166,8 +170,21 @@ export const decodeSlitherFromPuzzlink = (input: string): PuzzleIR => {
 }
 
 export const encodeSlitherToPuzzlink = (puzzle: PuzzleIR): string => {
+  if (puzzle.puzzleType !== 'slitherlink') {
+    throw new Error('puzz.link export only supports Slitherlink puzzles.')
+  }
   const cols = puzzle.cols - puzzle.margins[2] - puzzle.margins[3]
   const rows = puzzle.rows - puzzle.margins[0] - puzzle.margins[1]
+  if (
+    rows < SLITHER_CUSTOM_GRID_MIN ||
+    cols < SLITHER_CUSTOM_GRID_MIN ||
+    rows > SLITHER_CUSTOM_GRID_MAX ||
+    cols > SLITHER_CUSTOM_GRID_MAX
+  ) {
+    throw new Error(
+      `Slitherlink grid for export must be between ${SLITHER_CUSTOM_GRID_MIN}×${SLITHER_CUSTOM_GRID_MIN} and ${SLITHER_CUSTOM_GRID_MAX}×${SLITHER_CUSTOM_GRID_MAX} (got ${rows}×${cols}).`,
+    )
+  }
   const map: Record<number, NumberClueValue> = {}
   for (const [key, cell] of Object.entries(puzzle.cells)) {
     if (cell.clue?.kind !== 'number') {
@@ -180,10 +197,15 @@ export const encodeSlitherToPuzzlink = (puzzle: PuzzleIR): string => {
       continue
     }
     const value = cell.clue.value
-    if (value !== '?' && (Number(value) < 0 || Number(value) > 4)) {
+    if (value === '?') {
+      map[rr * cols + cc] = value
       continue
     }
-    map[rr * cols + cc] = value
+    const numeric = Number(value)
+    if (!Number.isInteger(numeric) || numeric < 0 || numeric > 3) {
+      throw new Error(`Invalid Slitherlink clue at ${key}: expected 0–3 or "?", got ${String(value)}.`)
+    }
+    map[rr * cols + cc] = numeric
   }
   const body = number4Encode(map, rows * cols)
   return `https://puzz.link/p?slither/${cols}/${rows}/${body}`
