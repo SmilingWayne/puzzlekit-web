@@ -1,6 +1,6 @@
 # PuzzleKit Web
 
-PuzzleKit Web provides step-wise and explainable inference flow for logical puzzles (only slitherlink for now). The core goal is not just to output a final answer, but to make each deduction step explicit: what changed, why it changed, and which rule produced this change.
+[PuzzleKit Web](https://smilingwayne.github.io/puzzlekit-web/) provides step-wise and explainable inference flow for logical puzzles (only slitherlink for now). The core goal is not just to output a final answer, but to make each deduction step explicit: what changed, why it changed, and which rule produced this change.
 
 Current focus:
 
@@ -52,6 +52,8 @@ npm run dev
 
 This starts the local Vite development server.
 
+![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260427202121944.png)
+
 ### 2.3 Common Commands
 
 ```bash
@@ -60,8 +62,6 @@ npm run test:run   # Vitest unit tests
 npm run build      # TypeScript + Vite production build
 npm run test:e2e   # Playwright end-to-end tests
 ```
-
-
 
 ---
 
@@ -83,13 +83,11 @@ npm run test:e2e   # Playwright end-to-end tests
 - `Reset Replay`: return to initial puzzle state
 - Each rule step stores message + diffs + affected regions for replay and explanation
 
-
 ### 3.3 Explainability and Visualization
 
 - Reasoning timeline in the `Reasoning Steps` panel
 - Toggle between latest 30 steps and full history
 - Vertex numbering overlay for board analysis
-
 
 ### 3.4 Live Stats and Terminal Report
 
@@ -137,7 +135,7 @@ The long-term direction is to build a puzzle reasoning tool that is:
 
 ## 7) References
 
-This repo is inspired by the browser plguin [Puzzlink_Assistance](https://github.com/LeavingLeaves/Puzzlink_Assistance), which help do trivial inference for puzz.link-style puzzles. 
+This repo is inspired by the browser plugin [Puzzlink_Assistance](https://github.com/LeavingLeaves/Puzzlink_Assistance), which helps with trivial inference for puzz.link-style puzzles.
 
-The detailed inference techniques can be found from [How slitherlink should be solved](https://jonathanolson.net/slitherlink/). 
+The detailed inference techniques can be found in [How slitherlink should be solved](https://jonathanolson.net/slitherlink/).
 
