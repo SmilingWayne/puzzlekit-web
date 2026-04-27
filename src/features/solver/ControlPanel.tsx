@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { exportPuzzle, exporters, tryEncodePuzzlink } from '../../domain/exporters'
 import type { ExportFormat } from '../../domain/exporters/types'
 import {
@@ -6,7 +6,7 @@ import {
   SLITHER_CUSTOM_GRID_MIN,
 } from '../../domain/ir/slither'
 import { puzzleRegistry } from '../../domain/plugins/registry'
-import { useSolverStore } from './solverStore'
+import { buildDifficultySnapshot, useSolverStore } from './solverStore'
 
 export const ControlPanel = () => {
   const {
@@ -25,6 +25,9 @@ export const ControlPanel = () => {
     setIncludeVertexNumbers,
     isRunning,
     currentPuzzle,
+    terminalReport,
+    steps,
+    pointer,
   } = useSolverStore()
   const [localUrl, setLocalUrl] = useState(sourceUrl)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('puzzlink')
@@ -33,8 +36,18 @@ export const ControlPanel = () => {
   const [copyFeedback, setCopyFeedback] = useState('')
   const [exportGenerateError, setExportGenerateError] = useState('')
   const [showCustomGridPopover, setShowCustomGridPopover] = useState(false)
+  const [showTerminalReport, setShowTerminalReport] = useState(false)
   const [customRows, setCustomRows] = useState(String(currentPuzzle.rows))
   const [customCols, setCustomCols] = useState(String(currentPuzzle.cols))
+  const activeSteps = useMemo(() => steps.slice(0, pointer), [steps, pointer])
+  const difficulty = useMemo(() => buildDifficultySnapshot(activeSteps), [activeSteps])
+  const ruleUsageEntries = useMemo(
+    () => Object.entries(difficulty.ruleUsage).sort(([a], [b]) => a.localeCompare(b)),
+    [difficulty.ruleUsage],
+  )
+  const terminalCoverage = terminalReport
+    ? `${(terminalReport.stats.decidedEdgeRatio * 100).toFixed(1)}%`
+    : '0.0%'
 
   useEffect(() => {
     setLocalUrl(sourceUrl)
@@ -46,6 +59,10 @@ export const ControlPanel = () => {
       setCustomCols(String(currentPuzzle.cols))
     }
   }, [showCustomGridPopover, currentPuzzle.rows, currentPuzzle.cols])
+
+  useEffect(() => {
+    setShowTerminalReport(terminalReport !== null)
+  }, [terminalReport])
 
   return (
     <section className="panel-card">
@@ -149,9 +166,11 @@ export const ControlPanel = () => {
         >
           Import URL
         </button>
-        <button onClick={nextStep}>Next Step</button>
+        <button disabled={terminalReport !== null} onClick={nextStep}>
+          Next Step
+        </button>
         <button onClick={prevStep}>Previous Step</button>
-        <button disabled={isRunning} onClick={() => solveAll()}>
+        <button disabled={isRunning || terminalReport !== null} onClick={() => solveAll()}>
           Solve to End
         </button>
         <button onClick={resetTimeline}>Reset Replay</button>
@@ -166,6 +185,66 @@ export const ControlPanel = () => {
           {showExportPanel ? 'Hide Export Panel' : 'Open Export Panel'}
         </button>
       </div>
+      {terminalReport && showTerminalReport ? (
+        <div className="solve-report-dialog" role="dialog" aria-modal="false" aria-labelledby="solve-report-title">
+          <div className="solve-report-header">
+            <h3 id="solve-report-title">
+              {terminalReport.status === 'solved' ? 'Solved! 😃' : 'No further progress found. 😭'}
+            </h3>
+            <button type="button" className="button-compact" onClick={() => setShowTerminalReport(false)}>
+              Close
+            </button>
+          </div>
+          <div className="solve-report-grid">
+            <div>
+              <span>Total Steps</span>
+              <strong>{terminalReport.stepCount}</strong>
+            </div>
+            {terminalReport.status === 'stalled' ? (
+              <>
+                <div>
+                  <span>Decided Edges</span>
+                  <strong>
+                    {terminalReport.stats.decidedEdges} / {terminalReport.stats.totalEdges}
+                  </strong>
+                </div>
+                <div>
+                  <span>Coverage</span>
+                  <strong>{terminalCoverage}</strong>
+                </div>
+                <div>
+                  <span>Unknown Edges</span>
+                  <strong>{terminalReport.stats.unknownEdges}</strong>
+                </div>
+              </>
+            ) : null}
+          </div>
+          {terminalReport.status === 'stalled' && terminalReport.reasons.length > 0 ? (
+            <div className="solve-report-section">
+              <h4>Current blockers</h4>
+              <ul>
+                {terminalReport.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="solve-report-section">
+            <h4>Rule Usage</h4>
+            {ruleUsageEntries.length === 0 ? (
+              <p>None yet</p>
+            ) : (
+              <ul>
+                {ruleUsageEntries.map(([rule, count]) => (
+                  <li key={rule}>
+                    {rule}: {count}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : null}
       <label className="check-row">
         <input
           type="checkbox"

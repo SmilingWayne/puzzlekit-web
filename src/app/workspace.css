@@ -261,6 +261,75 @@ button[data-active='true'] {
   font-size: 0.86rem;
 }
 
+.solve-report-dialog {
+  margin-top: 10px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #08111f;
+  padding: 10px;
+  color: #cbd5e1;
+}
+
+.solve-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.solve-report-header h3,
+.solve-report-section h4 {
+  margin: 0;
+  color: #f8fafc;
+}
+
+.solve-report-header h3 {
+  font-size: 0.98rem;
+}
+
+.solve-report-section h4 {
+  font-size: 0.9rem;
+}
+
+.solve-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.solve-report-grid > div {
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.solve-report-grid span {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.solve-report-grid strong {
+  color: #f8fafc;
+}
+
+.solve-report-section {
+  margin-top: 8px;
+}
+
+.solve-report-section p,
+.solve-report-section ul {
+  margin: 6px 0 0;
+}
+
+.solve-report-section ul {
+  padding-left: 18px;
+}
+
 .steps-list {
   margin: 0;
   padding-left: 18px;

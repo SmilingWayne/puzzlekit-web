@@ -1,11 +1,40 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { cellKey } from '../../domain/ir/keys'
+import { cellKey, edgeKey } from '../../domain/ir/keys'
 import { semanticEquals } from '../../domain/ir/normalize'
+import { createSlitherPuzzle } from '../../domain/ir/slither'
+import type { EdgeMark, PuzzleIR } from '../../domain/ir/types'
 import { buildPuzzleFromSteps } from '../../domain/rules/engine'
-import { useSolverStore } from './solverStore'
+import { useSolverStore, type TerminalSolveReport } from './solverStore'
 import type { RuleStep } from '../../domain/rules/types'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
+
+const markEdge = (puzzle: PuzzleIR, edge: string, mark: EdgeMark): void => {
+  puzzle.edges[edge] = { ...puzzle.edges[edge], mark }
+}
+
+const createSolvedLoopPuzzle = (): PuzzleIR => {
+  const puzzle = createSlitherPuzzle(1, 1)
+  markEdge(puzzle, edgeKey([0, 0], [0, 1]), 'line')
+  markEdge(puzzle, edgeKey([1, 0], [1, 1]), 'line')
+  markEdge(puzzle, edgeKey([0, 0], [1, 0]), 'line')
+  markEdge(puzzle, edgeKey([0, 1], [1, 1]), 'line')
+  return puzzle
+}
+
+const mockTerminalReport: TerminalSolveReport = {
+  status: 'stalled',
+  stepCount: 0,
+  reasons: ['No line edges have been drawn.'],
+  stats: {
+    totalEdges: 4,
+    lineEdges: 0,
+    blankEdges: 0,
+    unknownEdges: 4,
+    decidedEdges: 0,
+    decidedEdgeRatio: 0,
+  },
+}
 
 describe('solver timeline behavior', () => {
   beforeEach(() => {
@@ -89,6 +118,100 @@ describe('custom slither grid and clue editing', () => {
     expect(after.currentPuzzle.cols).toBe(3)
     expect(after.steps.length).toBe(0)
     expect(after.sourceUrl).toBe(SAMPLE_URL)
+  })
+})
+
+describe('solver terminal reports', () => {
+  beforeEach(() => {
+    const puzzle = createSolvedLoopPuzzle()
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      terminalReport: null,
+    }))
+  })
+
+  it('writes a terminal report when nextStep finds no available rule', () => {
+    useSolverStore.getState().solveAll()
+    const terminalState = useSolverStore.getState()
+    useSolverStore.setState((state) => ({ ...state, terminalReport: null }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport).toMatchObject({
+      status: 'solved',
+      stepCount: terminalState.pointer,
+    })
+  })
+
+  it('writes a terminal report when solveAll reaches no progress', () => {
+    useSolverStore.getState().solveAll()
+
+    expect(useSolverStore.getState().terminalReport).toMatchObject({
+      status: 'solved',
+      stepCount: useSolverStore.getState().pointer,
+    })
+    expect(useSolverStore.getState().isRunning).toBe(false)
+  })
+
+  it('clears terminal report when moving back in the timeline', () => {
+    const step: RuleStep = {
+      id: 'step-1',
+      ruleId: 'test-rule',
+      ruleName: 'Test Rule',
+      message: 'test',
+      diffs: [
+        {
+          kind: 'edge',
+          edgeKey: edgeKey([0, 0], [0, 1]),
+          from: 'unknown',
+          to: 'line',
+        },
+      ],
+      affectedCells: [],
+      affectedEdges: [edgeKey([0, 0], [0, 1])],
+      affectedSectors: [],
+      timestamp: Date.now(),
+    }
+    const initialPuzzle = createSlitherPuzzle(1, 1)
+    const currentPuzzle = createSolvedLoopPuzzle()
+    useSolverStore.setState((state) => ({
+      ...state,
+      initialPuzzle,
+      currentPuzzle,
+      steps: [step],
+      pointer: 1,
+      terminalReport: mockTerminalReport,
+    }))
+
+    useSolverStore.getState().prevStep()
+
+    expect(useSolverStore.getState().terminalReport).toBeNull()
+  })
+
+  it('clears terminal report when resetting, importing, editing clues, or applying a custom grid', () => {
+    useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
+    useSolverStore.getState().resetTimeline()
+    expect(useSolverStore.getState().terminalReport).toBeNull()
+
+    useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
+    useSolverStore.getState().importFromUrl(SAMPLE_URL, 'slitherlink')
+    expect(useSolverStore.getState().terminalReport).toBeNull()
+
+    useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
+    useSolverStore.getState().setSlitherCellClue(cellKey(0, 0), 2)
+    expect(useSolverStore.getState().terminalReport).toBeNull()
+
+    useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
+    useSolverStore.getState().applyCustomSlitherGrid(5, 5)
+    expect(useSolverStore.getState().terminalReport).toBeNull()
   })
 })
 
