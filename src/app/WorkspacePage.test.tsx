@@ -34,7 +34,7 @@ describe('WorkspacePage', () => {
 
   it('renders workspace key sections', () => {
     renderWorkspace()
-    expect(screen.getByText(/logical solver workspace/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /puzzlekit web/i })).toBeInTheDocument()
     expect(screen.getByText(/input & controls/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
@@ -54,7 +54,7 @@ describe('WorkspacePage', () => {
     }))
 
     renderWorkspace()
-    fireEvent.click(screen.getByRole('button', { name: /solve to end/i }))
+    fireEvent.click(screen.getByRole('button', { name: /solve next 100 steps/i }))
 
     expect(screen.getByRole('dialog', { name: /solving to end/i })).toBeInTheDocument()
     expect(screen.getByText(/step 0 \/ 100/i)).toBeInTheDocument()
@@ -66,18 +66,18 @@ describe('WorkspacePage', () => {
     expect(screen.getByRole('dialog', { name: /solved/i })).toBeInTheDocument()
     expect(screen.getByText(/total time/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next step/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve to end/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next step/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve to end/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /reset replay/i }))
 
     expect(screen.getByRole('button', { name: /next step/i })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve to end/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).not.toBeDisabled()
   })
 
   it('shows stalled decided edge count and coverage in one stat', () => {
