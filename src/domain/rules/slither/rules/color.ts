@@ -149,29 +149,120 @@ export const createColorOutsideSeedingRule = (): Rule => ({
   id: 'color-outside-seeding',
   name: 'Color Outside Seeding',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const decidedCellFills = new Map<string, SlitherCellColor>()
-    const affectedCells = new Set<string>()
+    type Parity = 0 | 1
 
-    const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
-      const decided = decidedCellFills.get(key)
-      if (decided) {
-        return decided
+    const parent = new Map<string, string>()
+    const rank = new Map<string, number>()
+    const parityToParent = new Map<string, Parity>()
+    const inconsistentRoots = new Set<string>()
+
+    const ensureCell = (key: string): void => {
+      if (parent.has(key)) {
+        return
       }
-      const current = puzzle.cells[key]?.fill
-      return isSlitherCellColor(current) ? current : null
+      parent.set(key, key)
+      rank.set(key, 0)
+      parityToParent.set(key, 0)
     }
 
-    const rememberCellFill = (key: string, to: SlitherCellColor): boolean => {
-      const current = getEffectiveCellColor(key)
-      if (current === to) {
-        return true
+    const find = (key: string): { root: string; parity: Parity } => {
+      ensureCell(key)
+      const currentParent = parent.get(key)
+      if (currentParent === undefined || currentParent === key) {
+        return { root: key, parity: 0 }
       }
-      if (current !== null) {
-        return false
+
+      const parentResult = find(currentParent)
+      const currentParity = parityToParent.get(key) ?? 0
+      const compressedParity = (currentParity ^ parentResult.parity) as Parity
+      parent.set(key, parentResult.root)
+      parityToParent.set(key, compressedParity)
+      return { root: parentResult.root, parity: compressedParity }
+    }
+
+    const markInconsistent = (root: string): void => {
+      inconsistentRoots.add(find(root).root)
+    }
+
+    const union = (cellA: string, cellB: string, relation: Parity): void => {
+      const rootA = find(cellA)
+      const rootB = find(cellB)
+      if (rootA.root === rootB.root) {
+        if ((rootA.parity ^ rootB.parity) !== relation) {
+          markInconsistent(rootA.root)
+        }
+        return
       }
-      decidedCellFills.set(key, to)
-      affectedCells.add(key)
-      return true
+
+      const mergedParity = (rootA.parity ^ rootB.parity ^ relation) as Parity
+      const rankA = rank.get(rootA.root) ?? 0
+      const rankB = rank.get(rootB.root) ?? 0
+      const rootAWasInconsistent = inconsistentRoots.delete(rootA.root)
+      const rootBWasInconsistent = inconsistentRoots.delete(rootB.root)
+
+      if (rankA < rankB) {
+        parent.set(rootA.root, rootB.root)
+        parityToParent.set(rootA.root, mergedParity)
+        if (rootAWasInconsistent || rootBWasInconsistent) {
+          inconsistentRoots.add(rootB.root)
+        }
+        return
+      }
+
+      parent.set(rootB.root, rootA.root)
+      parityToParent.set(rootB.root, mergedParity)
+      if (rankA === rankB) {
+        rank.set(rootA.root, rankA + 1)
+      }
+      if (rootAWasInconsistent || rootBWasInconsistent) {
+        inconsistentRoots.add(rootA.root)
+      }
+    }
+
+    const applyParity = (color: SlitherCellColor, parity: Parity): SlitherCellColor =>
+      parity === 0 ? color : oppositeSlitherCellColor(color)
+
+    const decidedCellFills = new Map<string, SlitherCellColor>()
+    const affectedCells = new Set<string>()
+    const anchoredRootColors = new Map<string, SlitherCellColor>()
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        ensureCell(cellKey(row, col))
+      }
+    }
+
+    for (const [edgeKeyValue, edgeState] of Object.entries(puzzle.edges)) {
+      const mark = edgeState?.mark ?? 'unknown'
+      if (mark !== 'line' && mark !== 'blank') {
+        continue
+      }
+      const adjacentCells = getEdgeAdjacentCellKeys(puzzle, edgeKeyValue)
+      if (adjacentCells.length !== 2) {
+        continue
+      }
+      union(adjacentCells[0], adjacentCells[1], mark === 'line' ? 1 : 0)
+    }
+
+    const rememberAnchor = (key: string, color: SlitherCellColor): void => {
+      const { root, parity } = find(key)
+      const rootColor = applyParity(color, parity)
+      const current = anchoredRootColors.get(root)
+      if (current !== undefined && current !== rootColor) {
+        markInconsistent(root)
+        return
+      }
+      anchoredRootColors.set(root, rootColor)
+    }
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        const current = puzzle.cells[key]?.fill
+        if (isSlitherCellColor(current)) {
+          rememberAnchor(key, current)
+        }
+      }
     }
 
     for (const [edgeKeyValue, edgeState] of Object.entries(puzzle.edges)) {
@@ -183,8 +274,28 @@ export const createColorOutsideSeedingRule = (): Rule => ({
       if (adjacentCells.length !== 1) {
         continue
       }
-      const inferredColor: SlitherCellColor = mark === 'line' ? 'green' : 'yellow'
-      rememberCellFill(adjacentCells[0], inferredColor)
+      rememberAnchor(adjacentCells[0], mark === 'line' ? 'green' : 'yellow')
+    }
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        const current = puzzle.cells[key]?.fill
+        if (isSlitherCellColor(current)) {
+          continue
+        }
+        const { root, parity } = find(key)
+        if (inconsistentRoots.has(root)) {
+          continue
+        }
+        const rootColor = anchoredRootColors.get(root)
+        if (rootColor === undefined) {
+          continue
+        }
+        const inferredColor = applyParity(rootColor, parity)
+        decidedCellFills.set(key, inferredColor)
+        affectedCells.add(key)
+      }
     }
 
     if (decidedCellFills.size === 0) {

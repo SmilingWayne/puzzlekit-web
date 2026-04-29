@@ -429,6 +429,72 @@ describe('slither color outside seeding rule', () => {
       toFill: 'green',
     })
   })
+
+  it('colors a whole boundary-anchored parity component in one application', () => {
+    const puzzle = createSlitherPuzzle(2, 3)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'blank'
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'blank'
+
+    const result = outsideRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'yellow' },
+        { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' },
+        { kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'green' },
+      ]),
+    )
+  })
+
+  it('does not color an unanchored parity component', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = outsideRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('uses an existing colored cell as a parity component anchor', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = outsideRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' },
+    ])
+  })
+
+  it('does not color a component with conflicting anchors', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'blank'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+
+    const result = outsideRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('colors multiple anchored components independently', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'blank'
+    puzzle.edges[edgeKey([2, 1], [2, 2])].mark = 'line'
+
+    const result = outsideRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'yellow' },
+        { kind: 'cell', cellKey: cellKey(1, 1), fromFill: null, toFill: 'green' },
+      ]),
+    )
+  })
 })
 
 describe('slither color clue propagation rule', () => {
