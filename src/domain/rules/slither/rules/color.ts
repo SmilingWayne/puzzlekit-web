@@ -1,4 +1,4 @@
-import { cellKey, sectorKey } from '../../../ir/keys'
+import { cellKey, edgeKey, sectorKey } from '../../../ir/keys'
 import {
   SECTOR_MASK_ONLY_1,
   type EdgeMark,
@@ -478,6 +478,105 @@ export const createColorOrthogonalConsensusPropagationRule = (): Rule => ({
 
     return {
       message: `Color orthogonal consensus propagation applied (${decidedCellFills.size} color update(s)).`,
+      diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
+        kind: 'cell' as const,
+        cellKey: k,
+        fromFill: (puzzle.cells[k]?.fill ?? null) as string | null,
+        toFill,
+      })),
+      affectedCells: [...affectedCells],
+    }
+  },
+})
+
+const isNumberClueThree = (puzzle: PuzzleIR, key: string): boolean => {
+  const clue = puzzle.cells[key]?.clue
+  return clue?.kind === 'number' && clue.value === 3
+}
+
+export const createInsideReachabilityColoringRule = (): Rule => ({
+  id: 'inside-reachability-coloring',
+  name: 'Inside Reachability Coloring',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const reachable = new Set<string>()
+    const queue: string[] = []
+
+    const inBounds = (row: number, col: number): boolean =>
+      row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols
+
+    const enqueue = (key: string): void => {
+      if (reachable.has(key)) {
+        return
+      }
+      reachable.add(key)
+      queue.push(key)
+    }
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        if (puzzle.cells[key]?.fill === 'green') {
+          enqueue(key)
+        }
+      }
+    }
+
+    if (queue.length === 0) {
+      return null
+    }
+
+    const neighborSpecs: Array<{ dr: number; dc: number; edge: (row: number, col: number) => string }> = [
+      { dr: -1, dc: 0, edge: (row, col) => edgeKey([row, col], [row, col + 1]) },
+      { dr: 1, dc: 0, edge: (row, col) => edgeKey([row + 1, col], [row + 1, col + 1]) },
+      { dr: 0, dc: -1, edge: (row, col) => edgeKey([row, col], [row + 1, col]) },
+      { dr: 0, dc: 1, edge: (row, col) => edgeKey([row, col + 1], [row + 1, col + 1]) },
+    ]
+
+    for (let idx = 0; idx < queue.length; idx += 1) {
+      const [row, col] = queue[idx].split(',').map(Number)
+      for (const spec of neighborSpecs) {
+        const neighborRow = row + spec.dr
+        const neighborCol = col + spec.dc
+        if (!inBounds(neighborRow, neighborCol)) {
+          continue
+        }
+        const sharedEdge = spec.edge(row, col)
+        if ((puzzle.edges[sharedEdge]?.mark ?? 'unknown') === 'line') {
+          continue
+        }
+
+        const neighborKey = cellKey(neighborRow, neighborCol)
+        const neighborFill = puzzle.cells[neighborKey]?.fill
+        if (neighborFill === 'yellow' || isNumberClueThree(puzzle, neighborKey)) {
+          continue
+        }
+        enqueue(neighborKey)
+      }
+    }
+
+    const decidedCellFills = new Map<string, SlitherCellColor>()
+    const affectedCells = new Set<string>()
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        if (reachable.has(key) || isNumberClueThree(puzzle, key)) {
+          continue
+        }
+        const currentFill = puzzle.cells[key]?.fill
+        if (isSlitherCellColor(currentFill)) {
+          continue
+        }
+        decidedCellFills.set(key, 'yellow')
+        affectedCells.add(key)
+      }
+    }
+
+    if (decidedCellFills.size === 0) {
+      return null
+    }
+
+    return {
+      message: `Inside reachability coloring applied (${decidedCellFills.size} color update(s)).`,
       diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,

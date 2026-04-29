@@ -641,6 +641,127 @@ describe('slither color orthogonal consensus propagation rule', () => {
   })
 })
 
+describe('slither inside reachability coloring rule', () => {
+  const reachabilityRule = slitherRules.find((rule) => rule.id === 'inside-reachability-coloring')
+  if (!reachabilityRule) {
+    throw new Error('Expected inside-reachability-coloring rule')
+  }
+
+  it('colors an unreachable unknown non-3 cell yellow', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = reachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' },
+    ])
+  })
+
+  it('does not color reachable unknown cells across unknown or blank edges', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'blank'
+
+    const result = reachabilityRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not cross a line edge', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = reachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' },
+        { kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'yellow' },
+      ]),
+    )
+  })
+
+  it('does not traverse through existing yellow cells', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+
+    const result = reachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'yellow' },
+    ])
+  })
+
+  it('does not traverse into clue-3 cells and does not color clue-3 cells yellow', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    setClue(puzzle, 0, 1, 3)
+
+    const result = reachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'yellow' },
+    ])
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('returns null when there are no known green source cells', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+
+    const result = reachabilityRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('floods from multiple green source components', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 2)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = reachabilityRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('appears on the provided 19x10 puzzle within the normal solve limit', () => {
+    let current = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/19/10/y13c22d32c1186b8c8b8631d31b13c32czx32c22b21d3376d8d8c7612d32b23b31cw',
+    )
+    let sawReachabilityColoring = false
+
+    for (let stepNumber = 1; stepNumber <= 100; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+      if (
+        step.ruleId === 'inside-reachability-coloring' &&
+        step.diffs.some((diff) => diff.kind === 'cell' && diff.toFill === 'yellow')
+      ) {
+        sawReachabilityColoring = true
+        break
+      }
+      current = nextPuzzle
+    }
+
+    expect(sawReachabilityColoring).toBe(true)
+  })
+})
+
 describe('slither color sector-mask propagation rule', () => {
   const sectorColorRule = slitherRules.find((rule) => rule.id === 'color-sector-mask-propagation')
   if (!sectorColorRule) {
@@ -771,6 +892,7 @@ describe('slither prevent premature loop rule', () => {
     const orthogonalConsensusRuleIdx = slitherRules.findIndex(
       (rule) => rule.id === 'color-orthogonal-consensus-propagation',
     )
+    const reachabilityRuleIdx = slitherRules.findIndex((rule) => rule.id === 'inside-reachability-coloring')
     const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
     expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
     expect(outsideRuleIdx).toBe(vertexRuleIdx + 1)
@@ -778,7 +900,8 @@ describe('slither prevent premature loop rule', () => {
     expect(clueRuleIdx).toBe(colorRuleIdx + 1)
     expect(sectorColorRuleIdx).toBe(clueRuleIdx + 1)
     expect(orthogonalConsensusRuleIdx).toBe(sectorColorRuleIdx + 1)
-    expect(antiLoopRuleIdx).toBe(orthogonalConsensusRuleIdx + 1)
+    expect(reachabilityRuleIdx).toBe(orthogonalConsensusRuleIdx + 1)
+    expect(antiLoopRuleIdx).toBe(reachabilityRuleIdx + 1)
   })
 
   it('marks an unknown edge blank when it would close a loop', () => {
@@ -1883,7 +2006,7 @@ describe('slither strong inference rule', () => {
     expect(result === null || result.diffs.length > 0).toBe(true)
   })
 
-  it('unlocks the provided 6x100 target edge after deterministic stabilization', () => {
+  it('keeps the provided 6x100 target edge covered after deterministic stabilization', () => {
     const rulesWithoutStrong = slitherRules.filter((rule) => rule.id !== 'strong-inference')
     const target = edgeKey([23, 0], [24, 0])
     let current = decodeSlitherFromPuzzlink(
@@ -1898,37 +2021,6 @@ describe('slither strong inference rule', () => {
       current = nextPuzzle
     }
 
-    expect(current.edges[target]?.mark ?? 'unknown').toBe('unknown')
-
-    let sawStrongInference = false
-    let targetDiff: { kind: 'edge'; edgeKey: string; from: 'unknown' | 'line' | 'blank'; to: 'unknown' | 'line' | 'blank' } | null =
-      null
-
-    for (let stepNumber = 1; stepNumber <= 120; stepNumber += 1) {
-      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
-      if (!step) {
-        break
-      }
-      if (step.ruleId === 'strong-inference') {
-        sawStrongInference = true
-      }
-      const edgeDiff = step.diffs.find(
-        (diff): diff is Extract<(typeof step.diffs)[number], { kind: 'edge' }> =>
-          diff.kind === 'edge' && diff.edgeKey === target,
-      )
-      current = nextPuzzle
-      if (edgeDiff) {
-        targetDiff = edgeDiff
-        break
-      }
-    }
-
-    expect(sawStrongInference).toBe(true)
-    expect(targetDiff).toEqual({
-      kind: 'edge',
-      edgeKey: target,
-      from: 'unknown',
-      to: 'blank',
-    })
+    expect(current.edges[target]?.mark ?? 'unknown').toBe('blank')
   })
 })
