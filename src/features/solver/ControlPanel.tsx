@@ -151,7 +151,7 @@ export const ControlPanel = () => {
         </div>
       </div>
       <label className="label-row">
-        URL (only puzz.link url supported for now)
+        URL (puzz.link or Penpa+ Slitherlink)
         <textarea
           rows={2}
           value={localUrl}

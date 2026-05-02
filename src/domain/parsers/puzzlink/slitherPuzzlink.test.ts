@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSlitherPuzzle } from '../../ir/slither'
 import { cellKey } from '../../ir/keys'
+import { slitherPlugin } from '../../plugins/slitherPlugin'
 import { decodeSlitherFromPuzzlink, encodeSlitherToPuzzlink } from './slitherPuzzlink'
 
 describe('slither puzzlink parser', () => {
@@ -44,5 +45,12 @@ describe('slither puzzlink parser', () => {
     expect(again.cols).toBe(5)
     expect(again.cells[cellKey(1, 2)]?.clue).toEqual({ kind: 'number', value: 2 })
     expect(again.cells[cellKey(3, 4)]?.clue).toEqual({ kind: 'number', value: '?' })
+  })
+
+  it('keeps the slither plugin puzz.link path working', () => {
+    const puzzle = slitherPlugin.parse('https://puzz.link/p?slither/3/3/g0h')
+    expect(puzzle.rows).toBe(3)
+    expect(puzzle.cols).toBe(3)
+    expect(puzzle.cells[cellKey(0, 1)]?.clue).toEqual({ kind: 'number', value: 0 })
   })
 })
