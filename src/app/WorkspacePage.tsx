@@ -68,15 +68,14 @@ export const WorkspacePage = () => {
 
   return (
     <main className="workspace">
-      <header className="workspace-title">
-        <h1>PuzzleKit Web</h1>
-        <p>
-          A Step-wise and Explainable Inference Solver for Slitherlink.
-        </p>
-      </header>
-
       <section className="workspace-grid">
         <div className="left-column">
+          <header className="workspace-title">
+            <h1>PuzzleKit Web</h1>
+            <p>
+              A Step-wise and Explainable Inference Solver for Slitherlink.
+            </p>
+          </header>
           <div
             ref={boardFocusRef}
             className="board-focus-shell"
