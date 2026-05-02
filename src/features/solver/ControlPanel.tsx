@@ -6,7 +6,7 @@ import {
   SLITHER_CUSTOM_GRID_MIN,
 } from '../../domain/ir/slither'
 import { puzzleRegistry } from '../../domain/plugins/registry'
-import { buildDifficultySnapshot, useSolverStore } from './solverStore'
+import { buildDifficultySnapshot, MAX_SOLVE_CHUNK_SIZE, useSolverStore } from './solverStore'
 
 export const ControlPanel = () => {
   const {
@@ -19,8 +19,11 @@ export const ControlPanel = () => {
     applyCustomSlitherGrid,
     nextStep,
     prevStep,
+    goToStep,
     solveAll,
     resetTimeline,
+    solveChunkSize,
+    setSolveChunkSize,
     includeVertexNumbers,
     setIncludeVertexNumbers,
     isRunning,
@@ -36,9 +39,11 @@ export const ControlPanel = () => {
   const [copyFeedback, setCopyFeedback] = useState('')
   const [exportGenerateError, setExportGenerateError] = useState('')
   const [showCustomGridPopover, setShowCustomGridPopover] = useState(false)
+  const [showImportErrorDialog, setShowImportErrorDialog] = useState(false)
   const [showTerminalReport, setShowTerminalReport] = useState(false)
   const [customRows, setCustomRows] = useState(String(currentPuzzle.rows))
   const [customCols, setCustomCols] = useState(String(currentPuzzle.cols))
+  const [timelinePreviewStep, setTimelinePreviewStep] = useState<number | null>(null)
   const activeSteps = useMemo(() => steps.slice(0, pointer), [steps, pointer])
   const difficulty = useMemo(() => buildDifficultySnapshot(activeSteps), [activeSteps])
   const ruleUsageEntries = useMemo(
@@ -67,8 +72,18 @@ export const ControlPanel = () => {
     setShowTerminalReport(terminalReport !== null)
   }, [terminalReport])
 
+  useEffect(() => {
+    setShowImportErrorDialog(Boolean(importError))
+  }, [importError])
+
+  const solveChunkLabel = `Solve Next ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
+  const previousChunkLabel = `Previous ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
+  const timelineStepForTooltip = timelinePreviewStep ?? pointer
+  const timelineTooltipLeft =
+    steps.length > 0 ? `${Math.min(100, Math.max(0, (timelineStepForTooltip / steps.length) * 100))}%` : '0%'
+
   return (
-    <section className="panel-card">
+    <section className="panel-card control-panel-card">
       <header className="panel-header">
         <h2>Input & Controls</h2>
       </header>
@@ -127,6 +142,14 @@ export const ControlPanel = () => {
                     onChange={(e) => setCustomCols(e.target.value)}
                   />
                 </label>
+                <label className="check-row custom-grid-check-row">
+                  <input
+                    type="checkbox"
+                    checked={includeVertexNumbers}
+                    onChange={(event) => setIncludeVertexNumbers(event.target.checked)}
+                  />
+                  Show vertex numbering overlay
+                </label>
                 <div className="custom-grid-popover-actions">
                   <button
                     type="button"
@@ -151,48 +174,147 @@ export const ControlPanel = () => {
         </div>
       </div>
       <label className="label-row">
-        URL (only puzz.link url supported for now)
+        URL (puzz.link, pzplus, pzv, or Penpa+ Slitherlink)
         <textarea
           rows={2}
           value={localUrl}
           onChange={(event) => setLocalUrl(event.target.value)}
-          placeholder="Paste puzz.link or penpa URL"
+          placeholder="Paste puzz.link, pzplus, pzv, or penpa URL"
         />
       </label>
-      {importError ? <p className="error-text">{importError}</p> : null}
-      <div className="button-row">
-        <button
-          onClick={() => {
-            setSourceUrl(localUrl)
-            importFromUrl(localUrl, pluginId)
-          }}
-        >
-          Import URL
-        </button>
-        <button disabled={isRunning || terminalReport !== null} onClick={nextStep}>
-          Next Step
-        </button>
-        <button onClick={prevStep}>Previous Step</button>
-        <button
-          disabled={isRunning || terminalReport !== null}
-          onClick={() => {
-            void solveAll()
-          }}
-        >
-          Solve Next 100 steps
-        </button>
-        <button onClick={resetTimeline}>Reset Replay</button>
-        <button
-          data-active={showExportPanel}
-          onClick={() => {
-            setShowExportPanel((prev) => !prev)
-            setCopyFeedback('')
-            setExportGenerateError('')
-          }}
-        >
-          {showExportPanel ? 'Hide Export Panel' : 'Open Export Panel'}
-        </button>
+      <div className="control-groups">
+        <div className="control-group compact-control-group">
+          <span className="control-group-title">Puzzle I/O</span>
+          <div className="button-row io-action-row">
+            <button
+              onClick={() => {
+                setShowImportErrorDialog(true)
+                setSourceUrl(localUrl)
+                importFromUrl(localUrl, pluginId)
+              }}
+            >
+              Import URL
+            </button>
+            <button onClick={resetTimeline}>Reset Replay</button>
+            <button
+              data-active={showExportPanel}
+              onClick={() => {
+                setShowExportPanel((prev) => !prev)
+                setCopyFeedback('')
+                setExportGenerateError('')
+              }}
+            >
+              {showExportPanel ? 'Close Export' : 'Export…'}
+            </button>
+          </div>
+        </div>
+        <div className="control-group compact-control-group">
+          <span className="control-group-title">Replay</span>
+          <div className="button-row replay-step-row">
+            <button disabled={isRunning || pointer === 0} onClick={prevStep}>
+              Previous Step
+            </button>
+            <button disabled={isRunning || terminalReport !== null} onClick={nextStep}>
+              Next Step
+            </button>
+          </div>
+          <div className="chunk-stepper-row">
+            <button
+              type="button"
+              disabled={isRunning || pointer === 0}
+              onClick={() => goToStep(pointer - solveChunkSize)}
+            >
+              {previousChunkLabel}
+            </button>
+            <label className="chunk-stepper-field">
+              <span className="sr-only">Step Chunk</span>
+              <input
+                type="number"
+                min={1}
+                max={MAX_SOLVE_CHUNK_SIZE}
+                value={solveChunkSize}
+                aria-label="Step Chunk"
+                onChange={(event) => setSolveChunkSize(Number(event.target.value))}
+              />
+            </label>
+            <button
+              disabled={isRunning || terminalReport !== null}
+              onClick={() => {
+                void solveAll()
+              }}
+            >
+              {solveChunkLabel}
+            </button>
+          </div>
+          <div className="timeline-row">
+            <div className="timeline-header">
+              <label htmlFor="replay-timeline">Replay Timeline</label>
+              <span>
+                Step {pointer} / {steps.length}
+              </span>
+            </div>
+            <div className="timeline-slider-wrap">
+              <input
+                id="replay-timeline"
+                className="timeline-slider"
+                type="range"
+                min={0}
+                max={steps.length}
+                value={pointer}
+                disabled={isRunning || steps.length === 0}
+                aria-valuetext={`Step ${pointer} of ${steps.length}`}
+                onMouseEnter={() => setTimelinePreviewStep(pointer)}
+                onMouseLeave={() => setTimelinePreviewStep(null)}
+                onFocus={() => setTimelinePreviewStep(pointer)}
+                onBlur={() => setTimelinePreviewStep(null)}
+                onChange={(event) => {
+                  const targetStep = Number(event.target.value)
+                  setTimelinePreviewStep(targetStep)
+                  goToStep(targetStep)
+                }}
+              />
+              {timelinePreviewStep !== null && steps.length > 0 ? (
+                <span
+                  className="timeline-tooltip"
+                  style={{ left: timelineTooltipLeft }}
+                  aria-hidden="true"
+                >
+                  Step {timelineStepForTooltip}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
+      {importError && showImportErrorDialog ? (
+        <div className="import-error-overlay">
+          <div
+            className="import-error-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="import-error-title"
+          >
+            <div className="import-error-header">
+              <h3 id="import-error-title">Import failed</h3>
+              <button
+                type="button"
+                className="button-compact"
+                onClick={() => setShowImportErrorDialog(false)}
+              >
+                Close
+              </button>
+            </div>
+            <p className="import-error-summary">
+              The puzzle data could not be imported. Check the URL, or expand details for the parser
+              error.
+            </p>
+            <details className="import-error-details">
+              <summary>Show error details</summary>
+              <pre>{importError}</pre>
+            </details>
+          </div>
+        </div>
+      ) : null}
       {terminalReport && showTerminalReport ? (
         <div className="solve-report-dialog" role="dialog" aria-modal="false" aria-labelledby="solve-report-title">
           <div className="solve-report-header">
@@ -254,19 +376,22 @@ export const ControlPanel = () => {
           </div>
         </div>
       ) : null}
-      <label className="check-row">
-        <input
-          type="checkbox"
-          checked={includeVertexNumbers}
-          onChange={(event) => setIncludeVertexNumbers(event.target.checked)}
-        />
-        Show vertex numbering overlay
-      </label>
       {showExportPanel ? (
-        <section className="export-panel">
-          <hr className="divider" />
-          <header className="panel-header">
-            <h2>Export Puzzle</h2>
+        <section
+          className="export-panel"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="export-panel-title"
+        >
+          <header className="export-panel-header">
+            <h2 id="export-panel-title">Export Puzzle</h2>
+            <button
+              type="button"
+              className="button-compact"
+              onClick={() => setShowExportPanel(false)}
+            >
+              Cancel
+            </button>
           </header>
           <label className="label-row compact">
             Export Format

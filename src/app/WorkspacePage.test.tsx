@@ -4,8 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { edgeKey } from '../domain/ir/keys'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
-import { useSolverStore } from '../features/solver/solverStore'
+import { DEFAULT_SOLVE_CHUNK_SIZE, useSolverStore } from '../features/solver/solverStore'
 import { WorkspacePage } from './WorkspacePage'
+
+const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
 
 const markEdge = (puzzle: PuzzleIR, edge: string, mark: EdgeMark): void => {
   puzzle.edges[edge] = { ...puzzle.edges[edge], mark }
@@ -30,6 +32,8 @@ const renderWorkspace = () =>
 describe('WorkspacePage', () => {
   afterEach(() => {
     cleanup()
+    useSolverStore.getState().importFromUrl(SAMPLE_URL, 'slitherlink')
+    useSolverStore.getState().setSolveChunkSize(DEFAULT_SOLVE_CHUNK_SIZE)
   })
 
   it('renders workspace key sections', () => {
@@ -38,6 +42,52 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/input & controls/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
+  })
+
+  it('shows import errors in a closeable dialog with expandable details', () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByPlaceholderText(/paste puzz\.link/i), {
+      target: { value: 'https://example.com/p?slither/3/3/g0h' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /import url/i }))
+
+    const importDialog = screen.getByRole('alertdialog', { name: /import failed/i })
+    expect(importDialog).toBeInTheDocument()
+    expect(importDialog).toHaveAttribute('aria-modal', 'true')
+    expect(importDialog.parentElement).toHaveClass('import-error-overlay')
+    expect(screen.getByText(/could not be imported/i)).toBeInTheDocument()
+
+    const detailsText = screen.getByText(/unsupported slitherlink url/i)
+    expect(detailsText).not.toBeVisible()
+
+    fireEvent.click(screen.getByText(/show error details/i))
+    expect(detailsText).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('alertdialog', { name: /import failed/i })).not.toBeInTheDocument()
+  })
+
+  it('opens export controls as a closeable popout', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /export/i }))
+
+    const exportDialog = screen.getByRole('dialog', { name: /export puzzle/i })
+    expect(exportDialog).toBeInTheDocument()
+    expect(exportDialog).toHaveClass('export-panel')
+    expect(exportDialog).toHaveAttribute('aria-modal', 'false')
+    expect(screen.getByRole('button', { name: /close export/i })).toHaveAttribute(
+      'data-active',
+      'true',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /close export/i }))
+    expect(screen.queryByRole('dialog', { name: /export puzzle/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /export/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.queryByRole('dialog', { name: /export puzzle/i })).not.toBeInTheDocument()
   })
 
   it('shows solve progress, then terminal report, and keeps solve buttons disabled after close', async () => {
@@ -52,6 +102,7 @@ describe('WorkspacePage', () => {
       solveProgress: null,
       terminalReport: null,
     }))
+    useSolverStore.getState().setSolveChunkSize(100)
 
     renderWorkspace()
     fireEvent.click(screen.getByRole('button', { name: /solve next 100 steps/i }))
@@ -75,9 +126,120 @@ describe('WorkspacePage', () => {
     expect(screen.getByRole('button', { name: /solve next 100 steps/i })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /reset replay/i }))
+    expect(screen.getByRole('button', { name: /next step/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).not.toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /solve next 100 steps/i }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /solving to end/i })).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /reset replay/i }))
 
     expect(screen.getByRole('button', { name: /next step/i })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /solve next 100 steps/i })).not.toBeDisabled()
+  })
+
+  it('updates solve chunk controls and uses the chosen progress total', async () => {
+    const puzzle = createSolvedLoopPuzzle()
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      solveProgress: null,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByRole('button', { name: /solve next 50 steps/i })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/step chunk/i), { target: { value: '25' } })
+    expect(screen.getByRole('button', { name: /solve next 25 steps/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /solve next 25 steps/i }))
+    expect(screen.getByRole('dialog', { name: /solving to end/i })).toBeInTheDocument()
+    expect(screen.getByText(/step 0 \/ 25/i)).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /solving to end/i })).not.toBeInTheDocument()
+    })
+  })
+
+  it('uses the replay timeline to jump to an existing step', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+    expect(screen.getByText(/showing 2 \/ 2/i)).toBeInTheDocument()
+
+    const timeline = screen.getByLabelText(/replay timeline/i)
+    fireEvent.change(timeline, { target: { value: '1' } })
+
+    expect(screen.getByText(/showing 1 \/ 1/i)).toBeInTheDocument()
+    expect(timeline).toHaveValue('1')
+    expect(screen.getByText(/step 1 \/ 2/i)).toBeInTheDocument()
+  })
+
+  it('rewinds by the configured step chunk and clamps at the start', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+    expect(screen.getByText(/showing 3 \/ 3/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/step chunk/i), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: /^previous 2 steps$/i }))
+
+    expect(screen.getByText(/showing 1 \/ 1/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('1')
+
+    fireEvent.click(screen.getByRole('button', { name: /^previous 2 steps$/i }))
+
+    expect(screen.getByText(/showing 0 \/ 0/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('0')
+  })
+
+  it('keeps vertex numbering inside the custom grid popover', () => {
+    renderWorkspace()
+
+    expect(screen.queryByLabelText(/show vertex numbering overlay/i)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /custom grid/i }))
+
+    const vertexToggle = screen.getByLabelText(/show vertex numbering overlay/i)
+    expect(vertexToggle).toBeInTheDocument()
+    fireEvent.click(vertexToggle)
+
+    expect(vertexToggle).toBeChecked()
+  })
+
+  it('keeps replay and puzzle I/O controls in the intended compact order', () => {
+    renderWorkspace()
+
+    const previousButton = screen.getByRole('button', { name: /previous step/i })
+    const nextButton = screen.getByRole('button', { name: /next step/i })
+    expect(
+      previousButton.compareDocumentPosition(nextButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    const previousChunkButton = screen.getByRole('button', { name: /previous 50 steps/i })
+    const timeline = screen.getByLabelText(/replay timeline/i)
+    expect(
+      nextButton.compareDocumentPosition(previousChunkButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      previousChunkButton.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    const importButton = screen.getByRole('button', { name: /import url/i })
+    const resetButton = screen.getByRole('button', { name: /reset replay/i })
+    const exportButton = screen.getByRole('button', { name: /export/i })
+    expect(importButton.closest('.control-group')).toBe(resetButton.closest('.control-group'))
+    expect(importButton.closest('.control-group')).toBe(exportButton.closest('.control-group'))
   })
 
   it('shows stalled decided edge count and coverage in one stat', () => {

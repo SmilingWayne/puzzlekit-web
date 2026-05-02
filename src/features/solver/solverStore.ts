@@ -16,6 +16,8 @@ import {
 import type { RuleStep } from '../../domain/rules/types'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb'
+export const DEFAULT_SOLVE_CHUNK_SIZE = 50
+export const MAX_SOLVE_CHUNK_SIZE = 1000
 
 export type TerminalSolveReport = SlitherCompletionReport & {
   stepCount: number
@@ -40,6 +42,7 @@ type SolverStore = {
   highlightedEdges: string[]
   isRunning: boolean
   solveProgress: SolveProgress | null
+  solveChunkSize: number
   terminalReport: TerminalSolveReport | null
   includeVertexNumbers: boolean
   selectedCellKey: string | null
@@ -51,6 +54,8 @@ type SolverStore = {
   setSlitherCellClue: (cellKey: string, value: NumberClueValue | null) => void
   nextStep: () => void
   prevStep: () => void
+  goToStep: (targetPointer: number) => void
+  setSolveChunkSize: (value: number) => void
   solveAll: (limit?: number) => Promise<void>
   resetTimeline: () => void
   setIncludeVertexNumbers: (enabled: boolean) => void
@@ -66,6 +71,20 @@ const getStepColorCells = (step?: RuleStep): string[] =>
   step?.diffs.flatMap((diff) => (diff.kind === 'cell' && diff.toFill !== null ? [diff.cellKey] : [])) ?? []
 
 const yieldToBrowser = (): Promise<void> => new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+
+const clampPointer = (pointer: number, stepsLength: number): number => {
+  if (!Number.isFinite(pointer)) {
+    return 0
+  }
+  return Math.min(stepsLength, Math.max(0, Math.floor(pointer)))
+}
+
+const clampSolveChunkSize = (value: number, fallback = DEFAULT_SOLVE_CHUNK_SIZE): number => {
+  if (!Number.isFinite(value)) {
+    return fallback
+  }
+  return Math.min(MAX_SOLVE_CHUNK_SIZE, Math.max(1, Math.floor(value)))
+}
 
 export const sumRuleStepDurationMs = (steps: RuleStep[]): number =>
   steps.reduce((sum, step) => sum + (step.durationMs ?? 0), 0)
@@ -127,6 +146,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   highlightedEdges: [],
   isRunning: false,
   solveProgress: null,
+  solveChunkSize: DEFAULT_SOLVE_CHUNK_SIZE,
   terminalReport: null,
   includeVertexNumbers: false,
   selectedCellKey: null,
@@ -279,20 +299,41 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       terminalReport: null,
     })
   },
-  solveAll: (limit = 100) => {
+  goToStep: (targetPointer) => {
+    const { initialPuzzle, steps, isRunning } = get()
+    if (isRunning) {
+      return
+    }
+    const nextPointer = clampPointer(targetPointer, steps.length)
+    const currentStep = steps[nextPointer - 1]
+    set({
+      currentPuzzle: buildStateFromSteps(initialPuzzle, steps, nextPointer),
+      pointer: nextPointer,
+      highlightedCells: currentStep?.affectedCells ?? [],
+      highlightedColorCells: getStepColorCells(currentStep),
+      highlightedEdges: currentStep?.affectedEdges ?? [],
+      terminalReport: null,
+    })
+  },
+  setSolveChunkSize: (value) => {
+    const fallback = get().solveChunkSize || DEFAULT_SOLVE_CHUNK_SIZE
+    set({ solveChunkSize: clampSolveChunkSize(value, fallback) })
+  },
+  solveAll: (limit) => {
     if (get().terminalReport || get().isRunning) {
       return Promise.resolve()
     }
-    set({ isRunning: true, solveProgress: { current: 0, total: limit } })
+    const solveLimit = clampSolveChunkSize(limit ?? get().solveChunkSize)
+    set({ isRunning: true, solveProgress: { current: 0, total: solveLimit } })
     return (async () => {
       await yieldToBrowser()
       let loops = 0
       let before = get().pointer
-      while (loops < limit) {
+      while (loops < solveLimit) {
         get().nextStep()
         loops += 1
         const after = get().pointer
-        set({ solveProgress: { current: loops, total: limit } })
+        set({ solveProgress: { current: loops, total: solveLimit } })
         if (after === before || get().terminalReport) {
           break
         }

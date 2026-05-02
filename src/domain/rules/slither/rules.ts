@@ -2,10 +2,12 @@ import type { Rule } from '../types'
 import {
   createColorCluePropagationRule,
   createColorEdgePropagationRule,
+  createInsideReachabilityColoringRule,
   createColorOrthogonalConsensusPropagationRule,
   createColorOutsideSeedingRule,
   createColorSectorMaskPropagationRule,
 } from './rules/color'
+import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createCellCountRule, createPreventPrematureLoopRule, createVertexDegreeRule } from './rules/core'
 import {
   createContiguousThreeRunBoundariesRule,
@@ -32,6 +34,7 @@ export const deterministicSlitherRules: Rule[] = [
   createColorCluePropagationRule(),
   createColorSectorMaskPropagationRule(),
   createColorOrthogonalConsensusPropagationRule(),
+  createInsideReachabilityColoringRule(),
   createPreventPrematureLoopRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),
@@ -44,5 +47,6 @@ export const deterministicSlitherRules: Rule[] = [
 
 export const slitherRules: Rule[] = [
   ...deterministicSlitherRules,
+  createColorAssumptionInferenceRule(() => deterministicSlitherRules),
   createStrongInferenceRule(() => deterministicSlitherRules),
 ]
