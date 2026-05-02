@@ -7,6 +7,7 @@ import {
   createColorOutsideSeedingRule,
   createColorSectorMaskPropagationRule,
 } from './rules/color'
+import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createCellCountRule, createPreventPrematureLoopRule, createVertexDegreeRule } from './rules/core'
 import {
   createContiguousThreeRunBoundariesRule,
@@ -46,5 +47,6 @@ export const deterministicSlitherRules: Rule[] = [
 
 export const slitherRules: Rule[] = [
   ...deterministicSlitherRules,
+  createColorAssumptionInferenceRule(() => deterministicSlitherRules),
   createStrongInferenceRule(() => deterministicSlitherRules),
 ]

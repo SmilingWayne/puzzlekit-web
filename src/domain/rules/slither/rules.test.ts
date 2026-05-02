@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { decodeSlitherFromPuzzlink } from '../../parsers/puzzlink'
 import { cellKey, edgeKey, getCellEdgeKeys, getCornerEdgeKeys, parseEdgeKey, sectorKey } from '../../ir/keys'
+import { clonePuzzle } from '../../ir/normalize'
 import { createSlitherPuzzle } from '../../ir/slither'
 import {
   SECTOR_MASK_ALL,
@@ -15,7 +16,9 @@ import {
 import { runNextRule } from '../engine'
 import type { Rule } from '../types'
 import { slitherRules } from './rules'
+import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createStrongInferenceRule } from './rules/strongInference'
+import { runTrialUntilFixpoint } from './rules/trial'
 
 const setClue = (puzzle: PuzzleIR, row: number, col: number, value: number): void => {
   puzzle.cells[cellKey(row, col)] = {
@@ -1892,13 +1895,100 @@ describe('slither apply sectors rule', () => {
 })
 
 describe('slither strong inference rule', () => {
+  const colorAssumptionRule = slitherRules.find((rule) => rule.id === 'color-assumption-inference')
+  if (!colorAssumptionRule) {
+    throw new Error('Expected color-assumption-inference rule')
+  }
   const strongRule = slitherRules.find((rule) => rule.id === 'strong-inference')
   if (!strongRule) {
     throw new Error('Expected strong-inference rule')
   }
 
+  it('places color assumption inference before strong inference', () => {
+    const colorAssumptionIdx = slitherRules.findIndex((rule) => rule.id === 'color-assumption-inference')
+    const strongIdx = slitherRules.findIndex((rule) => rule.id === 'strong-inference')
+    expect(colorAssumptionIdx).toBe(strongIdx - 1)
+  })
+
   it('is placed at the end of slitherRules', () => {
     expect(slitherRules[slitherRules.length - 1]?.id).toBe('strong-inference')
+  })
+
+  it('uses direct color-edge contradiction to force the opposite color', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    const shared = edgeKey([0, 1], [1, 1])
+    puzzle.edges[shared].mark = 'line'
+
+    const result = colorAssumptionRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' }])
+    expect(result?.message).toContain('result=contradiction')
+    expect(result?.message).toContain('green fails')
+  })
+
+  it('uses boundary color contradiction to force the opposite color', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'line'
+
+    const result = colorAssumptionRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' }])
+    expect(result?.message).toContain('yellow fails')
+  })
+
+  it('uses deterministic downstream propagation to find a contradiction', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    const shared = edgeKey([0, 1], [1, 1])
+    const downstreamRule: Rule = {
+      id: 'downstream-color-test',
+      name: 'Downstream Color Test',
+      apply: (trial) => {
+        if (trial.cells[cellKey(0, 1)]?.fill !== 'green') {
+          return null
+        }
+        if ((trial.edges[shared]?.mark ?? 'unknown') !== 'unknown') {
+          return null
+        }
+        return {
+          message: 'test downstream edge consequence',
+          diffs: [{ kind: 'edge', edgeKey: shared, from: 'unknown', to: 'line' }],
+          affectedCells: [cellKey(0, 1)],
+        }
+      },
+    }
+    const downstreamColorAssumptionRule = createColorAssumptionInferenceRule(() => [downstreamRule])
+
+    const result = downstreamColorAssumptionRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' }])
+    expect(result?.message).toContain('green fails')
+  })
+
+  it('treats unreachable fixed green regions as a contradiction', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 2)] = { fill: 'green' }
+
+    const result = colorAssumptionRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' }])
+    expect(result?.message).toContain('yellow fails')
+  })
+
+  it('returns null when both color branches remain feasible', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+
+    const result = colorAssumptionRule.apply(puzzle)
+
+    expect(result).toBeNull()
   })
 
   it('uses contradiction on onlyOne sector branches to force opposite assignment', () => {
@@ -2004,6 +2094,35 @@ describe('slither strong inference rule', () => {
     expect(() => strongRule.apply(current)).not.toThrow()
     const result = strongRule.apply(current)
     expect(result === null || result.diffs.length > 0).toBe(true)
+  })
+
+  it('can color the provided 18x10 stuck puzzle after deterministic stabilization', () => {
+    const rulesBeforeColorAssumption = slitherRules.filter(
+      (rule) => rule.id !== 'color-assumption-inference' && rule.id !== 'strong-inference',
+    )
+    let current = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/18/10/l12cg261b353didb1bbg112dgb2bbci161b3dgbhapchcg3c161dicb2bbg111cga2bbbi271c161bg31cj',
+    )
+
+    for (let stepNumber = 1; stepNumber <= 2000; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, rulesBeforeColorAssumption, stepNumber)
+      if (!step) {
+        break
+      }
+      current = nextPuzzle
+    }
+
+    const result = colorAssumptionRule.apply(current)
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(2, 12), fromFill: null, toFill: 'green' }])
+
+    const targetBranch = clonePuzzle(current)
+    targetBranch.cells[cellKey(7, 0)] = {
+      ...(targetBranch.cells[cellKey(7, 0)] ?? {}),
+      fill: 'yellow',
+    }
+    const targetResult = runTrialUntilFixpoint(targetBranch, rulesBeforeColorAssumption, 120, Date.now() + 2000)
+    expect(targetResult.contradiction).toBe(true)
   })
 
   it('keeps the provided 6x100 target edge covered after deterministic stabilization', () => {
