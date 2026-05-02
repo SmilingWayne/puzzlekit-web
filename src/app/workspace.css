@@ -40,6 +40,10 @@
   padding: 12px;
 }
 
+.control-panel-card {
+  position: relative;
+}
+
 .panel-header {
   display: flex;
   justify-content: space-between;
@@ -237,6 +241,63 @@ button[data-active='true'] {
   margin: 4px 0;
 }
 
+.import-error-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(2 6 23 / 0.62);
+}
+
+.import-error-dialog {
+  width: min(520px, 100%);
+  max-height: min(620px, calc(100vh - 32px));
+  overflow: auto;
+  border: 1px solid #7f1d1d;
+  border-radius: 8px;
+  background: #120b12;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 0.35);
+  padding: 10px;
+  color: #fecdd3;
+}
+
+.import-error-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.import-error-header h3 {
+  margin: 0;
+  color: #fff1f2;
+  font-size: 0.98rem;
+}
+
+.import-error-summary {
+  margin: 0 0 8px;
+  color: #fecdd3;
+  line-height: 1.4;
+}
+
+.import-error-details summary {
+  color: #fda4af;
+}
+
+.import-error-details pre {
+  max-height: 180px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 8px;
+  border: 1px solid #3f1d2a;
+  border-radius: 8px;
+  background: #070a13;
+  color: #fecdd3;
+}
+
 .divider {
   border: 0;
   border-top: 1px solid #1e293b;
@@ -251,8 +312,31 @@ button[data-active='true'] {
 }
 
 .export-panel {
-  margin-top: 4px;
-  padding-top: 2px;
+  position: absolute;
+  top: 190px;
+  right: 12px;
+  z-index: 35;
+  width: min(360px, calc(100% - 24px));
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #08111f;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.38);
+  padding: 12px;
+  color: #cbd5e1;
+}
+
+.export-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.export-panel-header h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1rem;
 }
 
 .copy-feedback {

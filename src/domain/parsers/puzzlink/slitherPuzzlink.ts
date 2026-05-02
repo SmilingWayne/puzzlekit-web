@@ -8,7 +8,7 @@ import {
 import type { NumberClueValue, PuzzleIR } from '../../ir/types'
 import type { PuzzleFormatAdapter } from '../types'
 
-const PUZZLINK_HOST = 'puzz.link'
+const PUZZLINK_HOSTS = new Set(['puzz.link', 'pzplus.tck.mn', 'pzv.jp'])
 const typeAlias: Record<string, string> = {
   slither: 'slitherlink',
   slitherlink: 'slitherlink',
@@ -111,8 +111,8 @@ const number4Encode = (
 const parsePuzzlinkPath = (input: string) => {
   if (input.includes('://')) {
     const url = new URL(input)
-    if (!url.hostname.includes(PUZZLINK_HOST)) {
-      throw new Error('Only puzz.link URLs are supported in this adapter.')
+    if (!PUZZLINK_HOSTS.has(url.hostname.toLowerCase())) {
+      throw new Error('Only puzz.link, pzplus.tck.mn, and pzv.jp URLs are supported in this adapter.')
     }
     const q = decodeURIComponent(url.search.replace(/^\?/, ''))
     if (q.length > 0) {

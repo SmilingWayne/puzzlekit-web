@@ -5,6 +5,9 @@ import { slitherPlugin } from '../../plugins/slitherPlugin'
 import { decodeSlitherFromPuzzlink, encodeSlitherToPuzzlink } from './slitherPuzzlink'
 
 describe('slither puzzlink parser', () => {
+  const complexSlitherUrl =
+    'https://puzz.link/p?slither/18/10/bgdhdbc58cd6dhdkdjbi8dg5d8518ak8an7ck8068c8dg7diajdkdh8cd88bbcdhagc'
+
   it('decodes url into slither puzzle and clues', () => {
     const puzzle = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/3/3/g0h')
     expect(puzzle.rows).toBe(3)
@@ -16,6 +19,34 @@ describe('slither puzzlink parser', () => {
       throw new Error('Expected number clue')
     }
     expect(clue.value).toBe(0)
+  })
+
+  it('decodes pzv.jp urls with the same data as puzz.link', () => {
+    const fromPuzzlink = decodeSlitherFromPuzzlink(complexSlitherUrl)
+    const fromPzv = decodeSlitherFromPuzzlink(
+      complexSlitherUrl.replace('https://puzz.link', 'http://pzv.jp'),
+    )
+
+    expect(fromPzv.rows).toBe(fromPuzzlink.rows)
+    expect(fromPzv.cols).toBe(fromPuzzlink.cols)
+    expect(fromPzv.cells).toEqual(fromPuzzlink.cells)
+  })
+
+  it('decodes pzplus.tck.mn urls with the same data as puzz.link', () => {
+    const fromPuzzlink = decodeSlitherFromPuzzlink(complexSlitherUrl)
+    const fromPzplus = decodeSlitherFromPuzzlink(
+      complexSlitherUrl.replace('https://puzz.link', 'https://pzplus.tck.mn'),
+    )
+
+    expect(fromPzplus.rows).toBe(fromPuzzlink.rows)
+    expect(fromPzplus.cols).toBe(fromPuzzlink.cols)
+    expect(fromPzplus.cells).toEqual(fromPuzzlink.cells)
+  })
+
+  it('rejects unsupported url hosts', () => {
+    expect(() => decodeSlitherFromPuzzlink('https://example.com/p?slither/3/3/g0h')).toThrow(
+      /Only puzz\.link, pzplus\.tck\.mn, and pzv\.jp URLs are supported/,
+    )
   })
 
   it('encodes puzzle back to puzzlink format', () => {

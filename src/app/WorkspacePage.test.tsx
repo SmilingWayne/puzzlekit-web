@@ -30,6 +30,7 @@ const renderWorkspace = () =>
 describe('WorkspacePage', () => {
   afterEach(() => {
     cleanup()
+    useSolverStore.setState((state) => ({ ...state, importError: undefined }))
   })
 
   it('renders workspace key sections', () => {
@@ -38,6 +39,52 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/input & controls/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
+  })
+
+  it('shows import errors in a closeable dialog with expandable details', () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByPlaceholderText(/paste puzz\.link/i), {
+      target: { value: 'https://example.com/p?slither/3/3/g0h' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /import url/i }))
+
+    const importDialog = screen.getByRole('alertdialog', { name: /import failed/i })
+    expect(importDialog).toBeInTheDocument()
+    expect(importDialog).toHaveAttribute('aria-modal', 'true')
+    expect(importDialog.parentElement).toHaveClass('import-error-overlay')
+    expect(screen.getByText(/could not be imported/i)).toBeInTheDocument()
+
+    const detailsText = screen.getByText(/unsupported slitherlink url/i)
+    expect(detailsText).not.toBeVisible()
+
+    fireEvent.click(screen.getByText(/show error details/i))
+    expect(detailsText).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('alertdialog', { name: /import failed/i })).not.toBeInTheDocument()
+  })
+
+  it('opens export controls as a closeable popout', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /open export panel/i }))
+
+    const exportDialog = screen.getByRole('dialog', { name: /export puzzle/i })
+    expect(exportDialog).toBeInTheDocument()
+    expect(exportDialog).toHaveClass('export-panel')
+    expect(exportDialog).toHaveAttribute('aria-modal', 'false')
+    expect(screen.getByRole('button', { name: /hide export panel/i })).toHaveAttribute(
+      'data-active',
+      'true',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /hide export panel/i }))
+    expect(screen.queryByRole('dialog', { name: /export puzzle/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /open export panel/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.queryByRole('dialog', { name: /export puzzle/i })).not.toBeInTheDocument()
   })
 
   it('shows solve progress, then terminal report, and keeps solve buttons disabled after close', async () => {

@@ -36,6 +36,7 @@ export const ControlPanel = () => {
   const [copyFeedback, setCopyFeedback] = useState('')
   const [exportGenerateError, setExportGenerateError] = useState('')
   const [showCustomGridPopover, setShowCustomGridPopover] = useState(false)
+  const [showImportErrorDialog, setShowImportErrorDialog] = useState(false)
   const [showTerminalReport, setShowTerminalReport] = useState(false)
   const [customRows, setCustomRows] = useState(String(currentPuzzle.rows))
   const [customCols, setCustomCols] = useState(String(currentPuzzle.cols))
@@ -67,8 +68,12 @@ export const ControlPanel = () => {
     setShowTerminalReport(terminalReport !== null)
   }, [terminalReport])
 
+  useEffect(() => {
+    setShowImportErrorDialog(Boolean(importError))
+  }, [importError])
+
   return (
-    <section className="panel-card">
+    <section className="panel-card control-panel-card">
       <header className="panel-header">
         <h2>Input & Controls</h2>
       </header>
@@ -151,18 +156,18 @@ export const ControlPanel = () => {
         </div>
       </div>
       <label className="label-row">
-        URL (puzz.link or Penpa+ Slitherlink)
+        URL (puzz.link, pzplus, pzv, or Penpa+ Slitherlink)
         <textarea
           rows={2}
           value={localUrl}
           onChange={(event) => setLocalUrl(event.target.value)}
-          placeholder="Paste puzz.link or penpa URL"
+          placeholder="Paste puzz.link, pzplus, pzv, or penpa URL"
         />
       </label>
-      {importError ? <p className="error-text">{importError}</p> : null}
       <div className="button-row">
         <button
           onClick={() => {
+            setShowImportErrorDialog(true)
             setSourceUrl(localUrl)
             importFromUrl(localUrl, pluginId)
           }}
@@ -193,6 +198,35 @@ export const ControlPanel = () => {
           {showExportPanel ? 'Hide Export Panel' : 'Open Export Panel'}
         </button>
       </div>
+      {importError && showImportErrorDialog ? (
+        <div className="import-error-overlay">
+          <div
+            className="import-error-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="import-error-title"
+          >
+            <div className="import-error-header">
+              <h3 id="import-error-title">Import failed</h3>
+              <button
+                type="button"
+                className="button-compact"
+                onClick={() => setShowImportErrorDialog(false)}
+              >
+                Close
+              </button>
+            </div>
+            <p className="import-error-summary">
+              The puzzle data could not be imported. Check the URL, or expand details for the parser
+              error.
+            </p>
+            <details className="import-error-details">
+              <summary>Show error details</summary>
+              <pre>{importError}</pre>
+            </details>
+          </div>
+        </div>
+      ) : null}
       {terminalReport && showTerminalReport ? (
         <div className="solve-report-dialog" role="dialog" aria-modal="false" aria-labelledby="solve-report-title">
           <div className="solve-report-header">
@@ -263,10 +297,21 @@ export const ControlPanel = () => {
         Show vertex numbering overlay
       </label>
       {showExportPanel ? (
-        <section className="export-panel">
-          <hr className="divider" />
-          <header className="panel-header">
-            <h2>Export Puzzle</h2>
+        <section
+          className="export-panel"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="export-panel-title"
+        >
+          <header className="export-panel-header">
+            <h2 id="export-panel-title">Export Puzzle</h2>
+            <button
+              type="button"
+              className="button-compact"
+              onClick={() => setShowExportPanel(false)}
+            >
+              Cancel
+            </button>
           </header>
           <label className="label-row compact">
             Export Format
