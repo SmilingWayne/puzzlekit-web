@@ -1907,6 +1907,10 @@ describe('slither strong inference rule', () => {
   if (!strongRule) {
     throw new Error('Expected strong-inference rule')
   }
+  const unboundedStrongRule = createStrongInferenceRule(
+    () => slitherRules.filter((rule) => rule.id !== 'color-assumption-inference' && rule.id !== 'strong-inference'),
+    { maxMs: Number.POSITIVE_INFINITY },
+  )
 
   it('places color assumption inference before strong inference', () => {
     const colorAssumptionIdx = slitherRules.findIndex((rule) => rule.id === 'color-assumption-inference')
@@ -2095,8 +2099,8 @@ describe('slither strong inference rule', () => {
       current = nextPuzzle
     }
 
-    expect(() => strongRule.apply(current)).not.toThrow()
-    const result = strongRule.apply(current)
+    expect(() => unboundedStrongRule.apply(current)).not.toThrow()
+    const result = unboundedStrongRule.apply(current)
     expect(result === null || result.diffs.length > 0).toBe(true)
   })
 

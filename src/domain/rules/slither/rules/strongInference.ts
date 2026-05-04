@@ -15,6 +15,12 @@ const STRONG_MAX_CANDIDATES = 200
 const STRONG_MAX_TRIAL_STEPS = 120
 const STRONG_MAX_MS = 2000
 
+type StrongInferenceOptions = {
+  maxCandidates?: number
+  maxTrialSteps?: number
+  maxMs?: number
+}
+
 type StrongCandidate =
   | {
       kind: 'sector-only-one'
@@ -206,17 +212,20 @@ const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
   return `fixed ${edgeDiffs.length} edges (${preview}, ...)`
 }
 
-export const createStrongInferenceRule = (getDeterministicRules: () => Rule[]): Rule => ({
+export const createStrongInferenceRule = (
+  getDeterministicRules: () => Rule[],
+  options: StrongInferenceOptions = {},
+): Rule => ({
   id: 'strong-inference',
   name: 'Strong Inference (Conservative)',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const deterministicRules = getDeterministicRules()
-    const candidates = collectStrongCandidates(puzzle, STRONG_MAX_CANDIDATES)
+    const candidates = collectStrongCandidates(puzzle, options.maxCandidates ?? STRONG_MAX_CANDIDATES)
     if (candidates.length === 0) {
       return null
     }
 
-    const deadlineMs = Date.now() + STRONG_MAX_MS
+    const deadlineMs = Date.now() + (options.maxMs ?? STRONG_MAX_MS)
     for (const candidate of candidates) {
       if (Date.now() > deadlineMs) {
         break
@@ -247,10 +256,10 @@ export const createStrongInferenceRule = (getDeterministicRules: () => Rule[]): 
       }
 
       const branchAResult = branchAInfo.setupOk
-        ? runTrialUntilFixpoint(branchA, deterministicRules, STRONG_MAX_TRIAL_STEPS, deadlineMs)
+        ? runTrialUntilFixpoint(branchA, deterministicRules, options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS, deadlineMs)
         : { contradiction: true, timedOut: false, exhausted: false, puzzle: branchA }
       const branchBResult = branchBInfo.setupOk
-        ? runTrialUntilFixpoint(branchB, deterministicRules, STRONG_MAX_TRIAL_STEPS, deadlineMs)
+        ? runTrialUntilFixpoint(branchB, deterministicRules, options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS, deadlineMs)
         : { contradiction: true, timedOut: false, exhausted: false, puzzle: branchB }
 
       if (branchAResult.timedOut || branchBResult.timedOut) {
