@@ -1899,6 +1899,10 @@ describe('slither strong inference rule', () => {
   if (!colorAssumptionRule) {
     throw new Error('Expected color-assumption-inference rule')
   }
+  const unboundedColorAssumptionRule = createColorAssumptionInferenceRule(
+    () => slitherRules.filter((rule) => rule.id !== 'color-assumption-inference' && rule.id !== 'strong-inference'),
+    { maxMs: Number.POSITIVE_INFINITY },
+  )
   const strongRule = slitherRules.find((rule) => rule.id === 'strong-inference')
   if (!strongRule) {
     throw new Error('Expected strong-inference rule')
@@ -2112,7 +2116,7 @@ describe('slither strong inference rule', () => {
       current = nextPuzzle
     }
 
-    const result = colorAssumptionRule.apply(current)
+    const result = unboundedColorAssumptionRule.apply(current)
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(2, 12), fromFill: null, toFill: 'green' }])
 
@@ -2121,7 +2125,12 @@ describe('slither strong inference rule', () => {
       ...(targetBranch.cells[cellKey(7, 0)] ?? {}),
       fill: 'yellow',
     }
-    const targetResult = runTrialUntilFixpoint(targetBranch, rulesBeforeColorAssumption, 120, Date.now() + 2000)
+    const targetResult = runTrialUntilFixpoint(
+      targetBranch,
+      rulesBeforeColorAssumption,
+      120,
+      Number.POSITIVE_INFINITY,
+    )
     expect(targetResult.contradiction).toBe(true)
   })
 
