@@ -15,6 +15,12 @@ const COLOR_ASSUMPTION_MAX_CANDIDATES = 120
 const COLOR_ASSUMPTION_MAX_TRIAL_STEPS = 120
 const COLOR_ASSUMPTION_MAX_MS = 2000
 
+type ColorAssumptionInferenceOptions = {
+  maxCandidates?: number
+  maxTrialSteps?: number
+  maxMs?: number
+}
+
 type ColorAssumptionCandidate = {
   cellKey: string
   row: number
@@ -99,17 +105,23 @@ const getCellAssumptionDiff = (
   },
 ]
 
-export const createColorAssumptionInferenceRule = (getDeterministicRules: () => Rule[]): Rule => ({
+export const createColorAssumptionInferenceRule = (
+  getDeterministicRules: () => Rule[],
+  options: ColorAssumptionInferenceOptions = {},
+): Rule => ({
   id: 'color-assumption-inference',
   name: 'Color Assumption Inference',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const deterministicRules = getDeterministicRules()
-    const candidates = collectColorAssumptionCandidates(puzzle, COLOR_ASSUMPTION_MAX_CANDIDATES)
+    const candidates = collectColorAssumptionCandidates(
+      puzzle,
+      options.maxCandidates ?? COLOR_ASSUMPTION_MAX_CANDIDATES,
+    )
     if (candidates.length === 0) {
       return null
     }
 
-    const deadlineMs = Date.now() + COLOR_ASSUMPTION_MAX_MS
+    const deadlineMs = Date.now() + (options.maxMs ?? COLOR_ASSUMPTION_MAX_MS)
     for (const candidate of candidates) {
       if (Date.now() > deadlineMs) {
         break
@@ -121,10 +133,20 @@ export const createColorAssumptionInferenceRule = (getDeterministicRules: () => 
       const yellowSetupOk = applyCellAssumption(yellowBranch, candidate.cellKey, 'yellow')
 
       const greenResult = greenSetupOk
-        ? runTrialUntilFixpoint(greenBranch, deterministicRules, COLOR_ASSUMPTION_MAX_TRIAL_STEPS, deadlineMs)
+        ? runTrialUntilFixpoint(
+            greenBranch,
+            deterministicRules,
+            options.maxTrialSteps ?? COLOR_ASSUMPTION_MAX_TRIAL_STEPS,
+            deadlineMs,
+          )
         : { contradiction: true, timedOut: false, exhausted: false, puzzle: greenBranch }
       const yellowResult = yellowSetupOk
-        ? runTrialUntilFixpoint(yellowBranch, deterministicRules, COLOR_ASSUMPTION_MAX_TRIAL_STEPS, deadlineMs)
+        ? runTrialUntilFixpoint(
+            yellowBranch,
+            deterministicRules,
+            options.maxTrialSteps ?? COLOR_ASSUMPTION_MAX_TRIAL_STEPS,
+            deadlineMs,
+          )
         : { contradiction: true, timedOut: false, exhausted: false, puzzle: yellowBranch }
 
       if (greenResult.timedOut || yellowResult.timedOut) {
