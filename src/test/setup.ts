@@ -13,8 +13,10 @@ Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
       moveTo: () => {},
       lineTo: () => {},
       stroke: () => {},
+      strokeRect: () => {},
       fillText: () => {},
       arc: () => {},
       fill: () => {},
+      setLineDash: () => {},
     }) as unknown as CanvasRenderingContext2D,
 })

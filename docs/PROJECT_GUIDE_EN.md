@@ -43,7 +43,7 @@ src/
     plugins/        # plugin contracts and registry
     exporters/      # export adapters
     difficulty/     # difficulty snapshot and rule usage aggregation
-  features/         # board, controls, replay, explanation, stats
+  features/         # solver controls, board rendering, editor tools, explanation, stats
   test/             # test setup/runtime helpers
 ```
 
@@ -51,16 +51,19 @@ Design rule:
 
 - UI should render and orchestrate.
 - Domain should decide logic.
+- The solver workspace and puzzle editor are separate product surfaces that exchange normalized `PuzzleIR`.
 
 ---
 
 ## 4. End-to-End Data Flow
 
 1. Parser converts URL/input into IR (`PuzzleIR`).
-2. Rule engine runs ordered rules and returns one step at a time.
-3. Each step stores rule metadata + explicit diffs.
-4. Timeline store replays diffs forward/backward.
-5. Board and explanation panel render current state + reasoning history.
+2. Optional editor tooling can create or modify initial puzzle IR before solving.
+3. The solver store loads the initial IR and resets replay state.
+4. Rule engine runs ordered rules and returns one step at a time.
+5. Each step stores rule metadata + explicit diffs.
+6. Timeline store replays diffs forward/backward.
+7. Board and explanation panel render current state + reasoning history.
 
 This guarantees the same inference chain can be replayed and inspected later.
 
@@ -137,7 +140,11 @@ If these two paths diverge, timeline replay and solver state will drift.
 
 Implemented:
 
-- Slitherlink puzz.link parse/encode baseline (URL input currently targets puzz.link; penpa-style URL support is planned)
+- Dedicated solver workspace for import, solving, replay, explanation, stats, and export
+- Dedicated editor workspace for puzzle construction before loading into the solver
+- Slitherlink puzz.link parse/encode baseline
+- Slitherlink Penpa import baseline
+- Slitherlink editor tools for clues, pre-drawn line edges, crossed/blank edges, erasing, custom grid sizes, and built-in presets
 - Ordered rule execution with step metadata
 - Step replay (`Next`, `Previous`, `Solve to End`)
 - Explanation-oriented deduction trace
@@ -146,9 +153,10 @@ Implemented:
 
 Partially implemented / planned:
 
-- Penpa adapter completeness
 - More puzzle families (e.g. Masyu/Nonogram)
-- Richer puzzle-specific interaction tools
+- Puzzle-specific editor support for each puzzle family
+- Canvas interaction and rendering optimization for larger boards and richer editor states
+- Penpa adapter/export completeness
 - Better calibrated difficulty modeling
 
 Important expectation: difficult puzzles may stop at a stable but incomplete state if no rule applies.
@@ -181,4 +189,3 @@ When editing:
 - `npm run test:run` - unit/component tests
 - `npm run build` - production build
 - `npm run test:e2e` - Playwright end-to-end tests
-

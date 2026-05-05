@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { edgeKey } from '../domain/ir/keys'
+import { cellKey, edgeKey } from '../domain/ir/keys'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
 import { DEFAULT_SOLVE_CHUNK_SIZE, useSolverStore } from '../features/solver/solverStore'
@@ -39,6 +39,7 @@ describe('WorkspacePage', () => {
   it('renders workspace key sections', () => {
     renderWorkspace()
     expect(screen.getByRole('heading', { name: /puzzlekit web/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /editor/i })).toHaveAttribute('href', '/editor')
     expect(screen.getByText(/input & controls/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
@@ -203,18 +204,25 @@ describe('WorkspacePage', () => {
     expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('0')
   })
 
-  it('keeps vertex numbering inside the custom grid popover', () => {
+  it('keeps vertex numbering as a solver-only display toggle', () => {
     renderWorkspace()
-
-    expect(screen.queryByLabelText(/show vertex numbering overlay/i)).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /custom grid/i }))
 
     const vertexToggle = screen.getByLabelText(/show vertex numbering overlay/i)
     expect(vertexToggle).toBeInTheDocument()
     fireEvent.click(vertexToggle)
 
     expect(vertexToggle).toBeChecked()
+    expect(screen.queryByRole('button', { name: /custom grid/i })).not.toBeInTheDocument()
+  })
+
+  it('does not expose clue editing on the solver board', () => {
+    renderWorkspace()
+
+    const before = useSolverStore.getState().initialPuzzle.cells[cellKey(0, 0)]?.clue
+    fireEvent.keyDown(screen.getByText(/puzzle board/i), { key: '3' })
+
+    expect(screen.queryByText(/click without dragging selects a cell/i)).not.toBeInTheDocument()
+    expect(useSolverStore.getState().initialPuzzle.cells[cellKey(0, 0)]?.clue).toBe(before)
   })
 
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {

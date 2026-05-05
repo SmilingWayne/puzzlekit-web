@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  cellKey,
   getCellEdgeKeys,
   getCornerEdgeKeys,
   parseCellKey,
@@ -21,8 +20,6 @@ type Props = {
   highlightedCells: string[]
   highlightedColorCells: string[]
   showVertexNumbers: boolean
-  selectedCellKey?: string | null
-  onCellSelect?: (key: string | null) => void
 }
 
 const CELL_SIZE = 54
@@ -52,8 +49,6 @@ export const CanvasBoard = ({
   highlightedCells,
   highlightedColorCells,
   showVertexNumbers,
-  selectedCellKey = null,
-  onCellSelect,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [scale, setScale] = useState(1)
@@ -116,21 +111,6 @@ export const CanvasBoard = ({
         ctx.fillStyle = 'rgba(99, 102, 241, 0.2)'
       }
       ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-    }
-
-    if (selectedCellKey) {
-      const [sr, sc] = parseCellKey(selectedCellKey)
-      if (sr >= 0 && sc >= 0 && sr < puzzle.rows && sc < puzzle.cols) {
-        ctx.strokeStyle = '#fbbf24'
-        ctx.lineWidth = 2.5
-        ctx.setLineDash([])
-        ctx.strokeRect(
-          PADDING + sc * CELL_SIZE + 2,
-          PADDING + sr * CELL_SIZE + 2,
-          CELL_SIZE - 4,
-          CELL_SIZE - 4,
-        )
-      }
     }
 
     ctx.strokeStyle = '#334155'
@@ -290,30 +270,9 @@ export const CanvasBoard = ({
     offset.y,
     puzzle,
     scale,
-    selectedCellKey,
     showVertexNumbers,
     width,
   ])
-
-  const pickCellAtClient = (clientX: number, clientY: number): string | null => {
-    const canvas = canvasRef.current
-    if (!canvas || !onCellSelect) {
-      return null
-    }
-    const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const mx = (clientX - rect.left) * scaleX
-    const my = (clientY - rect.top) * scaleY
-    const gx = (mx - offset.x) / scale
-    const gy = (my - offset.y) / scale
-    const col = Math.floor((gx - PADDING) / CELL_SIZE)
-    const row = Math.floor((gy - PADDING) / CELL_SIZE)
-    if (row < 0 || col < 0 || row >= puzzle.rows || col >= puzzle.cols) {
-      return null
-    }
-    return cellKey(row, col)
-  }
 
   const status = useMemo(() => {
     let lineCount = 0
@@ -373,18 +332,11 @@ export const CanvasBoard = ({
             y: panOffsetStart.current.y + (event.clientY - panMouseStart.current.y),
           })
         }}
-        onMouseUp={(event) => {
+        onMouseUp={() => {
           const d = dragRef.current
           dragRef.current = null
           if (!d) {
             return
-          }
-          if (!d.isPan) {
-            const dist = Math.hypot(event.clientX - d.startClientX, event.clientY - d.startClientY)
-            if (dist <= 5) {
-              const key = pickCellAtClient(event.clientX, event.clientY)
-              onCellSelect?.(key)
-            }
           }
         }}
         onMouseLeave={() => {
@@ -392,8 +344,7 @@ export const CanvasBoard = ({
         }}
       />
       <p className="board-hint">
-        Scroll to zoom, drag to pan (click without dragging selects a cell for clue entry on
-        Slitherlink). Highlight syncs with reasoning steps.
+        Scroll to zoom, drag to pan. Highlight syncs with reasoning steps.
       </p>
       <details>
         <summary>Cell to edge mapping helper</summary>
