@@ -50,27 +50,28 @@ describe('EditorPage', () => {
     expect(zoom).toHaveValue('100')
     expect(zoom).toHaveAttribute('min', '10')
     expect(zoom).toHaveAttribute('max', '200')
+    expect(zoom).toHaveAttribute('step', '5')
     expect(canvas).toHaveClass('editor-board-canvas')
 
     fireEvent.click(screen.getByRole('button', { name: '3' }))
-    clickCanvas(canvas, 80, 80)
+    clickCanvas(canvas, 74, 74)
     expect(useEditorStore.getState().puzzle.cells[cellKey(0, 0)]?.clue).toEqual({
       kind: 'number',
       value: 3,
     })
 
     fireEvent.click(screen.getByRole('button', { name: /^line$/i }))
-    clickCanvas(canvas, 80, 48)
+    clickCanvas(canvas, 74, 48)
     const topEdge = edgeKey([0, 0], [0, 1])
     expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('line')
 
     fireEvent.click(screen.getByRole('button', { name: /^cross$/i }))
-    clickCanvas(canvas, 48, 80)
+    clickCanvas(canvas, 48, 74)
     const leftEdge = edgeKey([0, 0], [1, 0])
     expect(useEditorStore.getState().puzzle.edges[leftEdge]?.mark).toBe('blank')
 
     fireEvent.click(screen.getByRole('button', { name: /^eraser$/i }))
-    clickCanvas(canvas, 80, 48)
+    clickCanvas(canvas, 74, 48)
     expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('unknown')
 
     fireEvent.click(screen.getByRole('button', { name: /solve it/i }))
@@ -128,14 +129,14 @@ describe('EditorPage', () => {
     mockCanvasRect(canvas)
 
     fireEvent.click(screen.getByRole('button', { name: '2' }))
-    clickCanvas(canvas, 120, 120)
+    clickCanvas(canvas, 111, 111)
     expect(useEditorStore.getState().puzzle.cells[cellKey(0, 0)]?.clue).toEqual({
       kind: 'number',
       value: 2,
     })
 
     fireEvent.click(screen.getByRole('button', { name: /^line$/i }))
-    clickCanvas(canvas, 120, 72)
+    clickCanvas(canvas, 111, 72)
     expect(useEditorStore.getState().puzzle.edges[edgeKey([0, 0], [0, 1])]?.mark).toBe('line')
   })
 })

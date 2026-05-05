@@ -325,6 +325,74 @@ describe('solver terminal reports', () => {
     expect(useSolverStore.getState().terminalReport?.totalDurationMs).toBeGreaterThanOrEqual(0)
   })
 
+  it('clears affected highlights when terminal report is solved', async () => {
+    const solvedPuzzle = createSolvedLoopPuzzle()
+    const highlightedEdge = edgeKey([0, 0], [0, 1])
+    const highlightedCell = cellKey(0, 0)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: solvedPuzzle,
+      currentPuzzle: solvedPuzzle,
+      steps: [],
+      pointer: 0,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+    await useSolverStore.getState().solveAll(100)
+    expect(useSolverStore.getState().terminalReport?.status).toBe('solved')
+    useSolverStore.setState((state) => ({
+      ...state,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('solved')
+    expect(useSolverStore.getState().highlightedCells).toEqual([])
+    expect(useSolverStore.getState().highlightedColorCells).toEqual([])
+    expect(useSolverStore.getState().highlightedEdges).toEqual([])
+  })
+
+  it('keeps affected highlights when terminal report is stalled', async () => {
+    const stalledPuzzle = createSlitherPuzzle(1, 1)
+    const highlightedEdge = edgeKey([0, 0], [0, 1])
+    const highlightedCell = cellKey(0, 0)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: stalledPuzzle,
+      currentPuzzle: stalledPuzzle,
+      steps: [],
+      pointer: 0,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+    await useSolverStore.getState().solveAll(100)
+    expect(useSolverStore.getState().terminalReport?.status).toBe('stalled')
+    useSolverStore.setState((state) => ({
+      ...state,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('stalled')
+    expect(useSolverStore.getState().highlightedCells).toEqual([highlightedCell])
+    expect(useSolverStore.getState().highlightedColorCells).toEqual([highlightedCell])
+    expect(useSolverStore.getState().highlightedEdges).toEqual([highlightedEdge])
+  })
+
   it('writes a terminal report when solveAll reaches no progress', async () => {
     const pending = useSolverStore.getState().solveAll(100)
     expect(useSolverStore.getState().solveProgress).toEqual({ current: 0, total: 100 })

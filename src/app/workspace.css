@@ -146,6 +146,18 @@
   color: #6b7280;
 }
 
+.explanation-panel-header {
+  gap: 10px;
+}
+
+.explanation-header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
 .board-canvas {
   width: 100%;
   max-width: 100%;

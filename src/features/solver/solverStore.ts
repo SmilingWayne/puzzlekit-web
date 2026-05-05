@@ -196,7 +196,16 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     if (!step) {
       const report = buildTerminalReport(pluginId, currentPuzzle, activeSteps)
       if (report) {
-        set({ terminalReport: report })
+        set(
+          report.status === 'solved'
+            ? {
+                terminalReport: report,
+                highlightedCells: [],
+                highlightedColorCells: [],
+                highlightedEdges: [],
+              }
+            : { terminalReport: report },
+        )
       }
       return
     }

@@ -10,12 +10,12 @@ type Props = {
   onEdgeApply: (key: string) => void
 }
 
-const CELL_SIZE = 64
+const CELL_SIZE = 52
 const PADDING = 48
 const EDGE_HIT_RADIUS = 9
 const MIN_ZOOM = 10
 const MAX_ZOOM = 200
-const ZOOM_STEP = 10
+const ZOOM_STEP = 5
 
 type PickTarget =
   | { kind: 'cell'; key: string }

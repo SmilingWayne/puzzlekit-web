@@ -6,6 +6,7 @@ import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
 import { DEFAULT_SOLVE_CHUNK_SIZE, useSolverStore } from '../features/solver/solverStore'
 import { WorkspacePage } from './WorkspacePage'
+import type { RuleStep } from '../domain/rules/types'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
 
@@ -48,6 +49,11 @@ describe('WorkspacePage', () => {
     expect(zoom).toHaveValue('100')
     expect(zoom).toHaveAttribute('min', '10')
     expect(zoom).toHaveAttribute('max', '200')
+    expect(zoom).toHaveAttribute('step', '5')
+    expect(screen.getByRole('button', { name: /show all/i })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
   })
 
   it('shows import errors in a closeable dialog with expandable details', () => {
@@ -249,7 +255,41 @@ describe('WorkspacePage', () => {
     fireEvent.change(zoom, { target: { value: '150' } })
 
     expect(zoom).toHaveValue('150')
-    expect(canvas).toHaveStyle({ width: '432px', height: '432px' })
+    expect(canvas).toHaveStyle({ width: '378px', height: '378px' })
+  })
+
+  it('toggles reasoning steps between recent 30 and all entries from the header', () => {
+    const steps: RuleStep[] = Array.from({ length: 35 }, (_, index) => ({
+      id: `step-${index + 1}`,
+      ruleId: 'test-rule',
+      ruleName: 'Test Rule',
+      message: `step ${index + 1}`,
+      diffs: [],
+      affectedCells: [],
+      affectedEdges: [],
+      affectedSectors: [],
+      timestamp: Date.now() + index,
+      durationMs: 1,
+    }))
+    useSolverStore.setState((state) => ({
+      ...state,
+      steps,
+      pointer: steps.length,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText(/showing 30 \/ 35/i)).toBeInTheDocument()
+    expect(screen.getByText(/^35\. test rule$/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^5\. test rule$/i)).not.toBeInTheDocument()
+
+    const showAll = screen.getByRole('button', { name: /show all/i })
+    fireEvent.click(showAll)
+
+    expect(showAll).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/showing 35 \/ 35/i)).toBeInTheDocument()
+    expect(screen.getByText(/^1\. test rule$/i)).toBeInTheDocument()
   })
 
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
