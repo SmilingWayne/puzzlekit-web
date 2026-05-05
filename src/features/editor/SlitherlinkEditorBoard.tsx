@@ -10,9 +10,12 @@ type Props = {
   onEdgeApply: (key: string) => void
 }
 
-const CELL_SIZE = 54
+const CELL_SIZE = 64
 const PADDING = 48
 const EDGE_HIT_RADIUS = 9
+const MIN_ZOOM = 10
+const MAX_ZOOM = 200
+const ZOOM_STEP = 10
 
 type PickTarget =
   | { kind: 'cell'; key: string }
@@ -28,26 +31,25 @@ const shouldPreferEdge = (tool: EditorTool): boolean => tool === 'line' || tool 
 
 export const SlitherlinkEditorBoard = ({ puzzle, tool, onCellApply, onEdgeApply }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [scale, setScale] = useState(1)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [zoomPercent, setZoomPercent] = useState(100)
   const dragRef = useRef<{
     startClientX: number
     startClientY: number
-    isPan: boolean
   } | null>(null)
-  const panOffsetStart = useRef({ x: 0, y: 0 })
-  const panMouseStart = useRef({ x: 0, y: 0 })
 
   const width = useMemo(() => puzzle.cols * CELL_SIZE + PADDING * 2, [puzzle.cols])
   const height = useMemo(() => puzzle.rows * CELL_SIZE + PADDING * 2, [puzzle.rows])
+  const zoom = zoomPercent / 100
+  const displayWidth = Math.round(width * zoom)
+  const displayHeight = Math.round(height * zoom)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) {
       return
     }
-    canvas.width = width
-    canvas.height = height
+    canvas.width = displayWidth
+    canvas.height = displayHeight
     const ctx = canvas.getContext('2d')
     if (!ctx) {
       return
@@ -55,13 +57,12 @@ export const SlitherlinkEditorBoard = ({ puzzle, tool, onCellApply, onEdgeApply 
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.save()
-    ctx.translate(offset.x, offset.y)
-    ctx.scale(scale, scale)
+    ctx.scale(zoom, zoom)
 
-    ctx.fillStyle = '#0f172a'
+    ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
-    ctx.strokeStyle = '#334155'
+    ctx.strokeStyle = '#cbd5e1'
     ctx.lineWidth = 1
     for (let r = 0; r <= puzzle.rows; r += 1) {
       ctx.beginPath()
@@ -81,8 +82,8 @@ export const SlitherlinkEditorBoard = ({ puzzle, tool, onCellApply, onEdgeApply 
         continue
       }
       const [r, c] = parseCellKey(key)
-      ctx.fillStyle = '#f8fafc'
-      ctx.font = 'bold 22px Inter, sans-serif'
+      ctx.fillStyle = '#111827'
+      ctx.font = 'bold 26px Inter, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(
@@ -119,7 +120,7 @@ export const SlitherlinkEditorBoard = ({ puzzle, tool, onCellApply, onEdgeApply 
       }
     }
 
-    ctx.fillStyle = '#f8fafc'
+    ctx.fillStyle = '#111827'
     for (let r = 0; r <= puzzle.rows; r += 1) {
       for (let c = 0; c <= puzzle.cols; c += 1) {
         ctx.beginPath()
@@ -129,7 +130,7 @@ export const SlitherlinkEditorBoard = ({ puzzle, tool, onCellApply, onEdgeApply 
     }
 
     ctx.restore()
-  }, [height, offset.x, offset.y, puzzle, scale, width])
+  }, [displayHeight, displayWidth, height, puzzle, width, zoom])
 
   const pickTargetAtClient = (clientX: number, clientY: number): PickTarget => {
     const canvas = canvasRef.current
@@ -141,8 +142,8 @@ export const SlitherlinkEditorBoard = ({ puzzle, tool, onCellApply, onEdgeApply 
     const scaleY = canvas.height / rect.height
     const mx = (clientX - rect.left) * scaleX
     const my = (clientY - rect.top) * scaleY
-    const gx = (mx - offset.x) / scale
-    const gy = (my - offset.y) / scale
+    const gx = mx / zoom
+    const gy = my / zoom
     const localX = gx - PADDING
     const localY = gy - PADDING
 
@@ -203,64 +204,61 @@ export const SlitherlinkEditorBoard = ({ puzzle, tool, onCellApply, onEdgeApply 
             {puzzle.rows} × {puzzle.cols}
           </span>
         </h2>
-        <small>{tool} tool</small>
+        <div className="board-header-tools">
+          <small>{tool} tool</small>
+          <label className="board-zoom-control">
+            <span>Board zoom</span>
+            <input
+              aria-label="Board zoom"
+              type="range"
+              min={MIN_ZOOM}
+              max={MAX_ZOOM}
+              step={ZOOM_STEP}
+              value={zoomPercent}
+              onChange={(event) => setZoomPercent(Number(event.target.value))}
+            />
+            <output>{zoomPercent}%</output>
+          </label>
+        </div>
       </header>
-      <canvas
-        ref={canvasRef}
-        className="board-canvas"
-        aria-label="Slitherlink editor canvas"
-        onWheel={(event) => {
-          event.preventDefault()
-          setScale((prev) => Math.max(0.5, Math.min(2.5, prev + (event.deltaY < 0 ? 0.1 : -0.1))))
-        }}
-        onMouseDown={(event) => {
-          dragRef.current = {
-            startClientX: event.clientX,
-            startClientY: event.clientY,
-            isPan: false,
-          }
-        }}
-        onMouseMove={(event) => {
-          const d = dragRef.current
-          if (!d) {
-            return
-          }
-          if (!d.isPan) {
+      <div className="board-scroll-shell" aria-label="Editor board scroll area">
+        <canvas
+          ref={canvasRef}
+          className="board-canvas editor-board-canvas"
+          aria-label="Slitherlink editor canvas"
+          style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
+          onMouseDown={(event) => {
+            dragRef.current = {
+              startClientX: event.clientX,
+              startClientY: event.clientY,
+            }
+          }}
+          onMouseUp={(event) => {
+            const d = dragRef.current
+            dragRef.current = null
+            if (!d) {
+              return
+            }
             const dist = Math.hypot(event.clientX - d.startClientX, event.clientY - d.startClientY)
             if (dist > 5) {
-              d.isPan = true
-              panOffsetStart.current = { ...offset }
-              panMouseStart.current = { x: event.clientX, y: event.clientY }
+              return
             }
-            return
-          }
-          setOffset({
-            x: panOffsetStart.current.x + (event.clientX - panMouseStart.current.x),
-            y: panOffsetStart.current.y + (event.clientY - panMouseStart.current.y),
-          })
-        }}
-        onMouseUp={(event) => {
-          const d = dragRef.current
-          dragRef.current = null
-          if (!d) {
-            return
-          }
-          const dist = Math.hypot(event.clientX - d.startClientX, event.clientY - d.startClientY)
-          if (dist > 5) {
-            return
-          }
-          const target = pickTargetAtClient(event.clientX, event.clientY)
-          if (target?.kind === 'cell') {
-            onCellApply(target.key)
-          } else if (target?.kind === 'edge') {
-            onEdgeApply(target.key)
-          }
-        }}
-        onMouseLeave={() => {
-          dragRef.current = null
-        }}
-      />
-      <p className="board-hint">Scroll to zoom, drag to pan, click cells or edges with the active tool.</p>
+            const target = pickTargetAtClient(event.clientX, event.clientY)
+            if (target?.kind === 'cell') {
+              onCellApply(target.key)
+            } else if (target?.kind === 'edge') {
+              onEdgeApply(target.key)
+            }
+          }}
+          onMouseLeave={() => {
+            dragRef.current = null
+          }}
+        />
+      </div>
+      <p className="board-hint">
+        Use the slider to zoom. Scroll to move around large grids. Click cells or edges with the
+        active tool.
+      </p>
     </section>
   )
 }

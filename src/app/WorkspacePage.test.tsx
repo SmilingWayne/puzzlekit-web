@@ -43,6 +43,11 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/input & controls/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/solver board scroll area/i)).toHaveClass('board-scroll-shell')
+    const zoom = screen.getByLabelText(/board zoom/i)
+    expect(zoom).toHaveValue('100')
+    expect(zoom).toHaveAttribute('min', '10')
+    expect(zoom).toHaveAttribute('max', '200')
   })
 
   it('shows import errors in a closeable dialog with expandable details', () => {
@@ -223,6 +228,28 @@ describe('WorkspacePage', () => {
 
     expect(screen.queryByText(/click without dragging selects a cell/i)).not.toBeInTheDocument()
     expect(useSolverStore.getState().initialPuzzle.cells[cellKey(0, 0)]?.clue).toBe(before)
+  })
+
+  it('keeps wheel scrolling separate from solver board zoom', () => {
+    renderWorkspace()
+
+    const canvas = screen.getByLabelText(/slitherlink solver canvas/i)
+    const zoom = screen.getByLabelText(/board zoom/i)
+
+    expect(fireEvent.wheel(canvas, { deltaY: -120 })).toBe(true)
+    expect(zoom).toHaveValue('100')
+  })
+
+  it('zooms the solver board with the slider', () => {
+    renderWorkspace()
+
+    const canvas = screen.getByLabelText(/slitherlink solver canvas/i)
+    const zoom = screen.getByLabelText(/board zoom/i)
+
+    fireEvent.change(zoom, { target: { value: '150' } })
+
+    expect(zoom).toHaveValue('150')
+    expect(canvas).toHaveStyle({ width: '432px', height: '432px' })
   })
 
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
