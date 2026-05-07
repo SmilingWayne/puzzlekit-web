@@ -836,6 +836,125 @@ describe('slither inside reachability coloring rule', () => {
   })
 })
 
+describe('slither outside reachability coloring rule', () => {
+  const outsideReachabilityRule = slitherRules.find((rule) => rule.id === 'outside-reachability-coloring')
+  if (!outsideReachabilityRule) {
+    throw new Error('Expected outside-reachability-coloring rule')
+  }
+
+  it('colors a fully line-enclosed unknown cell green', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = outsideReachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+    ])
+  })
+
+  it('does not color a boundary cell reachable through an unknown outside edge', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+
+    const result = outsideReachabilityRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not color a boundary cell reachable through a blank outside edge', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'blank'
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = outsideReachabilityRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('traverses unknown and blank edges but does not cross a line edge', () => {
+    const puzzle = createSlitherPuzzle(1, 4)
+    for (let col = 0; col < 3; col += 1) {
+      puzzle.edges[edgeKey([0, col], [0, col + 1])].mark = 'line'
+      puzzle.edges[edgeKey([1, col], [1, col + 1])].mark = 'line'
+    }
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'blank'
+    puzzle.edges[edgeKey([0, 3], [1, 3])].mark = 'line'
+
+    const result = outsideReachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' },
+      { kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'green' },
+    ])
+  })
+
+  it('treats existing green cells as traversal blockers without overwriting them', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+
+    const result = outsideReachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+    ])
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 1),
+      fromFill: 'green',
+      toFill: 'green',
+    })
+  })
+
+  it('does not traverse into clue-3 cells and does not color clue-3 cells green', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    setClue(puzzle, 0, 1, 3)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+
+    const result = outsideReachabilityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+    ])
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('uses existing yellow cells as outside reachability sources', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+    for (let col = 0; col < 3; col += 1) {
+      puzzle.edges[edgeKey([0, col], [0, col + 1])].mark = 'line'
+      puzzle.edges[edgeKey([1, col], [1, col + 1])].mark = 'line'
+    }
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([0, 3], [1, 3])].mark = 'line'
+
+    const result = outsideReachabilityRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+})
+
 describe('slither color connectivity cut coloring rule', () => {
   const cutColorRule = slitherRules.find((rule) => rule.id === 'color-connectivity-cut-coloring')
   if (!cutColorRule) {
@@ -1048,6 +1167,7 @@ describe('slither prevent premature loop rule', () => {
       (rule) => rule.id === 'color-orthogonal-consensus-propagation',
     )
     const reachabilityRuleIdx = slitherRules.findIndex((rule) => rule.id === 'inside-reachability-coloring')
+    const outsideReachabilityRuleIdx = slitherRules.findIndex((rule) => rule.id === 'outside-reachability-coloring')
     const cutColorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-connectivity-cut-coloring')
     const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
     expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
@@ -1057,7 +1177,8 @@ describe('slither prevent premature loop rule', () => {
     expect(sectorColorRuleIdx).toBe(clueRuleIdx + 1)
     expect(orthogonalConsensusRuleIdx).toBe(sectorColorRuleIdx + 1)
     expect(reachabilityRuleIdx).toBe(orthogonalConsensusRuleIdx + 1)
-    expect(cutColorRuleIdx).toBe(reachabilityRuleIdx + 1)
+    expect(outsideReachabilityRuleIdx).toBe(reachabilityRuleIdx + 1)
+    expect(cutColorRuleIdx).toBe(outsideReachabilityRuleIdx + 1)
     expect(antiLoopRuleIdx).toBe(cutColorRuleIdx + 1)
   })
 

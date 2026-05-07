@@ -7,6 +7,7 @@ import {
   createColorOrthogonalConsensusPropagationRule,
   createColorOutsideSeedingRule,
   createColorSectorMaskPropagationRule,
+  createOutsideReachabilityColoringRule,
 } from './rules/color'
 import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createCellCountRule, createPreventPrematureLoopRule, createVertexDegreeRule } from './rules/core'
@@ -38,6 +39,7 @@ export const deterministicSlitherRules: Rule[] = [
   createColorSectorMaskPropagationRule(),
   createColorOrthogonalConsensusPropagationRule(),
   createInsideReachabilityColoringRule(),
+  createOutsideReachabilityColoringRule(),
   createColorConnectivityCutColoringRule(),
   createPreventPrematureLoopRule(),
   createApplySectorsInference(),

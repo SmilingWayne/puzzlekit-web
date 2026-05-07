@@ -609,6 +609,117 @@ export const createInsideReachabilityColoringRule = (): Rule => ({
   },
 })
 
+export const createOutsideReachabilityColoringRule = (): Rule => ({
+  id: 'outside-reachability-coloring',
+  name: 'Outside Reachability Coloring',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const reachable = new Set<string>()
+    const queue: string[] = []
+
+    const inBounds = (row: number, col: number): boolean =>
+      row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols
+
+    const enqueue = (key: string): void => {
+      if (reachable.has(key)) {
+        return
+      }
+      reachable.add(key)
+      queue.push(key)
+    }
+
+    const canReachOutsideFromBoundary = (row: number, col: number): boolean => {
+      const boundaryEdges: string[] = []
+      if (row === 0) {
+        boundaryEdges.push(edgeKey([0, col], [0, col + 1]))
+      }
+      if (row === puzzle.rows - 1) {
+        boundaryEdges.push(edgeKey([puzzle.rows, col], [puzzle.rows, col + 1]))
+      }
+      if (col === 0) {
+        boundaryEdges.push(edgeKey([row, 0], [row + 1, 0]))
+      }
+      if (col === puzzle.cols - 1) {
+        boundaryEdges.push(edgeKey([row, puzzle.cols], [row + 1, puzzle.cols]))
+      }
+      return boundaryEdges.some((key) => (puzzle.edges[key]?.mark ?? 'unknown') !== 'line')
+    }
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        const currentFill = puzzle.cells[key]?.fill
+        if (currentFill === 'green' || isNumberClueThree(puzzle, key)) {
+          continue
+        }
+        if (currentFill === 'yellow' || canReachOutsideFromBoundary(row, col)) {
+          enqueue(key)
+        }
+      }
+    }
+
+    const neighborSpecs: Array<{ dr: number; dc: number; edge: (row: number, col: number) => string }> = [
+      { dr: -1, dc: 0, edge: (row, col) => edgeKey([row, col], [row, col + 1]) },
+      { dr: 1, dc: 0, edge: (row, col) => edgeKey([row + 1, col], [row + 1, col + 1]) },
+      { dr: 0, dc: -1, edge: (row, col) => edgeKey([row, col], [row + 1, col]) },
+      { dr: 0, dc: 1, edge: (row, col) => edgeKey([row, col + 1], [row + 1, col + 1]) },
+    ]
+
+    for (let idx = 0; idx < queue.length; idx += 1) {
+      const [row, col] = queue[idx].split(',').map(Number)
+      for (const spec of neighborSpecs) {
+        const neighborRow = row + spec.dr
+        const neighborCol = col + spec.dc
+        if (!inBounds(neighborRow, neighborCol)) {
+          continue
+        }
+        const sharedEdge = spec.edge(row, col)
+        if ((puzzle.edges[sharedEdge]?.mark ?? 'unknown') === 'line') {
+          continue
+        }
+
+        const neighborKey = cellKey(neighborRow, neighborCol)
+        const neighborFill = puzzle.cells[neighborKey]?.fill
+        if (neighborFill === 'green' || isNumberClueThree(puzzle, neighborKey)) {
+          continue
+        }
+        enqueue(neighborKey)
+      }
+    }
+
+    const decidedCellFills = new Map<string, SlitherCellColor>()
+    const affectedCells = new Set<string>()
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        if (reachable.has(key) || isNumberClueThree(puzzle, key)) {
+          continue
+        }
+        const currentFill = puzzle.cells[key]?.fill
+        if (isSlitherCellColor(currentFill)) {
+          continue
+        }
+        decidedCellFills.set(key, 'green')
+        affectedCells.add(key)
+      }
+    }
+
+    if (decidedCellFills.size === 0) {
+      return null
+    }
+
+    return {
+      message: `Outside reachability coloring applied (${decidedCellFills.size} color update(s)).`,
+      diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
+        kind: 'cell' as const,
+        cellKey: k,
+        fromFill: (puzzle.cells[k]?.fill ?? null) as string | null,
+        toFill,
+      })),
+      affectedCells: [...affectedCells],
+    }
+  },
+})
+
 const OUTSIDE_COMPONENT = '__outside__'
 
 type ConnectivityCutPassOptions = {
