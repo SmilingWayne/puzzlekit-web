@@ -836,6 +836,87 @@ describe('slither inside reachability coloring rule', () => {
   })
 })
 
+describe('slither color connectivity cut coloring rule', () => {
+  const cutColorRule = slitherRules.find((rule) => rule.id === 'color-connectivity-cut-coloring')
+  if (!cutColorRule) {
+    throw new Error('Expected color-connectivity-cut-coloring rule')
+  }
+
+  it('colors an unknown articulation cell green between two green components', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 2)] = { fill: 'green' }
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' },
+    ])
+  })
+
+  it('does not apply when there is only one green source component', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not color across a line-separated green component', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 2)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'line'
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('does not traverse through an unknown clue-3 cell', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 2)] = { fill: 'green' }
+    setClue(puzzle, 0, 1, 3)
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('colors every unknown cell inside a blank-compressed green bottleneck', () => {
+    const puzzle = createSlitherPuzzle(1, 4)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 3)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'blank'
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' },
+      { kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'green' },
+    ])
+  })
+
+  it('colors an outside-to-yellow bottleneck yellow', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.cells[cellKey(1, 1)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+    puzzle.cells[cellKey(2, 1)] = { fill: 'green' }
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' },
+    ])
+  })
+})
+
 describe('slither color sector-mask propagation rule', () => {
   const sectorColorRule = slitherRules.find((rule) => rule.id === 'color-sector-mask-propagation')
   if (!sectorColorRule) {
@@ -967,6 +1048,7 @@ describe('slither prevent premature loop rule', () => {
       (rule) => rule.id === 'color-orthogonal-consensus-propagation',
     )
     const reachabilityRuleIdx = slitherRules.findIndex((rule) => rule.id === 'inside-reachability-coloring')
+    const cutColorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-connectivity-cut-coloring')
     const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
     expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
     expect(outsideRuleIdx).toBe(vertexRuleIdx + 1)
@@ -975,7 +1057,8 @@ describe('slither prevent premature loop rule', () => {
     expect(sectorColorRuleIdx).toBe(clueRuleIdx + 1)
     expect(orthogonalConsensusRuleIdx).toBe(sectorColorRuleIdx + 1)
     expect(reachabilityRuleIdx).toBe(orthogonalConsensusRuleIdx + 1)
-    expect(antiLoopRuleIdx).toBe(reachabilityRuleIdx + 1)
+    expect(cutColorRuleIdx).toBe(reachabilityRuleIdx + 1)
+    expect(antiLoopRuleIdx).toBe(cutColorRuleIdx + 1)
   })
 
   it('marks an unknown edge blank when it would close a loop', () => {
@@ -1211,11 +1294,12 @@ describe('slither sector diagonal shared-vertex propagation rule', () => {
   })
 
   it('appears during stepwise solving for the provided 8x8 puzzle', () => {
+    const rulesWithoutCutColoring = slitherRules.filter((rule) => rule.id !== 'color-connectivity-cut-coloring')
     let current = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/8/8/gdg1dddbdid26d72ccicadc3cgc')
     let triggered = false
 
     for (let stepNumber = 1; stepNumber <= 1000; stepNumber += 1) {
-      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      const { nextPuzzle, step } = runNextRule(current, rulesWithoutCutColoring, stepNumber)
       if (!step) {
         break
       }
@@ -2144,7 +2228,7 @@ describe('slither strong inference rule', () => {
     expect(result === null || result.diffs.length > 0).toBe(true)
   })
 
-  it('can color the provided 18x10 stuck puzzle after deterministic stabilization', () => {
+  it('lets deterministic cut coloring advance the provided 18x10 stuck puzzle', () => {
     const rulesBeforeColorAssumption = slitherRules.filter(
       (rule) =>
         rule.id !== 'color-assumption-inference' &&
@@ -2164,8 +2248,9 @@ describe('slither strong inference rule', () => {
     }
 
     const result = unboundedColorAssumptionRule.apply(current)
-    expect(result).not.toBeNull()
-    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(2, 12), fromFill: null, toFill: 'green' }])
+    expect(result).toBeNull()
+    expect(current.cells[cellKey(2, 12)]?.fill).toBe('green')
+    expect(current.cells[cellKey(7, 0)]?.fill).toBe('green')
 
     const targetBranch = clonePuzzle(current)
     targetBranch.cells[cellKey(7, 0)] = {

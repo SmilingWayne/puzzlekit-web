@@ -57,6 +57,14 @@ const applyDiffsWithJsonClone = () => {
       }
       continue
     }
+    if (diff.kind === 'vertex') {
+      if (!next.vertices[diff.vertexKey]) {
+        next.vertices[diff.vertexKey] = { candidateEdgeSets: diff.toCandidates }
+      } else {
+        next.vertices[diff.vertexKey].candidateEdgeSets = diff.toCandidates
+      }
+      continue
+    }
     if (!next.cells[diff.cellKey]) {
       next.cells[diff.cellKey] = {}
     }

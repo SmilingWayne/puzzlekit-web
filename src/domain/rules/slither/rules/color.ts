@@ -609,6 +609,287 @@ export const createInsideReachabilityColoringRule = (): Rule => ({
   },
 })
 
+const OUTSIDE_COMPONENT = '__outside__'
+
+type ConnectivityCutPassOptions = {
+  target: SlitherCellColor
+  includeOutsideSource: boolean
+  getEffectiveCellColor: (key: string) => SlitherCellColor | null
+}
+
+const findConnectivityCutCells = (
+  puzzle: PuzzleIR,
+  { target, includeOutsideSource, getEffectiveCellColor }: ConnectivityCutPassOptions,
+): Set<string> => {
+  const blocked = oppositeSlitherCellColor(target)
+  const parent = new Map<string, string>()
+  const rank = new Map<string, number>()
+
+  const inBoundsCellKeys: string[] = []
+  for (let row = 0; row < puzzle.rows; row += 1) {
+    for (let col = 0; col < puzzle.cols; col += 1) {
+      inBoundsCellKeys.push(cellKey(row, col))
+    }
+  }
+
+  const isCandidateCell = (key: string): boolean =>
+    !isNumberClueThree(puzzle, key) && getEffectiveCellColor(key) !== blocked
+
+  const ensureNode = (key: string): void => {
+    if (parent.has(key)) {
+      return
+    }
+    parent.set(key, key)
+    rank.set(key, 0)
+  }
+
+  const find = (key: string): string => {
+    ensureNode(key)
+    const currentParent = parent.get(key)
+    if (currentParent === undefined || currentParent === key) {
+      return key
+    }
+    const root = find(currentParent)
+    parent.set(key, root)
+    return root
+  }
+
+  const union = (a: string, b: string): void => {
+    const rootA = find(a)
+    const rootB = find(b)
+    if (rootA === rootB) {
+      return
+    }
+    const rankA = rank.get(rootA) ?? 0
+    const rankB = rank.get(rootB) ?? 0
+    if (rankA < rankB) {
+      parent.set(rootA, rootB)
+      return
+    }
+    parent.set(rootB, rootA)
+    if (rankA === rankB) {
+      rank.set(rootA, rankA + 1)
+    }
+  }
+
+  for (const key of inBoundsCellKeys) {
+    if (isCandidateCell(key)) {
+      ensureNode(key)
+    }
+  }
+  if (includeOutsideSource) {
+    ensureNode(OUTSIDE_COMPONENT)
+  }
+
+  for (const [edgeKeyValue, edgeState] of Object.entries(puzzle.edges)) {
+    if ((edgeState?.mark ?? 'unknown') !== 'blank') {
+      continue
+    }
+    const adjacentCells = getEdgeAdjacentCellKeys(puzzle, edgeKeyValue)
+    if (adjacentCells.length !== 2 || !adjacentCells.every(isCandidateCell)) {
+      continue
+    }
+    union(adjacentCells[0], adjacentCells[1])
+  }
+
+  const componentCells = new Map<string, string[]>()
+  const sourceComponents = new Set<string>()
+  for (const key of inBoundsCellKeys) {
+    if (!isCandidateCell(key)) {
+      continue
+    }
+    const root = find(key)
+    const cells = componentCells.get(root) ?? []
+    cells.push(key)
+    componentCells.set(root, cells)
+    if (getEffectiveCellColor(key) === target) {
+      sourceComponents.add(root)
+    }
+  }
+  if (includeOutsideSource) {
+    sourceComponents.add(find(OUTSIDE_COMPONENT))
+  }
+  if (sourceComponents.size < 2) {
+    return new Set()
+  }
+
+  const graph = new Map<string, Set<string>>()
+  const addGraphNode = (node: string): void => {
+    if (!graph.has(node)) {
+      graph.set(node, new Set())
+    }
+  }
+  const addGraphEdge = (a: string, b: string): void => {
+    if (a === b) {
+      addGraphNode(a)
+      return
+    }
+    addGraphNode(a)
+    addGraphNode(b)
+    graph.get(a)?.add(b)
+    graph.get(b)?.add(a)
+  }
+
+  for (const root of componentCells.keys()) {
+    addGraphNode(root)
+  }
+  if (includeOutsideSource) {
+    addGraphNode(find(OUTSIDE_COMPONENT))
+  }
+
+  for (const [edgeKeyValue, edgeState] of Object.entries(puzzle.edges)) {
+    if ((edgeState?.mark ?? 'unknown') === 'line') {
+      continue
+    }
+    const adjacentCells = getEdgeAdjacentCellKeys(puzzle, edgeKeyValue)
+    if (adjacentCells.length === 2) {
+      if (!adjacentCells.every(isCandidateCell)) {
+        continue
+      }
+      addGraphEdge(find(adjacentCells[0]), find(adjacentCells[1]))
+      continue
+    }
+    if (includeOutsideSource && adjacentCells.length === 1 && isCandidateCell(adjacentCells[0])) {
+      addGraphEdge(find(OUTSIDE_COMPONENT), find(adjacentCells[0]))
+    }
+  }
+
+  const discovery = new Map<string, number>()
+  const low = new Map<string, number>()
+  const subtreeSources = new Map<string, number>()
+  const treeChildren = new Map<string, string[]>()
+  const cutComponents = new Set<string>()
+  let timestamp = 0
+
+  const dfs = (node: string, parentNode: string | null, connectedNodes: string[]): void => {
+    discovery.set(node, timestamp)
+    low.set(node, timestamp)
+    timestamp += 1
+    subtreeSources.set(node, sourceComponents.has(node) ? 1 : 0)
+    connectedNodes.push(node)
+
+    for (const neighbor of graph.get(node) ?? []) {
+      if (neighbor === parentNode) {
+        continue
+      }
+      if (!discovery.has(neighbor)) {
+        const children = treeChildren.get(node) ?? []
+        children.push(neighbor)
+        treeChildren.set(node, children)
+        dfs(neighbor, node, connectedNodes)
+        low.set(node, Math.min(low.get(node) ?? 0, low.get(neighbor) ?? 0))
+        subtreeSources.set(node, (subtreeSources.get(node) ?? 0) + (subtreeSources.get(neighbor) ?? 0))
+        continue
+      }
+      low.set(node, Math.min(low.get(node) ?? 0, discovery.get(neighbor) ?? 0))
+    }
+  }
+
+  const evaluateCuts = (node: string, totalSources: number): void => {
+    for (const neighbor of treeChildren.get(node) ?? []) {
+      if ((low.get(neighbor) ?? 0) >= (discovery.get(node) ?? 0)) {
+        const childSources = subtreeSources.get(neighbor) ?? 0
+        if (childSources > 0 && totalSources - childSources > 0) {
+          cutComponents.add(node)
+        }
+      }
+      evaluateCuts(neighbor, totalSources)
+    }
+  }
+
+  for (const node of graph.keys()) {
+    if (discovery.has(node)) {
+      continue
+    }
+    const connectedNodes: string[] = []
+    dfs(node, null, connectedNodes)
+    const totalSources = connectedNodes.filter((component) => sourceComponents.has(component)).length
+    if (totalSources < 2) {
+      continue
+    }
+    evaluateCuts(node, totalSources)
+  }
+
+  const cutCells = new Set<string>()
+  for (const component of cutComponents) {
+    for (const key of componentCells.get(component) ?? []) {
+      if (getEffectiveCellColor(key) === null) {
+        cutCells.add(key)
+      }
+    }
+  }
+  return cutCells
+}
+
+export const createColorConnectivityCutColoringRule = (): Rule => ({
+  id: 'color-connectivity-cut-coloring',
+  name: 'Color Connectivity Cut Coloring',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedCellFills = new Map<string, SlitherCellColor>()
+    const affectedCells = new Set<string>()
+
+    const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
+      const decided = decidedCellFills.get(key)
+      if (decided) {
+        return decided
+      }
+      const current = puzzle.cells[key]?.fill
+      return isSlitherCellColor(current) ? current : null
+    }
+
+    const rememberCellFill = (key: string, to: SlitherCellColor): void => {
+      if (getEffectiveCellColor(key) !== null) {
+        return
+      }
+      decidedCellFills.set(key, to)
+      affectedCells.add(key)
+    }
+
+    for (const key of findConnectivityCutCells(puzzle, {
+      target: 'green',
+      includeOutsideSource: false,
+      getEffectiveCellColor,
+    })) {
+      rememberCellFill(key, 'green')
+    }
+
+    for (const key of findConnectivityCutCells(puzzle, {
+      target: 'yellow',
+      includeOutsideSource: true,
+      getEffectiveCellColor,
+    })) {
+      rememberCellFill(key, 'yellow')
+    }
+
+    if (decidedCellFills.size === 0) {
+      return null
+    }
+
+    const diffs: RuleApplication['diffs'] = []
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        const toFill = decidedCellFills.get(key)
+        if (!toFill) {
+          continue
+        }
+        diffs.push({
+          kind: 'cell',
+          cellKey: key,
+          fromFill: (puzzle.cells[key]?.fill ?? null) as string | null,
+          toFill,
+        })
+      }
+    }
+
+    return {
+      message: `Color connectivity cut coloring applied (${decidedCellFills.size} color update(s)).`,
+      diffs,
+      affectedCells: [...affectedCells],
+    }
+  },
+})
+
 type CornerNeighbor = { row: number; col: number }
 
 const getCornerOutsideNeighbors = (row: number, col: number, corner: SectorCorner): [CornerNeighbor, CornerNeighbor] => {
