@@ -11,9 +11,9 @@ import { applyEdgeAssumption, runTrialUntilFixpoint } from './trial'
 // const STRONG_MAX_CANDIDATES = 1000
 // const STRONG_MAX_TRIAL_STEPS = 2000
 // const STRONG_MAX_MS = 1000
-const STRONG_MAX_CANDIDATES = 200
+const STRONG_MAX_CANDIDATES = 400
 const STRONG_MAX_TRIAL_STEPS = 120
-const STRONG_MAX_MS = 2000
+const STRONG_MAX_MS = 4000
 
 type StrongInferenceOptions = {
   maxCandidates?: number

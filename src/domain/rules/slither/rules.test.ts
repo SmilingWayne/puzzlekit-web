@@ -17,6 +17,7 @@ import { runNextRule } from '../engine'
 import type { Rule } from '../types'
 import { slitherRules } from './rules'
 import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
+import { createSectorParityInferenceRule } from './rules/sectorParityInference'
 import { createStrongInferenceRule } from './rules/strongInference'
 import { runTrialUntilFixpoint } from './rules/trial'
 
@@ -1595,6 +1596,42 @@ describe('slither sector constraint edge propagation rule', () => {
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: nwLeft, from: 'unknown', to: 'line' }])
   })
+
+  it('forces the last unknown corner edge to line when notOne already has one line', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+    puzzle.edges[nwTop].mark = 'line'
+
+    const result = edgePropagationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: nwLeft, from: 'unknown', to: 'line' }])
+  })
+
+  it('forces the last unknown corner edge to blank when notOne already has one blank', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+    puzzle.edges[nwTop].mark = 'blank'
+
+    const result = edgePropagationRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: nwLeft, from: 'unknown', to: 'blank' }])
+  })
+
+  it('does not emit a notOne propagation diff when both corner edges are already decided', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+    const [nwTop, nwLeft] = getCornerEdgeKeys(0, 0, 'nw')
+    puzzle.edges[nwTop].mark = 'line'
+    puzzle.edges[nwLeft].mark = 'blank'
+
+    const result = edgePropagationRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
 })
 
 describe('slither sector clue-1/3 onlyOne opposite edges rule', () => {
@@ -1955,13 +1992,89 @@ describe('slither apply sectors rule', () => {
   })
 })
 
+describe('slither sector parity inference rule', () => {
+  const sectorParityRule = slitherRules.find((rule) => rule.id === 'sector-parity-inference')
+  if (!sectorParityRule) {
+    throw new Error('Expected sector-parity-inference rule')
+  }
+
+  it('places sector parity inference after color assumption and before strong inference', () => {
+    const colorAssumptionIdx = slitherRules.findIndex((rule) => rule.id === 'color-assumption-inference')
+    const sectorParityIdx = slitherRules.findIndex((rule) => rule.id === 'sector-parity-inference')
+    const strongIdx = slitherRules.findIndex((rule) => rule.id === 'strong-inference')
+
+    expect(colorAssumptionIdx).toBeGreaterThanOrEqual(0)
+    expect(sectorParityIdx).toBe(colorAssumptionIdx + 1)
+    expect(strongIdx).toBe(sectorParityIdx + 1)
+  })
+
+  it('forces both notOne sector edges blank when the both-line branch creates a closed subloop', () => {
+    const directSectorParityRule = createSectorParityInferenceRule(() => [])
+    const puzzle = createSlitherPuzzle(2, 2)
+    const targetSector = sectorKey(0, 0, 'se')
+    puzzle.sectors[targetSector].constraintsMask = SECTOR_MASK_NOT_1
+    const [bottom, right] = getCornerEdgeKeys(0, 0, 'se')
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([2, 1], [2, 2])].mark = 'line'
+
+    const result = directSectorParityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+    ])
+    expect(result?.affectedSectors).toEqual([targetSector])
+    expect(result?.message).toContain('candidate=sector-not-one')
+    expect(result?.message).toContain('result=contradiction')
+  })
+
+  it('forces both notOne sector edges line when the both-blank branch violates a clue', () => {
+    const directSectorParityRule = createSectorParityInferenceRule(() => [])
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 2)
+    const targetSector = sectorKey(0, 0, 'se')
+    puzzle.sectors[targetSector].constraintsMask = SECTOR_MASK_NOT_1
+    const [bottom, right] = getCornerEdgeKeys(0, 0, 'se')
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'blank'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'blank'
+
+    const result = directSectorParityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
+    ])
+    expect(result?.affectedSectors).toEqual([targetSector])
+    expect(result?.message).toContain('result=contradiction')
+  })
+
+  it('returns null when both notOne parity branches remain feasible', () => {
+    const directSectorParityRule = createSectorParityInferenceRule(() => [])
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask = SECTOR_MASK_NOT_1
+
+    const result = directSectorParityRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+})
+
 describe('slither strong inference rule', () => {
   const colorAssumptionRule = slitherRules.find((rule) => rule.id === 'color-assumption-inference')
   if (!colorAssumptionRule) {
     throw new Error('Expected color-assumption-inference rule')
   }
   const unboundedColorAssumptionRule = createColorAssumptionInferenceRule(
-    () => slitherRules.filter((rule) => rule.id !== 'color-assumption-inference' && rule.id !== 'strong-inference'),
+    () =>
+      slitherRules.filter(
+        (rule) =>
+          rule.id !== 'color-assumption-inference' &&
+          rule.id !== 'sector-parity-inference' &&
+          rule.id !== 'strong-inference',
+      ),
     { maxMs: Number.POSITIVE_INFINITY },
   )
   const strongRule = slitherRules.find((rule) => rule.id === 'strong-inference')
@@ -1969,14 +2082,23 @@ describe('slither strong inference rule', () => {
     throw new Error('Expected strong-inference rule')
   }
   const unboundedStrongRule = createStrongInferenceRule(
-    () => slitherRules.filter((rule) => rule.id !== 'color-assumption-inference' && rule.id !== 'strong-inference'),
+    () =>
+      slitherRules.filter(
+        (rule) =>
+          rule.id !== 'color-assumption-inference' &&
+          rule.id !== 'sector-parity-inference' &&
+          rule.id !== 'strong-inference',
+      ),
     { maxMs: Number.POSITIVE_INFINITY },
   )
 
   it('places color assumption inference before strong inference', () => {
     const colorAssumptionIdx = slitherRules.findIndex((rule) => rule.id === 'color-assumption-inference')
+    const sectorParityIdx = slitherRules.findIndex((rule) => rule.id === 'sector-parity-inference')
     const strongIdx = slitherRules.findIndex((rule) => rule.id === 'strong-inference')
-    expect(colorAssumptionIdx).toBe(strongIdx - 1)
+    expect(colorAssumptionIdx).toBeGreaterThanOrEqual(0)
+    expect(sectorParityIdx).toBe(colorAssumptionIdx + 1)
+    expect(strongIdx).toBe(sectorParityIdx + 1)
   })
 
   it('is placed at the end of slitherRules', () => {
@@ -2167,7 +2289,10 @@ describe('slither strong inference rule', () => {
 
   it('can color the provided 18x10 stuck puzzle after deterministic stabilization', () => {
     const rulesBeforeColorAssumption = slitherRules.filter(
-      (rule) => rule.id !== 'color-assumption-inference' && rule.id !== 'strong-inference',
+      (rule) =>
+        rule.id !== 'color-assumption-inference' &&
+        rule.id !== 'sector-parity-inference' &&
+        rule.id !== 'strong-inference',
     )
     let current = decodeSlitherFromPuzzlink(
       'https://puzz.link/p?slither/18/10/l12cg261b353didb1bbg112dgb2bbci161b3dgbhapchcg3c161dicb2bbg111cga2bbbi271c161bg31cj',

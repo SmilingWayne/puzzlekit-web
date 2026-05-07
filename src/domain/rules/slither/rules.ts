@@ -13,6 +13,7 @@ import {
   createContiguousThreeRunBoundariesRule,
   createDiagonalAdjacentThreeOuterCornersRule,
 } from './rules/patterns'
+import { createSectorParityInferenceRule } from './rules/sectorParityInference'
 import { createApplySectorsInference } from './rules/sectorInference'
 import {
   createSectorClueOneThreeIntraCellPropagationRule,
@@ -48,5 +49,6 @@ export const deterministicSlitherRules: Rule[] = [
 export const slitherRules: Rule[] = [
   ...deterministicSlitherRules,
   createColorAssumptionInferenceRule(() => deterministicSlitherRules),
+  createSectorParityInferenceRule(() => deterministicSlitherRules),
   createStrongInferenceRule(() => deterministicSlitherRules),
 ]

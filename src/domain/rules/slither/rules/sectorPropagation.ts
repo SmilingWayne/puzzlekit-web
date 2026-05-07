@@ -504,6 +504,14 @@ export const createSectorConstraintEdgePropagationRule = (): Rule => ({
               toMark = 'line'
               edgesToDecide = [unknownEdges[0]]
             }
+          } else if (mask === SECTOR_MASK_NOT_1) {
+            if (lineCount === 1 && blankCount === 0 && unknownEdges.length === 1) {
+              toMark = 'line'
+              edgesToDecide = [unknownEdges[0]]
+            } else if (blankCount === 1 && lineCount === 0 && unknownEdges.length === 1) {
+              toMark = 'blank'
+              edgesToDecide = [unknownEdges[0]]
+            }
           }
 
           if (toMark === null || edgesToDecide.length === 0) continue
