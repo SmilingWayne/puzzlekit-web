@@ -360,6 +360,67 @@ describe('slither color-edge propagation rule', () => {
     })
   })
 
+  it('marks top boundary edge line when the boundary cell is green', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    const top = edgeKey([0, 1], [0, 2])
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'edge',
+      edgeKey: top,
+      from: 'unknown',
+      to: 'line',
+    })
+  })
+
+  it('marks both outer boundary edges line when a corner cell is green', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    const top = edgeKey([0, 0], [0, 1])
+    const left = edgeKey([0, 0], [1, 0])
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        { kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' },
+        { kind: 'edge', edgeKey: left, from: 'unknown', to: 'line' },
+      ]),
+    )
+  })
+
+  it('marks boundary edges blank when the boundary cell is yellow', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'yellow' }
+    const top = edgeKey([0, 0], [0, 1])
+    const left = edgeKey([0, 0], [1, 0])
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual(
+      expect.arrayContaining([
+        { kind: 'edge', edgeKey: top, from: 'unknown', to: 'blank' },
+        { kind: 'edge', edgeKey: left, from: 'unknown', to: 'blank' },
+      ]),
+    )
+  })
+
+  it('does not emit a phantom cell diff across an already decided boundary edge', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const top = edgeKey([0, 0], [0, 1])
+    puzzle.edges[top].mark = 'line'
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+
+    const result = colorRule.apply(puzzle)
+
+    expect(result?.diffs.some((diff) => diff.kind === 'cell' && diff.cellKey === undefined)).not.toBe(true)
+  })
+
   it('infers opposite color across a line edge', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     const between = edgeKey([0, 1], [1, 1])
@@ -1667,9 +1728,9 @@ describe('slither vertex onlyOne non-sector balance rule', () => {
     expect(result).toBeNull()
   })
 
-  it('appears during stepwise solving for the provided 5x5 cgcx puzzle with boundary line diff', () => {
+  it('leaves the provided 5x5 cgcx boundary line to color-edge propagation during stepwise solving', () => {
     let current = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/5/5/cgcx')
-    let triggered = false
+    let colorEdgeTriggered = false
     let sawBoundaryLine = false
 
     for (let stepNumber = 1; stepNumber <= 1000; stepNumber += 1) {
@@ -1677,8 +1738,7 @@ describe('slither vertex onlyOne non-sector balance rule', () => {
       if (!step) {
         break
       }
-      if (step.ruleId === 'vertex-onlyone-non-sector-balance') {
-        triggered = true
+      if (step.ruleId === 'color-edge-propagation') {
         for (const diff of step.diffs) {
           if (diff.kind !== 'edge' || diff.to !== 'line') {
             continue
@@ -1695,13 +1755,14 @@ describe('slither vertex onlyOne non-sector balance rule', () => {
           }
         }
         if (sawBoundaryLine) {
+          colorEdgeTriggered = true
           break
         }
       }
       current = nextPuzzle
     }
 
-    expect(triggered).toBe(true)
+    expect(colorEdgeTriggered).toBe(true)
     expect(sawBoundaryLine).toBe(true)
   })
 })

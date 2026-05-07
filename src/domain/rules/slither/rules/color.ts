@@ -58,18 +58,36 @@ export const createColorEdgePropagationRule = (): Rule => ({
     }
 
     const edgeKeys = Object.keys(puzzle.edges)
-    const adjacentCellsByEdge = new Map<string, [string, string]>()
+    const adjacentCellsByEdge = new Map<string, [string] | [string, string]>()
     for (const edgeKeyValue of edgeKeys) {
       const adjacentCells = getEdgeAdjacentCellKeys(puzzle, edgeKeyValue)
-      if (adjacentCells.length !== 2) {
+      if (adjacentCells.length !== 1 && adjacentCells.length !== 2) {
         continue
       }
-      adjacentCellsByEdge.set(edgeKeyValue, [adjacentCells[0], adjacentCells[1]])
+      adjacentCellsByEdge.set(
+        edgeKeyValue,
+        adjacentCells.length === 1 ? [adjacentCells[0]] : [adjacentCells[0], adjacentCells[1]],
+      )
     }
 
     for (const edgeKeyValue of edgeKeys) {
       const adjacentCells = adjacentCellsByEdge.get(edgeKeyValue)
       if (!adjacentCells) {
+        continue
+      }
+      if (adjacentCells.length === 1) {
+        const [cell] = adjacentCells
+        const color = getEffectiveCellColor(cell)
+        if (color === null) {
+          continue
+        }
+        const toMark: EdgeMark = color === 'green' ? 'line' : 'blank'
+        if (!rememberEdge(edgeKeyValue, toMark)) {
+          continue
+        }
+        if (decidedEdges.get(edgeKeyValue) === toMark) {
+          affectedCells.add(cell)
+        }
         continue
       }
       const [cellA, cellB] = adjacentCells
@@ -91,6 +109,9 @@ export const createColorEdgePropagationRule = (): Rule => ({
     for (const edgeKeyValue of edgeKeys) {
       const adjacentCells = adjacentCellsByEdge.get(edgeKeyValue)
       if (!adjacentCells) {
+        continue
+      }
+      if (adjacentCells.length !== 2) {
         continue
       }
       const [cellA, cellB] = adjacentCells
