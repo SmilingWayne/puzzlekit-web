@@ -1,4 +1,4 @@
-import type { EdgeMark, PuzzleIR, SectorConstraintMask } from '../ir/types'
+import type { EdgeMark, PuzzleIR, SectorConstraintMask, VertexCandidate } from '../ir/types'
 
 export type EdgeDiff = {
   kind: 'edge'
@@ -21,7 +21,14 @@ export type CellDiff = {
   toFill: string | null
 }
 
-export type RuleDiff = EdgeDiff | SectorDiff | CellDiff
+export type VertexDiff = {
+  kind: 'vertex'
+  vertexKey: string
+  fromCandidates: VertexCandidate[]
+  toCandidates: VertexCandidate[]
+}
+
+export type RuleDiff = EdgeDiff | SectorDiff | CellDiff | VertexDiff
 
 export type RuleStep = {
   id: string

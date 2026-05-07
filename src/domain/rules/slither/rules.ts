@@ -16,11 +16,12 @@ import {
 import { createSectorParityInferenceRule } from './rules/sectorParityInference'
 import { createApplySectorsInference } from './rules/sectorInference'
 import {
+  createClueVertexCandidateCombinationPruningRule,
   createSectorClueOneThreeIntraCellPropagationRule,
-  createSectorClueTwoCombinationFeasibilityRule,
   createSectorConstraintEdgePropagationRule,
   createSectorDiagonalSharedVertexPropagationRule,
   createSectorNotOneClueTwoPropagationRule,
+  createVertexCandidateEdgePruningRule,
   createVertexOnlyOneNonSectorBalanceRule,
 } from './rules/sectorPropagation'
 import { createStrongInferenceRule } from './rules/strongInference'
@@ -39,7 +40,8 @@ export const deterministicSlitherRules: Rule[] = [
   createPreventPrematureLoopRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),
-  createSectorClueTwoCombinationFeasibilityRule(),
+  createVertexCandidateEdgePruningRule(),
+  createClueVertexCandidateCombinationPruningRule(),
   createSectorClueOneThreeIntraCellPropagationRule(),
   createSectorConstraintEdgePropagationRule(),
   createVertexOnlyOneNonSectorBalanceRule(),
