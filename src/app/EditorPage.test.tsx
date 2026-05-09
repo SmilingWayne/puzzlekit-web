@@ -278,7 +278,8 @@ describe('EditorPage', () => {
     expect(within(dialog).getByText(/default slitherlink 2/i)).toBeInTheDocument()
 
     fireEvent.change(within(dialog).getByLabelText(/search presets/i), {
-      target: { value: '060' },
+      // Unique fragment from default-slitherlink-2 sourceUrl (search is substring match over URL/name/etc.)
+      target: { value: '82232382' },
     })
     expect(within(dialog).getByText(/default slitherlink 2/i)).toBeInTheDocument()
     expect(within(dialog).queryByText(/default slitherlink 1/i)).not.toBeInTheDocument()
