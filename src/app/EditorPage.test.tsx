@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
@@ -29,13 +29,33 @@ const clickCanvas = (canvas: HTMLCanvasElement, x: number, y: number) => {
   fireEvent.mouseUp(canvas, { clientX: x, clientY: y })
 }
 
+const rightClickCanvas = (canvas: HTMLCanvasElement, x: number, y: number) => {
+  fireEvent.mouseDown(canvas, { button: 2, buttons: 2, clientX: x, clientY: y })
+  fireEvent.mouseUp(canvas, { button: 2, clientX: x, clientY: y })
+}
+
+const dragCanvas = (
+  canvas: HTMLCanvasElement,
+  points: Array<[number, number]>,
+  button = 0,
+) => {
+  const [startX, startY] = points[0]
+  fireEvent.mouseDown(canvas, { button, buttons: button === 2 ? 2 : 1, clientX: startX, clientY: startY })
+  for (const [x, y] of points.slice(1)) {
+    fireEvent.mouseMove(canvas, { button, buttons: button === 2 ? 2 : 1, clientX: x, clientY: y })
+  }
+  const [endX, endY] = points[points.length - 1]
+  fireEvent.mouseUp(canvas, { button, clientX: endX, clientY: endY })
+}
+
 describe('EditorPage', () => {
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
     useEditorStore.getState().loadEditorPuzzle(createSlitherPuzzle(5, 5))
   })
 
-  it('edits clues and edge marks, then hands the puzzle to the solver', () => {
+  it('edits clues and edge marks with direct board input, then hands the puzzle to the solver', () => {
     render(
       <MemoryRouter initialEntries={['/editor']}>
         <App />
@@ -53,26 +73,61 @@ describe('EditorPage', () => {
     expect(zoom).toHaveAttribute('step', '5')
     expect(canvas).toHaveClass('editor-board-canvas')
 
-    fireEvent.click(screen.getByRole('button', { name: '3' }))
     clickCanvas(canvas, 74, 74)
+    fireEvent.keyDown(canvas, { key: '2' })
+    fireEvent.keyDown(canvas, { key: '3' })
     expect(useEditorStore.getState().puzzle.cells[cellKey(0, 0)]?.clue).toEqual({
       kind: 'number',
       value: 3,
     })
+    fireEvent.keyDown(canvas, { key: '?' })
+    expect(useEditorStore.getState().puzzle.cells[cellKey(0, 0)]?.clue).toEqual({
+      kind: 'number',
+      value: '?',
+    })
+    fireEvent.keyDown(canvas, { key: 'Backspace' })
+    expect(useEditorStore.getState().puzzle.cells[cellKey(0, 0)]?.clue).toBeUndefined()
+    fireEvent.keyDown(canvas, { key: '3' })
 
-    fireEvent.click(screen.getByRole('button', { name: /^line$/i }))
-    clickCanvas(canvas, 74, 48)
+    dragCanvas(canvas, [
+      [74, 48],
+      [126, 48],
+    ])
     const topEdge = edgeKey([0, 0], [0, 1])
     expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('line')
 
-    fireEvent.click(screen.getByRole('button', { name: /^cross$/i }))
-    clickCanvas(canvas, 48, 74)
+    dragCanvas(canvas, [
+      [74, 48],
+      [126, 48],
+    ])
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('unknown')
+
+    dragCanvas(canvas, [
+      [74, 48],
+      [126, 48],
+    ])
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('line')
+
+    dragCanvas(
+      canvas,
+      [
+        [74, 48],
+        [126, 48],
+      ],
+      2,
+    )
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('blank')
+
+    dragCanvas(
+      canvas,
+      [
+        [48, 74],
+        [48, 126],
+      ],
+      2,
+    )
     const leftEdge = edgeKey([0, 0], [1, 0])
     expect(useEditorStore.getState().puzzle.edges[leftEdge]?.mark).toBe('blank')
-
-    fireEvent.click(screen.getByRole('button', { name: /^eraser$/i }))
-    clickCanvas(canvas, 74, 48)
-    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('unknown')
 
     fireEvent.click(screen.getByRole('button', { name: /solve it/i }))
 
@@ -83,6 +138,125 @@ describe('EditorPage', () => {
     })
     expect(useSolverStore.getState().initialPuzzle.edges[leftEdge]?.mark).toBe('blank')
     expect(useSolverStore.getState().pointer).toBe(0)
+  })
+
+  it('changes each edge at most once during a single drag stroke', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const canvas = screen.getByLabelText(/slitherlink editor canvas/i) as HTMLCanvasElement
+    mockCanvasRect(canvas)
+    const topEdge = edgeKey([0, 0], [0, 1])
+
+    dragCanvas(canvas, [
+      [74, 48],
+      [96, 48],
+      [74, 48],
+      [126, 48],
+    ])
+
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('line')
+  })
+
+  it('marks crosses with a strict right-click edge target', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const canvas = screen.getByLabelText(/slitherlink editor canvas/i) as HTMLCanvasElement
+    mockCanvasRect(canvas)
+    const topEdge = edgeKey([0, 0], [0, 1])
+
+    rightClickCanvas(canvas, 74, 53)
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('unknown')
+
+    rightClickCanvas(canvas, 74, 48)
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('blank')
+  })
+
+  it('does not draw edges from cell clicks or drags that start inside cells', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const canvas = screen.getByLabelText(/slitherlink editor canvas/i) as HTMLCanvasElement
+    mockCanvasRect(canvas)
+    const topEdge = edgeKey([0, 0], [0, 1])
+    const rightEdge = edgeKey([0, 1], [1, 1])
+
+    clickCanvas(canvas, 74, 52)
+    fireEvent.keyDown(canvas, { key: '1' })
+
+    expect(useEditorStore.getState().puzzle.cells[cellKey(0, 0)]?.clue).toEqual({
+      kind: 'number',
+      value: 1,
+    })
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('unknown')
+
+    dragCanvas(canvas, [
+      [74, 74],
+      [126, 48],
+      [152, 48],
+    ])
+
+    expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('unknown')
+    expect(useEditorStore.getState().puzzle.edges[rightEdge]?.mark).toBe('unknown')
+  })
+
+  it('follows U-shaped edge drags across horizontal and vertical edges', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const canvas = screen.getByLabelText(/slitherlink editor canvas/i) as HTMLCanvasElement
+    mockCanvasRect(canvas)
+    const leftEdge = edgeKey([0, 0], [1, 0])
+    const bottomEdge = edgeKey([1, 0], [1, 1])
+    const rightEdge = edgeKey([0, 1], [1, 1])
+
+    dragCanvas(canvas, [
+      [48, 74],
+      [48, 100],
+      [74, 100],
+      [100, 100],
+      [100, 74],
+    ])
+
+    expect(useEditorStore.getState().puzzle.edges[leftEdge]?.mark).toBe('line')
+    expect(useEditorStore.getState().puzzle.edges[bottomEdge]?.mark).toBe('line')
+    expect(useEditorStore.getState().puzzle.edges[rightEdge]?.mark).toBe('line')
+  })
+
+  it('keeps vertical drags from falling back to crossed horizontal edges', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const canvas = screen.getByLabelText(/slitherlink editor canvas/i) as HTMLCanvasElement
+    mockCanvasRect(canvas)
+    const firstVertical = edgeKey([0, 1], [1, 1])
+    const secondVertical = edgeKey([1, 1], [2, 1])
+    const crossedHorizontal = edgeKey([1, 0], [1, 1])
+
+    dragCanvas(canvas, [
+      [100, 74],
+      [100, 126],
+    ])
+
+    expect(useEditorStore.getState().puzzle.edges[firstVertical]?.mark).toBe('line')
+    expect(useEditorStore.getState().puzzle.edges[secondVertical]?.mark).toBe('line')
+    expect(useEditorStore.getState().puzzle.edges[crossedHorizontal]?.mark).toBe('unknown')
   })
 
   it('loads a preset and exposes preset metadata', () => {
@@ -128,15 +302,53 @@ describe('EditorPage', () => {
     expect(zoom).toHaveValue('150')
     mockCanvasRect(canvas)
 
-    fireEvent.click(screen.getByRole('button', { name: '2' }))
     clickCanvas(canvas, 111, 111)
+    fireEvent.keyDown(canvas, { key: '2' })
     expect(useEditorStore.getState().puzzle.cells[cellKey(0, 0)]?.clue).toEqual({
       kind: 'number',
       value: 2,
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /^line$/i }))
-    clickCanvas(canvas, 111, 72)
+    dragCanvas(canvas, [
+      [111, 72],
+      [189, 72],
+    ])
     expect(useEditorStore.getState().puzzle.edges[edgeKey([0, 0], [0, 1])]?.mark).toBe('line')
+  })
+
+  it('draws row and column labels around the editor grid', () => {
+    const fillText = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+        ({
+          clearRect: () => {},
+          save: () => {},
+          restore: () => {},
+          scale: () => {},
+          fillRect: () => {},
+          beginPath: () => {},
+          moveTo: () => {},
+          lineTo: () => {},
+          stroke: () => {},
+          strokeRect: () => {},
+          fillText,
+          arc: () => {},
+          fill: () => {},
+          setLineDash: () => {},
+        }) as unknown as CanvasRenderingContext2D,
+    )
+
+    useEditorStore.getState().loadEditorPuzzle(createSlitherPuzzle(3, 4))
+
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const labels = fillText.mock.calls.map(([text]) => text)
+    expect(labels).toContain('R1')
+    expect(labels).toContain('R3')
+    expect(labels).toContain('C1')
+    expect(labels).toContain('C4')
   })
 })

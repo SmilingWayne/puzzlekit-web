@@ -10,7 +10,6 @@ import type { EdgeMark, NumberClueValue, PuzzleIR } from '../../domain/ir/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import { puzzlePresets, type PuzzlePreset } from './presets'
 
-export type EditorTool = 'clue' | 'line' | 'blank' | 'erase'
 export type SlitherClueDraft = NumberClueValue | null
 
 type EditorStore = {
@@ -18,20 +17,14 @@ type EditorStore = {
   puzzle: PuzzleIR
   sourceUrl: string
   importError?: string
-  tool: EditorTool
-  clueValue: SlitherClueDraft
   selectedPresetId: string | null
   setPluginId: (pluginId: string) => void
-  setTool: (tool: EditorTool) => void
-  setClueValue: (value: SlitherClueDraft) => void
   createBlankSlither: (rows: number, cols: number) => void
   loadEditorPuzzle: (puzzle: PuzzleIR, options?: { sourceUrl?: string; presetId?: string | null }) => void
   importFromUrl: (url: string) => void
   loadPreset: (preset: PuzzlePreset) => void
   setSlitherCellClue: (key: string, value: SlitherClueDraft) => void
   setSlitherEdgeMark: (key: string, mark: EdgeMark) => void
-  applyCellTool: (key: string) => void
-  applyEdgeTool: (key: string) => void
 }
 
 const clampSlitherSize = (value: number): number => {
@@ -48,12 +41,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   puzzle: defaultPuzzle,
   sourceUrl: '',
   importError: undefined,
-  tool: 'clue',
-  clueValue: 3,
   selectedPresetId: null,
   setPluginId: (pluginId) => set({ pluginId, importError: undefined }),
-  setTool: (tool) => set({ tool }),
-  setClueValue: (clueValue) => set({ clueValue, tool: 'clue' }),
   createBlankSlither: (rows, cols) => {
     const puzzle = createSlitherPuzzle(clampSlitherSize(rows), clampSlitherSize(cols))
     set({
@@ -156,30 +145,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const next = clonePuzzle(puzzle)
     next.edges[key] = { ...next.edges[key], mark }
     set({ puzzle: next, selectedPresetId: null })
-  },
-  applyCellTool: (key) => {
-    const { tool, clueValue } = get()
-    if (tool === 'erase') {
-      get().setSlitherCellClue(key, null)
-      return
-    }
-    if (tool === 'clue') {
-      get().setSlitherCellClue(key, clueValue)
-    }
-  },
-  applyEdgeTool: (key) => {
-    const { tool } = get()
-    if (tool === 'line') {
-      get().setSlitherEdgeMark(key, 'line')
-      return
-    }
-    if (tool === 'blank') {
-      get().setSlitherEdgeMark(key, 'blank')
-      return
-    }
-    if (tool === 'erase') {
-      get().setSlitherEdgeMark(key, 'unknown')
-    }
   },
 }))
 

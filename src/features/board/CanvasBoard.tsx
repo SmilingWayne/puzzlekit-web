@@ -81,6 +81,19 @@ export const CanvasBoard = ({
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
+    ctx.fillStyle = '#64748b'
+    ctx.font = '600 12px Inter, sans-serif'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'middle'
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      ctx.fillText(`R${r + 1}`, PADDING - 12, PADDING + r * CELL_SIZE + CELL_SIZE / 2)
+    }
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    for (let c = 0; c < puzzle.cols; c += 1) {
+      ctx.fillText(`C${c + 1}`, PADDING + c * CELL_SIZE + CELL_SIZE / 2, PADDING - 14)
+    }
+
     for (const [key, cell] of Object.entries(puzzle.cells)) {
       const fill = cell.fill
       if (fill !== 'green' && fill !== 'yellow') {

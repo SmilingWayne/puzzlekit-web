@@ -6,12 +6,10 @@ import {
 } from '../domain/ir/slither'
 import { puzzleRegistry } from '../domain/plugins/registry'
 import { SlitherlinkEditorBoard } from '../features/editor/SlitherlinkEditorBoard'
-import { useEditorStore, type SlitherClueDraft } from '../features/editor/editorStore'
+import { useEditorStore } from '../features/editor/editorStore'
 import { puzzlePresets } from '../features/editor/presets'
 import { useSolverStore } from '../features/solver/solverStore'
 import './workspace.css'
-
-const clueValues: SlitherClueDraft[] = [0, 1, 2, 3, '?', null]
 
 export const EditorPage = () => {
   const navigate = useNavigate()
@@ -20,17 +18,13 @@ export const EditorPage = () => {
     puzzle,
     sourceUrl,
     importError,
-    tool,
-    clueValue,
     selectedPresetId,
     setPluginId,
-    setTool,
-    setClueValue,
     createBlankSlither,
     importFromUrl,
     loadPreset,
-    applyCellTool,
-    applyEdgeTool,
+    setSlitherCellClue,
+    setSlitherEdgeMark,
   } = useEditorStore()
   const loadPuzzle = useSolverStore((state) => state.loadPuzzle)
   const [localUrl, setLocalUrl] = useState(sourceUrl)
@@ -72,9 +66,8 @@ export const EditorPage = () => {
           </header>
           <SlitherlinkEditorBoard
             puzzle={puzzle}
-            tool={tool}
-            onCellApply={applyCellTool}
-            onEdgeApply={applyEdgeTool}
+            onCellClueChange={setSlitherCellClue}
+            onEdgeMarkChange={setSlitherEdgeMark}
           />
         </div>
         <div className="right-column">
@@ -127,35 +120,6 @@ export const EditorPage = () => {
                 >
                   New Grid
                 </button>
-              </div>
-            </div>
-            <div className="control-group compact-control-group">
-              <span className="control-group-title">Tools</span>
-              <div className="editor-tool-row">
-                <button type="button" data-active={tool === 'clue'} onClick={() => setTool('clue')}>
-                  Clue
-                </button>
-                <button type="button" data-active={tool === 'line'} onClick={() => setTool('line')}>
-                  Line
-                </button>
-                <button type="button" data-active={tool === 'blank'} onClick={() => setTool('blank')}>
-                  Cross
-                </button>
-                <button type="button" data-active={tool === 'erase'} onClick={() => setTool('erase')}>
-                  Eraser
-                </button>
-              </div>
-              <div className="editor-clue-row" aria-label="Clue value">
-                {clueValues.map((value) => (
-                  <button
-                    key={String(value)}
-                    type="button"
-                    data-active={tool === 'clue' && clueValue === value}
-                    onClick={() => setClueValue(value)}
-                  >
-                    {value === null ? 'Clear' : value}
-                  </button>
-                ))}
               </div>
             </div>
             <label className="label-row editor-url-field">

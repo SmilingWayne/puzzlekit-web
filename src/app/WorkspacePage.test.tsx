@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { cellKey, edgeKey } from '../domain/ir/keys'
@@ -33,6 +33,7 @@ const renderWorkspace = () =>
 describe('WorkspacePage', () => {
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
     useSolverStore.getState().importFromUrl(SAMPLE_URL, 'slitherlink')
     useSolverStore.getState().setSolveChunkSize(DEFAULT_SOLVE_CHUNK_SIZE)
   })
@@ -256,6 +257,50 @@ describe('WorkspacePage', () => {
 
     expect(zoom).toHaveValue('150')
     expect(canvas).toHaveStyle({ width: '378px', height: '378px' })
+  })
+
+  it('draws row and column labels around the solver grid', () => {
+    const fillText = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      {
+        clearRect: () => {},
+        save: () => {},
+        restore: () => {},
+        scale: () => {},
+        fillRect: () => {},
+        beginPath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        stroke: () => {},
+        strokeRect: () => {},
+        fillText,
+        arc: () => {},
+        fill: () => {},
+        setLineDash: () => {},
+      } as unknown as CanvasRenderingContext2D,
+    )
+    const puzzle = createSlitherPuzzle(2, 4)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedEdges: [],
+      highlightedCells: [],
+      highlightedColorCells: [],
+      solveProgress: null,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    const labels = fillText.mock.calls.map(([text]) => text)
+    expect(labels).toContain('R1')
+    expect(labels).toContain('R2')
+    expect(labels).toContain('C1')
+    expect(labels).toContain('C4')
   })
 
   it('toggles reasoning steps between recent 30 and all entries from the header', () => {

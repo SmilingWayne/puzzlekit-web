@@ -810,21 +810,6 @@ button[data-active='true'] {
   min-width: 96px;
 }
 
-.editor-tool-row,
-.editor-clue-row {
-  display: grid;
-  gap: 8px;
-}
-
-.editor-tool-row {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.editor-clue-row {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  margin-top: 8px;
-}
-
 .editor-url-field {
   margin-top: 8px;
 }
@@ -914,12 +899,7 @@ details pre {
     padding-inline: 6px;
   }
 
-  .editor-size-row,
-  .editor-tool-row {
+  .editor-size-row {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .editor-clue-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

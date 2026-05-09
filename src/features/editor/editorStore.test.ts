@@ -9,8 +9,6 @@ const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
 describe('editor store', () => {
   beforeEach(() => {
     useEditorStore.getState().loadEditorPuzzle(createSlitherPuzzle(5, 5))
-    useEditorStore.getState().setTool('clue')
-    useEditorStore.getState().setClueValue(3)
   })
 
   it('mutates Slitherlink clues and edges without touching solver replay state', () => {
@@ -26,9 +24,8 @@ describe('editor store', () => {
     useEditorStore.getState().setSlitherEdgeMark(edge, 'line')
     expect(useEditorStore.getState().puzzle.edges[edge]?.mark).toBe('line')
 
-    useEditorStore.getState().setTool('erase')
-    useEditorStore.getState().applyCellTool(cell)
-    useEditorStore.getState().applyEdgeTool(edge)
+    useEditorStore.getState().setSlitherCellClue(cell, null)
+    useEditorStore.getState().setSlitherEdgeMark(edge, 'unknown')
 
     expect(useEditorStore.getState().puzzle.cells[cell]?.clue).toBeUndefined()
     expect(useEditorStore.getState().puzzle.edges[edge]?.mark).toBe('unknown')
