@@ -1,4 +1,4 @@
-import { cellKey, edgeKey, parseSectorKey } from './keys'
+import { cellKey, edgeKey, parseSectorKey, parseVertexKey } from './keys'
 import type { PuzzleIR } from './types'
 
 const compareCoord = (a: string, b: string): number => {
@@ -57,6 +57,19 @@ export const normalizePuzzle = (puzzle: PuzzleIR): Record<string, unknown> => {
       return acc
     }, {})
 
+  const vertices = Object.entries(puzzle.vertices ?? {})
+    .sort(([a], [b]) => {
+      const [ar, ac] = parseVertexKey(a)
+      const [br, bc] = parseVertexKey(b)
+      return ar === br ? ac - bc : ar - br
+    })
+    .reduce<Record<string, unknown>>((acc, [key, state]) => {
+      acc[key] = {
+        candidateEdgeSets: state.candidateEdgeSets.map((candidate) => [...candidate]),
+      }
+      return acc
+    }, {})
+
   return {
     gridType: puzzle.gridType,
     puzzleType: puzzle.puzzleType,
@@ -67,6 +80,7 @@ export const normalizePuzzle = (puzzle: PuzzleIR): Record<string, unknown> => {
     cells,
     edges,
     sectors,
+    vertices,
   }
 }
 

@@ -1,11 +1,13 @@
 import type { Rule } from '../types'
 import {
   createColorCluePropagationRule,
+  createColorConnectivityCutColoringRule,
   createColorEdgePropagationRule,
   createInsideReachabilityColoringRule,
   createColorOrthogonalConsensusPropagationRule,
   createColorOutsideSeedingRule,
   createColorSectorMaskPropagationRule,
+  createOutsideReachabilityColoringRule,
 } from './rules/color'
 import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createCellCountRule, createPreventPrematureLoopRule, createVertexDegreeRule } from './rules/core'
@@ -13,13 +15,15 @@ import {
   createContiguousThreeRunBoundariesRule,
   createDiagonalAdjacentThreeOuterCornersRule,
 } from './rules/patterns'
+import { createSectorParityInferenceRule } from './rules/sectorParityInference'
 import { createApplySectorsInference } from './rules/sectorInference'
 import {
+  createClueVertexCandidateCombinationPruningRule,
   createSectorClueOneThreeIntraCellPropagationRule,
-  createSectorClueTwoCombinationFeasibilityRule,
   createSectorConstraintEdgePropagationRule,
   createSectorDiagonalSharedVertexPropagationRule,
   createSectorNotOneClueTwoPropagationRule,
+  createVertexCandidateEdgePruningRule,
   createVertexOnlyOneNonSectorBalanceRule,
 } from './rules/sectorPropagation'
 import { createStrongInferenceRule } from './rules/strongInference'
@@ -35,10 +39,13 @@ export const deterministicSlitherRules: Rule[] = [
   createColorSectorMaskPropagationRule(),
   createColorOrthogonalConsensusPropagationRule(),
   createInsideReachabilityColoringRule(),
+  createOutsideReachabilityColoringRule(),
+  createColorConnectivityCutColoringRule(),
   createPreventPrematureLoopRule(),
   createApplySectorsInference(),
   createSectorDiagonalSharedVertexPropagationRule(),
-  createSectorClueTwoCombinationFeasibilityRule(),
+  createVertexCandidateEdgePruningRule(),
+  createClueVertexCandidateCombinationPruningRule(),
   createSectorClueOneThreeIntraCellPropagationRule(),
   createSectorConstraintEdgePropagationRule(),
   createVertexOnlyOneNonSectorBalanceRule(),
@@ -48,5 +55,6 @@ export const deterministicSlitherRules: Rule[] = [
 export const slitherRules: Rule[] = [
   ...deterministicSlitherRules,
   createColorAssumptionInferenceRule(() => deterministicSlitherRules),
+  createSectorParityInferenceRule(() => deterministicSlitherRules),
   createStrongInferenceRule(() => deterministicSlitherRules),
 ]

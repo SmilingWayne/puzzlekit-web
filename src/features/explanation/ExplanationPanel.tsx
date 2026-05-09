@@ -6,37 +6,37 @@ type Props = {
 }
 
 export const ExplanationPanel = ({ steps }: Props) => {
-  const [displayMode, setDisplayMode] = useState<'all' | 'latest30'>('all')
+  const [showAllSteps, setShowAllSteps] = useState(false)
   const visibleEntries = useMemo(
     () =>
-      (displayMode === 'latest30' ? steps.slice(-30) : steps)
+      (showAllSteps ? steps : steps.slice(-30))
         .map((step, index, arr) => ({
           step,
           sequence: steps.length - arr.length + index + 1,
         }))
         .reverse(),
-    [displayMode, steps],
+    [showAllSteps, steps],
   )
 
   return (
     <section className="panel-card">
-      <header className="panel-header">
+      <header className="panel-header explanation-panel-header">
         <h2>Reasoning Steps</h2>
-        <small>
-          showing {visibleEntries.length} / {steps.length}
-        </small>
+        <div className="explanation-header-tools">
+          <small>
+            showing {visibleEntries.length} / {steps.length}
+          </small>
+          <button
+            type="button"
+            className="button-compact"
+            data-active={showAllSteps}
+            aria-pressed={showAllSteps}
+            onClick={() => setShowAllSteps((current) => !current)}
+          >
+            Show all
+          </button>
+        </div>
       </header>
-      <div className="toggle-row">
-        <button
-          data-active={displayMode === 'latest30'}
-          onClick={() => setDisplayMode('latest30')}
-        >
-          Recent 30
-        </button>
-        <button data-active={displayMode === 'all'} onClick={() => setDisplayMode('all')}>
-          Show All
-        </button>
-      </div>
       <ol className="steps-list">
         {visibleEntries.length === 0 ? (
           <li className="step-item muted">No steps yet. Click "Next Step".</li>

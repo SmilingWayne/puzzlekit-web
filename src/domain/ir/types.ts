@@ -28,6 +28,7 @@ export type EdgeMark = 'unknown' | 'line' | 'blank'
 export type SectorCorner = 'nw' | 'ne' | 'sw' | 'se'
 export type SectorLineCount = 0 | 1 | 2
 export type SectorConstraintMask = number
+export type VertexCandidate = string[]
 
 export const SECTOR_ALLOW_0: SectorConstraintMask = 1 << 0
 export const SECTOR_ALLOW_1: SectorConstraintMask = 1 << 1
@@ -78,6 +79,10 @@ export type SectorState = {
   constraintsMask: SectorConstraintMask
 }
 
+export type VertexState = {
+  candidateEdgeSets: VertexCandidate[]
+}
+
 export interface PuzzleIR {
   gridType: GridType
   puzzleType: PuzzleKind
@@ -91,6 +96,7 @@ export interface PuzzleIR {
   cells: Record<string, CellState>
   edges: Record<string, EdgeState>
   sectors: Record<string, SectorState>
+  vertices: Record<string, VertexState>
   metadata: Record<string, unknown>
 }
 
@@ -107,5 +113,6 @@ export const defaultPuzzleIR = (): PuzzleIR => ({
   cells: {},
   edges: {},
   sectors: {},
+  vertices: {},
   metadata: {},
 })

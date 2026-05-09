@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { exportPuzzle, exporters, tryEncodePuzzlink } from '../../domain/exporters'
 import type { ExportFormat } from '../../domain/exporters/types'
-import {
-  SLITHER_CUSTOM_GRID_MAX,
-  SLITHER_CUSTOM_GRID_MIN,
-} from '../../domain/ir/slither'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import { buildDifficultySnapshot, MAX_SOLVE_CHUNK_SIZE, useSolverStore } from './solverStore'
 
@@ -16,7 +12,6 @@ export const ControlPanel = () => {
     setSourceUrl,
     setPluginId,
     importFromUrl,
-    applyCustomSlitherGrid,
     nextStep,
     prevStep,
     goToStep,
@@ -38,11 +33,8 @@ export const ControlPanel = () => {
   const [showExportPanel, setShowExportPanel] = useState(false)
   const [copyFeedback, setCopyFeedback] = useState('')
   const [exportGenerateError, setExportGenerateError] = useState('')
-  const [showCustomGridPopover, setShowCustomGridPopover] = useState(false)
   const [showImportErrorDialog, setShowImportErrorDialog] = useState(false)
   const [showTerminalReport, setShowTerminalReport] = useState(false)
-  const [customRows, setCustomRows] = useState(String(currentPuzzle.rows))
-  const [customCols, setCustomCols] = useState(String(currentPuzzle.cols))
   const [timelinePreviewStep, setTimelinePreviewStep] = useState<number | null>(null)
   const activeSteps = useMemo(() => steps.slice(0, pointer), [steps, pointer])
   const difficulty = useMemo(() => buildDifficultySnapshot(activeSteps), [activeSteps])
@@ -60,13 +52,6 @@ export const ControlPanel = () => {
   useEffect(() => {
     setLocalUrl(sourceUrl)
   }, [sourceUrl])
-
-  useEffect(() => {
-    if (showCustomGridPopover) {
-      setCustomRows(String(currentPuzzle.rows))
-      setCustomCols(String(currentPuzzle.cols))
-    }
-  }, [showCustomGridPopover, currentPuzzle.rows, currentPuzzle.cols])
 
   useEffect(() => {
     setShowTerminalReport(terminalReport !== null)
@@ -102,75 +87,6 @@ export const ControlPanel = () => {
               </option>
             ))}
           </select>
-          <div className="custom-grid-anchor">
-            <button
-              type="button"
-              className="button-compact"
-              disabled={pluginId !== 'slitherlink'}
-              title={
-                pluginId === 'slitherlink'
-                  ? 'Create a blank Slitherlink grid'
-                  : 'Custom grid is only available for Slitherlink'
-              }
-              data-active={showCustomGridPopover}
-              onClick={() => {
-                setShowCustomGridPopover((open) => !open)
-              }}
-            >
-              Custom grid…
-            </button>
-            {showCustomGridPopover ? (
-              <div className="custom-grid-popover">
-                <p className="custom-grid-popover-title">New Slitherlink grid</p>
-                <label className="custom-grid-field">
-                  Rows
-                  <input
-                    type="number"
-                    min={SLITHER_CUSTOM_GRID_MIN}
-                    max={SLITHER_CUSTOM_GRID_MAX}
-                    value={customRows}
-                    onChange={(e) => setCustomRows(e.target.value)}
-                  />
-                </label>
-                <label className="custom-grid-field">
-                  Cols
-                  <input
-                    type="number"
-                    min={SLITHER_CUSTOM_GRID_MIN}
-                    max={SLITHER_CUSTOM_GRID_MAX}
-                    value={customCols}
-                    onChange={(e) => setCustomCols(e.target.value)}
-                  />
-                </label>
-                <label className="check-row custom-grid-check-row">
-                  <input
-                    type="checkbox"
-                    checked={includeVertexNumbers}
-                    onChange={(event) => setIncludeVertexNumbers(event.target.checked)}
-                  />
-                  Show vertex numbering overlay
-                </label>
-                <div className="custom-grid-popover-actions">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      applyCustomSlitherGrid(Number(customRows), Number(customCols))
-                      setShowCustomGridPopover(false)
-                    }}
-                  >
-                    Apply
-                  </button>
-                  <button type="button" onClick={() => setShowCustomGridPopover(false)}>
-                    Cancel
-                  </button>
-                </div>
-                <p className="custom-grid-hint">
-                  Size {SLITHER_CUSTOM_GRID_MIN}–{SLITHER_CUSTOM_GRID_MAX}. Clears clues and solve
-                  progress.
-                </p>
-              </div>
-            ) : null}
-          </div>
         </div>
       </div>
       <label className="label-row">
@@ -207,6 +123,14 @@ export const ControlPanel = () => {
               {showExportPanel ? 'Close Export' : 'Export…'}
             </button>
           </div>
+          <label className="check-row solver-check-row">
+            <input
+              type="checkbox"
+              checked={includeVertexNumbers}
+              onChange={(event) => setIncludeVertexNumbers(event.target.checked)}
+            />
+            Show vertex numbering overlay
+          </label>
         </div>
         <div className="control-group compact-control-group">
           <span className="control-group-title">Replay</span>

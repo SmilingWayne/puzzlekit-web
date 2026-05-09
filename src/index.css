@@ -1,3 +1,14 @@
+/*
+  Scroll the app inside #root instead of the document. Solver is usually taller than Editor;
+  when the vertical scrollbar attaches to <body>, its presence can change the content width and
+  make the two-column grid's left column a different width in px between routes. A dedicated
+  scrollport with overflow-y: scroll keeps the track reserved consistently.
+*/
+html {
+  height: 100%;
+  scrollbar-gutter: stable;
+}
+
 :root {
   font-family:
     Inter,
@@ -7,8 +18,8 @@
     sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #e5e7eb;
-  background-color: #0b1020;
+  color: #111827;
+  background-color: #ffffff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -21,9 +32,13 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
+  background: #ffffff;
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: scroll;
 }

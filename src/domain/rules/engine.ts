@@ -5,6 +5,7 @@ type WritableBuckets = {
   cells: PuzzleIR['cells'] | null
   edges: PuzzleIR['edges'] | null
   sectors: PuzzleIR['sectors'] | null
+  vertices: PuzzleIR['vertices'] | null
 }
 
 const applyDiffEntry = (
@@ -33,6 +34,17 @@ const applyDiffEntry = (
     writable.sectors[diff.sectorKey] = prev ? { ...prev, constraintsMask } : { constraintsMask }
     return
   }
+  if (diff.kind === 'vertex') {
+    const candidateEdgeSets = mode === 'forward' ? diff.toCandidates : diff.fromCandidates
+    if (!writable.vertices) {
+      writable.vertices = { ...(next.vertices ?? {}) }
+      next.vertices = writable.vertices
+    }
+    writable.vertices[diff.vertexKey] = {
+      candidateEdgeSets: candidateEdgeSets.map((candidate) => [...candidate]),
+    }
+    return
+  }
   const toFill = mode === 'forward' ? diff.toFill : diff.fromFill
   if (!writable.cells) {
     writable.cells = { ...next.cells }
@@ -58,6 +70,7 @@ const applyRuleDiffsInternal = (
     cells: null,
     edges: null,
     sectors: null,
+    vertices: null,
   }
   if (mode === 'forward') {
     for (const diff of diffs) {

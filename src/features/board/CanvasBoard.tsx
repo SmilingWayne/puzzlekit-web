@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  cellKey,
   getCellEdgeKeys,
   getCornerEdgeKeys,
   parseCellKey,
@@ -21,12 +20,13 @@ type Props = {
   highlightedCells: string[]
   highlightedColorCells: string[]
   showVertexNumbers: boolean
-  selectedCellKey?: string | null
-  onCellSelect?: (key: string | null) => void
 }
 
-const CELL_SIZE = 54
+const CELL_SIZE = 52
 const PADDING = 48
+const MIN_ZOOM = 20
+const MAX_ZOOM = 200
+const ZOOM_STEP = 5
 
 const midpoint = (a: [number, number], b: [number, number]): [number, number] => [
   (a[0] + b[0]) / 2,
@@ -52,30 +52,23 @@ export const CanvasBoard = ({
   highlightedCells,
   highlightedColorCells,
   showVertexNumbers,
-  selectedCellKey = null,
-  onCellSelect,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [scale, setScale] = useState(1)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const dragRef = useRef<{
-    startClientX: number
-    startClientY: number
-    isPan: boolean
-  } | null>(null)
-  const panOffsetStart = useRef({ x: 0, y: 0 })
-  const panMouseStart = useRef({ x: 0, y: 0 })
+  const [zoomPercent, setZoomPercent] = useState(100)
 
   const width = useMemo(() => puzzle.cols * CELL_SIZE + PADDING * 2, [puzzle.cols])
   const height = useMemo(() => puzzle.rows * CELL_SIZE + PADDING * 2, [puzzle.rows])
+  const zoom = zoomPercent / 100
+  const displayWidth = Math.round(width * zoom)
+  const displayHeight = Math.round(height * zoom)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) {
       return
     }
-    canvas.width = width
-    canvas.height = height
+    canvas.width = displayWidth
+    canvas.height = displayHeight
     const ctx = canvas.getContext('2d')
     if (!ctx) {
       return
@@ -83,11 +76,23 @@ export const CanvasBoard = ({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.save()
-    ctx.translate(offset.x, offset.y)
-    ctx.scale(scale, scale)
+    ctx.scale(zoom, zoom)
 
-    ctx.fillStyle = '#0f172a'
+    ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
+
+    ctx.fillStyle = '#64748b'
+    ctx.font = '600 12px Inter, sans-serif'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'middle'
+    for (let r = 0; r < puzzle.rows; r += 1) {
+      ctx.fillText(`R${r + 1}`, PADDING - 12, PADDING + r * CELL_SIZE + CELL_SIZE / 2)
+    }
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    for (let c = 0; c < puzzle.cols; c += 1) {
+      ctx.fillText(`C${c + 1}`, PADDING + c * CELL_SIZE + CELL_SIZE / 2, PADDING - 14)
+    }
 
     for (const [key, cell] of Object.entries(puzzle.cells)) {
       const fill = cell.fill
@@ -118,22 +123,7 @@ export const CanvasBoard = ({
       ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
     }
 
-    if (selectedCellKey) {
-      const [sr, sc] = parseCellKey(selectedCellKey)
-      if (sr >= 0 && sc >= 0 && sr < puzzle.rows && sc < puzzle.cols) {
-        ctx.strokeStyle = '#fbbf24'
-        ctx.lineWidth = 2.5
-        ctx.setLineDash([])
-        ctx.strokeRect(
-          PADDING + sc * CELL_SIZE + 2,
-          PADDING + sr * CELL_SIZE + 2,
-          CELL_SIZE - 4,
-          CELL_SIZE - 4,
-        )
-      }
-    }
-
-    ctx.strokeStyle = '#334155'
+    ctx.strokeStyle = '#cbd5e1'
     ctx.lineWidth = 1
     for (let r = 0; r <= puzzle.rows; r += 1) {
       ctx.beginPath()
@@ -153,8 +143,8 @@ export const CanvasBoard = ({
         continue
       }
       const [r, c] = parseCellKey(key)
-      ctx.fillStyle = '#f8fafc'
-      ctx.font = 'bold 22px Inter, sans-serif'
+      ctx.fillStyle = '#111827'
+      ctx.font = 'bold 26px Inter, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(
@@ -253,7 +243,7 @@ export const CanvasBoard = ({
       }
     }
 
-    ctx.fillStyle = '#f8fafc'
+    ctx.fillStyle = '#111827'
     for (let r = 0; r <= puzzle.rows; r += 1) {
       for (let c = 0; c <= puzzle.cols; c += 1) {
         const vertex = PADDING + c * CELL_SIZE
@@ -266,7 +256,7 @@ export const CanvasBoard = ({
 
     if (showVertexNumbers) {
       ctx.fillStyle = '#64748b'
-      ctx.font = '10px ui-monospace, monospace'
+      ctx.font = '12px ui-monospace, monospace'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'top'
       for (let r = 0; r <= puzzle.rows; r += 1) {
@@ -282,38 +272,17 @@ export const CanvasBoard = ({
 
     ctx.restore()
   }, [
+    displayHeight,
+    displayWidth,
     height,
     highlightedCells,
     highlightedColorCells,
     highlightedEdges,
-    offset.x,
-    offset.y,
     puzzle,
-    scale,
-    selectedCellKey,
     showVertexNumbers,
     width,
+    zoom,
   ])
-
-  const pickCellAtClient = (clientX: number, clientY: number): string | null => {
-    const canvas = canvasRef.current
-    if (!canvas || !onCellSelect) {
-      return null
-    }
-    const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const mx = (clientX - rect.left) * scaleX
-    const my = (clientY - rect.top) * scaleY
-    const gx = (mx - offset.x) / scale
-    const gy = (my - offset.y) / scale
-    const col = Math.floor((gx - PADDING) / CELL_SIZE)
-    const row = Math.floor((gy - PADDING) / CELL_SIZE)
-    if (row < 0 || col < 0 || row >= puzzle.rows || col >= puzzle.cols) {
-      return null
-    }
-    return cellKey(row, col)
-  }
 
   const status = useMemo(() => {
     let lineCount = 0
@@ -336,64 +305,36 @@ export const CanvasBoard = ({
             {puzzle.rows} × {puzzle.cols}
           </span>
         </h2>
-        <small>
-          line {status.lineCount} / blank {status.blankCount} / unknown {status.unknownCount}
-        </small>
+        <div className="board-header-tools">
+          <small>
+            line {status.lineCount} / blank {status.blankCount} / unknown {status.unknownCount}
+          </small>
+          <label className="board-zoom-control">
+            <span>Board zoom</span>
+            <input
+              aria-label="Board zoom"
+              type="range"
+              min={MIN_ZOOM}
+              max={MAX_ZOOM}
+              step={ZOOM_STEP}
+              value={zoomPercent}
+              onChange={(event) => setZoomPercent(Number(event.target.value))}
+            />
+            <output>{zoomPercent}%</output>
+          </label>
+        </div>
       </header>
-      <canvas
-        ref={canvasRef}
-        className="board-canvas"
-        onWheel={(event) => {
-          event.preventDefault()
-          setScale((prev) => Math.max(0.5, Math.min(2.5, prev + (event.deltaY < 0 ? 0.1 : -0.1))))
-        }}
-        onMouseDown={(event) => {
-          dragRef.current = {
-            startClientX: event.clientX,
-            startClientY: event.clientY,
-            isPan: false,
-          }
-        }}
-        onMouseMove={(event) => {
-          const d = dragRef.current
-          if (!d) {
-            return
-          }
-          if (!d.isPan) {
-            const dist = Math.hypot(event.clientX - d.startClientX, event.clientY - d.startClientY)
-            if (dist > 5) {
-              d.isPan = true
-              panOffsetStart.current = { ...offset }
-              panMouseStart.current = { x: event.clientX, y: event.clientY }
-            }
-            return
-          }
-          setOffset({
-            x: panOffsetStart.current.x + (event.clientX - panMouseStart.current.x),
-            y: panOffsetStart.current.y + (event.clientY - panMouseStart.current.y),
-          })
-        }}
-        onMouseUp={(event) => {
-          const d = dragRef.current
-          dragRef.current = null
-          if (!d) {
-            return
-          }
-          if (!d.isPan) {
-            const dist = Math.hypot(event.clientX - d.startClientX, event.clientY - d.startClientY)
-            if (dist <= 5) {
-              const key = pickCellAtClient(event.clientX, event.clientY)
-              onCellSelect?.(key)
-            }
-          }
-        }}
-        onMouseLeave={() => {
-          dragRef.current = null
-        }}
-      />
+      <div className="board-scroll-shell" aria-label="Solver board scroll area">
+        <canvas
+          ref={canvasRef}
+          className="board-canvas scroll-board-canvas"
+          aria-label="Slitherlink solver canvas"
+          style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
+        />
+      </div>
       <p className="board-hint">
-        Scroll to zoom, drag to pan (click without dragging selects a cell for clue entry on
-        Slitherlink). Highlight syncs with reasoning steps.
+        Use the slider to zoom. Scroll to move around large grids. Highlight syncs with reasoning
+        steps.
       </p>
       <details>
         <summary>Cell to edge mapping helper</summary>

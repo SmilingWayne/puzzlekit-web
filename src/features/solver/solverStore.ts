@@ -1,12 +1,8 @@
 import { create } from 'zustand'
 import type { DifficultySnapshot } from '../../domain/difficulty/types'
 import { clonePuzzle } from '../../domain/ir/normalize'
-import {
-  createSlitherPuzzle,
-  SLITHER_CUSTOM_GRID_MAX,
-  SLITHER_CUSTOM_GRID_MIN,
-} from '../../domain/ir/slither'
-import type { NumberClueValue, PuzzleIR } from '../../domain/ir/types'
+import { createSlitherPuzzle } from '../../domain/ir/slither'
+import type { PuzzleIR } from '../../domain/ir/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import { buildPuzzleFromSteps, rewindPuzzleByStep, runNextRule } from '../../domain/rules/engine'
 import {
@@ -45,13 +41,10 @@ type SolverStore = {
   solveChunkSize: number
   terminalReport: TerminalSolveReport | null
   includeVertexNumbers: boolean
-  selectedCellKey: string | null
+  loadPuzzle: (puzzle: PuzzleIR, options?: LoadPuzzleOptions) => void
   importFromUrl: (url: string, pluginId?: string) => void
   setSourceUrl: (url: string) => void
   setPluginId: (pluginId: string) => void
-  setSelectedCellKey: (key: string | null) => void
-  applyCustomSlitherGrid: (rows: number, cols: number) => void
-  setSlitherCellClue: (cellKey: string, value: NumberClueValue | null) => void
   nextStep: () => void
   prevStep: () => void
   goToStep: (targetPointer: number) => void
@@ -59,6 +52,11 @@ type SolverStore = {
   solveAll: (limit?: number) => Promise<void>
   resetTimeline: () => void
   setIncludeVertexNumbers: (enabled: boolean) => void
+}
+
+export type LoadPuzzleOptions = {
+  pluginId?: string
+  sourceUrl?: string
 }
 
 const buildStateFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer: number): PuzzleIR => {
@@ -149,67 +147,15 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   solveChunkSize: DEFAULT_SOLVE_CHUNK_SIZE,
   terminalReport: null,
   includeVertexNumbers: false,
-  selectedCellKey: null,
   setPluginId: (pluginId) => set({ pluginId, solveProgress: null, terminalReport: null }),
   setSourceUrl: (sourceUrl) => set({ sourceUrl }),
   setIncludeVertexNumbers: (includeVertexNumbers) => set({ includeVertexNumbers }),
-  setSelectedCellKey: (selectedCellKey) => set({ selectedCellKey }),
-  applyCustomSlitherGrid: (rows, cols) => {
-    if (get().pluginId !== 'slitherlink') {
-      return
-    }
-    const r = Math.min(SLITHER_CUSTOM_GRID_MAX, Math.max(SLITHER_CUSTOM_GRID_MIN, Math.floor(rows)))
-    const c = Math.min(SLITHER_CUSTOM_GRID_MAX, Math.max(SLITHER_CUSTOM_GRID_MIN, Math.floor(cols)))
-    const next = createSlitherPuzzle(r, c)
-    next.puzzleType = 'slitherlink'
-    next.title = 'slitherlink'
+  loadPuzzle: (puzzle, options) => {
+    const nextInitial = clonePuzzle(puzzle)
     set({
-      initialPuzzle: next,
-      currentPuzzle: clonePuzzle(next),
-      steps: [],
-      pointer: 0,
-      highlightedCells: [],
-      highlightedColorCells: [],
-      highlightedEdges: [],
-      solveProgress: null,
-      terminalReport: null,
-      sourceUrl: '',
+      pluginId: options?.pluginId ?? puzzle.puzzleType,
+      sourceUrl: options?.sourceUrl ?? '',
       importError: undefined,
-      selectedCellKey: null,
-    })
-  },
-  setSlitherCellClue: (key, value) => {
-    if (get().pluginId !== 'slitherlink') {
-      return
-    }
-    const { initialPuzzle } = get()
-    const [row, col] = key.split(',').map(Number)
-    if (
-      row < 0 ||
-      col < 0 ||
-      row >= initialPuzzle.rows ||
-      col >= initialPuzzle.cols ||
-      Number.isNaN(row) ||
-      Number.isNaN(col)
-    ) {
-      return
-    }
-    const nextInitial = clonePuzzle(initialPuzzle)
-    if (value === null) {
-      if (nextInitial.cells[key]) {
-        delete nextInitial.cells[key]
-      }
-    } else {
-      const numeric = Number(value)
-      if (value !== '?' && (!Number.isInteger(numeric) || numeric < 0 || numeric > 3)) {
-        return
-      }
-      nextInitial.cells[key] = {
-        ...nextInitial.cells[key],
-        clue: { kind: 'number', value },
-      }
-    }
-    set({
       initialPuzzle: nextInitial,
       currentPuzzle: clonePuzzle(nextInitial),
       steps: [],
@@ -230,21 +176,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     }
     try {
       const parsed = plugin.parse(url)
-      set({
-        pluginId: activePluginId,
-        sourceUrl: url,
-        importError: undefined,
-        initialPuzzle: parsed,
-        currentPuzzle: clonePuzzle(parsed),
-        steps: [],
-        pointer: 0,
-        highlightedCells: [],
-        highlightedColorCells: [],
-        highlightedEdges: [],
-        solveProgress: null,
-        terminalReport: null,
-        selectedCellKey: null,
-      })
+      get().loadPuzzle(parsed, { pluginId: activePluginId, sourceUrl: url })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       set({ importError: message })
@@ -264,7 +196,16 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     if (!step) {
       const report = buildTerminalReport(pluginId, currentPuzzle, activeSteps)
       if (report) {
-        set({ terminalReport: report })
+        set(
+          report.status === 'solved'
+            ? {
+                terminalReport: report,
+                highlightedCells: [],
+                highlightedColorCells: [],
+                highlightedEdges: [],
+              }
+            : { terminalReport: report },
+        )
       }
       return
     }

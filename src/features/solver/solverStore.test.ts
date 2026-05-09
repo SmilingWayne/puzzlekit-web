@@ -241,15 +241,16 @@ describe('solve chunk sizing', () => {
   })
 })
 
-describe('custom slither grid and clue editing', () => {
+describe('solver puzzle loading', () => {
   beforeEach(() => {
     useSolverStore.getState().importFromUrl(SAMPLE_URL, 'slitherlink')
   })
 
-  it('applyCustomSlitherGrid clears steps and sourceUrl', () => {
+  it('loadPuzzle clears replay state and source metadata', () => {
     useSolverStore.getState().nextStep()
     expect(useSolverStore.getState().steps.length).toBeGreaterThan(0)
-    useSolverStore.getState().applyCustomSlitherGrid(5, 7)
+    const puzzle = createSlitherPuzzle(5, 7)
+    useSolverStore.getState().loadPuzzle(puzzle, { pluginId: 'slitherlink' })
     const after = useSolverStore.getState()
     expect(after.steps.length).toBe(0)
     expect(after.pointer).toBe(0)
@@ -258,20 +259,22 @@ describe('custom slither grid and clue editing', () => {
     expect(after.currentPuzzle.cols).toBe(7)
   })
 
-  it('applyCustomSlitherGrid clamps size to 3–100', () => {
-    useSolverStore.getState().applyCustomSlitherGrid(1, 200)
-    const after = useSolverStore.getState()
-    expect(after.currentPuzzle.rows).toBe(3)
-    expect(after.currentPuzzle.cols).toBe(100)
-  })
-
-  it('setSlitherCellClue resets timeline', () => {
+  it('loadPuzzle clones the incoming puzzle and resets terminal state', () => {
     useSolverStore.getState().nextStep()
     expect(useSolverStore.getState().pointer).toBeGreaterThan(0)
-    useSolverStore.getState().setSlitherCellClue(cellKey(0, 0), 2)
+    useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
+    const puzzle = createSlitherPuzzle(4, 4)
+    puzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 2 } }
+    useSolverStore.getState().loadPuzzle(puzzle, {
+      pluginId: 'slitherlink',
+      sourceUrl: 'editor',
+    })
+    puzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 3 } }
     const after = useSolverStore.getState()
     expect(after.pointer).toBe(0)
     expect(after.steps.length).toBe(0)
+    expect(after.terminalReport).toBeNull()
+    expect(after.sourceUrl).toBe('editor')
     expect(after.currentPuzzle.cells[cellKey(0, 0)]?.clue).toEqual({
       kind: 'number',
       value: 2,
@@ -279,7 +282,7 @@ describe('custom slither grid and clue editing', () => {
   })
 
   it('importFromUrl replaces a partial custom solve', () => {
-    useSolverStore.getState().applyCustomSlitherGrid(4, 4)
+    useSolverStore.getState().loadPuzzle(createSlitherPuzzle(4, 4), { pluginId: 'slitherlink' })
     useSolverStore.getState().nextStep()
     expect(useSolverStore.getState().currentPuzzle.rows).toBe(4)
     useSolverStore.getState().importFromUrl(SAMPLE_URL, 'slitherlink')
@@ -320,6 +323,74 @@ describe('solver terminal reports', () => {
       stepCount: terminalState.pointer,
     })
     expect(useSolverStore.getState().terminalReport?.totalDurationMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('clears affected highlights when terminal report is solved', async () => {
+    const solvedPuzzle = createSolvedLoopPuzzle()
+    const highlightedEdge = edgeKey([0, 0], [0, 1])
+    const highlightedCell = cellKey(0, 0)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: solvedPuzzle,
+      currentPuzzle: solvedPuzzle,
+      steps: [],
+      pointer: 0,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+    await useSolverStore.getState().solveAll(100)
+    expect(useSolverStore.getState().terminalReport?.status).toBe('solved')
+    useSolverStore.setState((state) => ({
+      ...state,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('solved')
+    expect(useSolverStore.getState().highlightedCells).toEqual([])
+    expect(useSolverStore.getState().highlightedColorCells).toEqual([])
+    expect(useSolverStore.getState().highlightedEdges).toEqual([])
+  })
+
+  it('keeps affected highlights when terminal report is stalled', async () => {
+    const stalledPuzzle = createSlitherPuzzle(1, 1)
+    const highlightedEdge = edgeKey([0, 0], [0, 1])
+    const highlightedCell = cellKey(0, 0)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: stalledPuzzle,
+      currentPuzzle: stalledPuzzle,
+      steps: [],
+      pointer: 0,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+    await useSolverStore.getState().solveAll(100)
+    expect(useSolverStore.getState().terminalReport?.status).toBe('stalled')
+    useSolverStore.setState((state) => ({
+      ...state,
+      highlightedCells: [highlightedCell],
+      highlightedColorCells: [highlightedCell],
+      highlightedEdges: [highlightedEdge],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('stalled')
+    expect(useSolverStore.getState().highlightedCells).toEqual([highlightedCell])
+    expect(useSolverStore.getState().highlightedColorCells).toEqual([highlightedCell])
+    expect(useSolverStore.getState().highlightedEdges).toEqual([highlightedEdge])
   })
 
   it('writes a terminal report when solveAll reaches no progress', async () => {
@@ -373,7 +444,7 @@ describe('solver terminal reports', () => {
     expect(useSolverStore.getState().terminalReport).toBeNull()
   })
 
-  it('clears terminal report when resetting, importing, editing clues, or applying a custom grid', () => {
+  it('clears terminal report when resetting, importing, or loading a puzzle', () => {
     useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
     useSolverStore.getState().resetTimeline()
     expect(useSolverStore.getState().terminalReport).toBeNull()
@@ -383,11 +454,7 @@ describe('solver terminal reports', () => {
     expect(useSolverStore.getState().terminalReport).toBeNull()
 
     useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
-    useSolverStore.getState().setSlitherCellClue(cellKey(0, 0), 2)
-    expect(useSolverStore.getState().terminalReport).toBeNull()
-
-    useSolverStore.setState((state) => ({ ...state, terminalReport: mockTerminalReport }))
-    useSolverStore.getState().applyCustomSlitherGrid(5, 5)
+    useSolverStore.getState().loadPuzzle(createSlitherPuzzle(5, 5), { pluginId: 'slitherlink' })
     expect(useSolverStore.getState().terminalReport).toBeNull()
   })
 

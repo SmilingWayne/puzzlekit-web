@@ -107,6 +107,15 @@ const detectSectorContradiction = (puzzle: PuzzleIR): boolean => {
   return false
 }
 
+const detectVertexCandidateContradiction = (puzzle: PuzzleIR): boolean => {
+  for (const vertexState of Object.values(puzzle.vertices ?? {})) {
+    if (vertexState.candidateEdgeSets.length === 0) {
+      return true
+    }
+  }
+  return false
+}
+
 const detectColorEdgeContradiction = (puzzle: PuzzleIR): boolean => {
   for (const [edgeKeyValue, edgeState] of Object.entries(puzzle.edges)) {
     const mark = edgeState?.mark ?? 'unknown'
@@ -282,6 +291,7 @@ export const detectHardContradiction = (puzzle: PuzzleIR): boolean =>
   detectVertexContradiction(puzzle) ||
   detectCellClueContradiction(puzzle) ||
   detectSectorContradiction(puzzle) ||
+  detectVertexCandidateContradiction(puzzle) ||
   detectColorEdgeContradiction(puzzle) ||
   detectLineLoopContradiction(puzzle) ||
   detectDisconnectedGreenContradiction(puzzle)

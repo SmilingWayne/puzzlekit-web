@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 
 Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+  configurable: true,
+  writable: true,
   value: () =>
     ({
       clearRect: () => {},
@@ -13,8 +15,10 @@ Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
       moveTo: () => {},
       lineTo: () => {},
       stroke: () => {},
+      strokeRect: () => {},
       fillText: () => {},
       arc: () => {},
       fill: () => {},
+      setLineDash: () => {},
     }) as unknown as CanvasRenderingContext2D,
 })

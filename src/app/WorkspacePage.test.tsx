@@ -1,11 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { edgeKey } from '../domain/ir/keys'
+import { cellKey, edgeKey } from '../domain/ir/keys'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
 import { DEFAULT_SOLVE_CHUNK_SIZE, useSolverStore } from '../features/solver/solverStore'
 import { WorkspacePage } from './WorkspacePage'
+import type { RuleStep } from '../domain/rules/types'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
 
@@ -32,6 +33,7 @@ const renderWorkspace = () =>
 describe('WorkspacePage', () => {
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
     useSolverStore.getState().importFromUrl(SAMPLE_URL, 'slitherlink')
     useSolverStore.getState().setSolveChunkSize(DEFAULT_SOLVE_CHUNK_SIZE)
   })
@@ -39,9 +41,20 @@ describe('WorkspacePage', () => {
   it('renders workspace key sections', () => {
     renderWorkspace()
     expect(screen.getByRole('heading', { name: /puzzlekit web/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /editor/i })).toHaveAttribute('href', '/editor')
     expect(screen.getByText(/input & controls/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/solver board scroll area/i)).toHaveClass('board-scroll-shell')
+    const zoom = screen.getByLabelText(/board zoom/i)
+    expect(zoom).toHaveValue('100')
+    expect(zoom).toHaveAttribute('min', '20')
+    expect(zoom).toHaveAttribute('max', '200')
+    expect(zoom).toHaveAttribute('step', '5')
+    expect(screen.getByRole('button', { name: /show all/i })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
   })
 
   it('shows import errors in a closeable dialog with expandable details', () => {
@@ -203,18 +216,125 @@ describe('WorkspacePage', () => {
     expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('0')
   })
 
-  it('keeps vertex numbering inside the custom grid popover', () => {
+  it('keeps vertex numbering as a solver-only display toggle', () => {
     renderWorkspace()
-
-    expect(screen.queryByLabelText(/show vertex numbering overlay/i)).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /custom grid/i }))
 
     const vertexToggle = screen.getByLabelText(/show vertex numbering overlay/i)
     expect(vertexToggle).toBeInTheDocument()
     fireEvent.click(vertexToggle)
 
     expect(vertexToggle).toBeChecked()
+    expect(screen.queryByRole('button', { name: /custom grid/i })).not.toBeInTheDocument()
+  })
+
+  it('does not expose clue editing on the solver board', () => {
+    renderWorkspace()
+
+    const before = useSolverStore.getState().initialPuzzle.cells[cellKey(0, 0)]?.clue
+    fireEvent.keyDown(screen.getByText(/puzzle board/i), { key: '3' })
+
+    expect(screen.queryByText(/click without dragging selects a cell/i)).not.toBeInTheDocument()
+    expect(useSolverStore.getState().initialPuzzle.cells[cellKey(0, 0)]?.clue).toBe(before)
+  })
+
+  it('keeps wheel scrolling separate from solver board zoom', () => {
+    renderWorkspace()
+
+    const canvas = screen.getByLabelText(/slitherlink solver canvas/i)
+    const zoom = screen.getByLabelText(/board zoom/i)
+
+    expect(fireEvent.wheel(canvas, { deltaY: -120 })).toBe(true)
+    expect(zoom).toHaveValue('100')
+  })
+
+  it('zooms the solver board with the slider', () => {
+    renderWorkspace()
+
+    const canvas = screen.getByLabelText(/slitherlink solver canvas/i)
+    const zoom = screen.getByLabelText(/board zoom/i)
+
+    fireEvent.change(zoom, { target: { value: '150' } })
+
+    expect(zoom).toHaveValue('150')
+    expect(canvas).toHaveStyle({ width: '378px', height: '378px' })
+  })
+
+  it('draws row and column labels around the solver grid', () => {
+    const fillText = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      {
+        clearRect: () => {},
+        save: () => {},
+        restore: () => {},
+        scale: () => {},
+        fillRect: () => {},
+        beginPath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        stroke: () => {},
+        strokeRect: () => {},
+        fillText,
+        arc: () => {},
+        fill: () => {},
+        setLineDash: () => {},
+      } as unknown as CanvasRenderingContext2D,
+    )
+    const puzzle = createSlitherPuzzle(2, 4)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedEdges: [],
+      highlightedCells: [],
+      highlightedColorCells: [],
+      solveProgress: null,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    const labels = fillText.mock.calls.map(([text]) => text)
+    expect(labels).toContain('R1')
+    expect(labels).toContain('R2')
+    expect(labels).toContain('C1')
+    expect(labels).toContain('C4')
+  })
+
+  it('toggles reasoning steps between recent 30 and all entries from the header', () => {
+    const steps: RuleStep[] = Array.from({ length: 35 }, (_, index) => ({
+      id: `step-${index + 1}`,
+      ruleId: 'test-rule',
+      ruleName: 'Test Rule',
+      message: `step ${index + 1}`,
+      diffs: [],
+      affectedCells: [],
+      affectedEdges: [],
+      affectedSectors: [],
+      timestamp: Date.now() + index,
+      durationMs: 1,
+    }))
+    useSolverStore.setState((state) => ({
+      ...state,
+      steps,
+      pointer: steps.length,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText(/showing 30 \/ 35/i)).toBeInTheDocument()
+    expect(screen.getByText(/^35\. test rule$/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^5\. test rule$/i)).not.toBeInTheDocument()
+
+    const showAll = screen.getByRole('button', { name: /show all/i })
+    fireEvent.click(showAll)
+
+    expect(showAll).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/showing 35 \/ 35/i)).toBeInTheDocument()
+    expect(screen.getByText(/^1\. test rule$/i)).toBeInTheDocument()
   })
 
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
