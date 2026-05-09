@@ -24,7 +24,7 @@ type Props = {
 
 const CELL_SIZE = 52
 const PADDING = 48
-const MIN_ZOOM = 10
+const MIN_ZOOM = 20
 const MAX_ZOOM = 200
 const ZOOM_STEP = 5
 

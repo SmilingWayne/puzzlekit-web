@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 import { cellKey, edgeKey } from '../domain/ir/keys'
@@ -259,19 +259,99 @@ describe('EditorPage', () => {
     expect(useEditorStore.getState().puzzle.edges[crossedHorizontal]?.mark).toBe('unknown')
   })
 
-  it('loads a preset and exposes preset metadata', () => {
+  it('opens the preset library and filters presets by search and tag', () => {
     render(
       <MemoryRouter initialEntries={['/editor']}>
         <App />
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /starter loop/i }))
+    fireEvent.click(screen.getByRole('button', { name: /load preset/i }))
 
-    expect(screen.getByText(/small/i)).toBeInTheDocument()
-    expect(useEditorStore.getState().selectedPresetId).toBe('slitherlink-small-starter')
-    expect(useEditorStore.getState().puzzle.rows).toBe(3)
-    expect(useEditorStore.getState().puzzle.cols).toBe(3)
+    const dialog = screen.getByRole('dialog', { name: /load preset/i })
+    expect(within(dialog).getByText(/default slitherlink 1/i)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /default/i })).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /puzz\.link/i }))
+    expect(within(dialog).getByText(/default slitherlink 2/i)).toBeInTheDocument()
+
+    fireEvent.change(within(dialog).getByLabelText(/search presets/i), {
+      target: { value: '060' },
+    })
+    expect(within(dialog).getByText(/default slitherlink 2/i)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/default slitherlink 1/i)).not.toBeInTheDocument()
+  })
+
+  it('loads a preset into the editor from the preset library', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /load preset/i }))
+    const card = screen.getByText(/default slitherlink 1/i).closest('article')
+    expect(card).not.toBeNull()
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: /to edit/i }))
+
+    expect(screen.queryByRole('dialog', { name: /load preset/i })).not.toBeInTheDocument()
+    expect(useEditorStore.getState().selectedPresetId).toBe('default-slitherlink-1')
+    expect(useEditorStore.getState().puzzle.rows).toBe(10)
+    expect(useEditorStore.getState().puzzle.cols).toBe(10)
+  })
+
+  it('loads a preset into the solver from the preset library', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /load preset/i }))
+    const card = screen.getByText(/default slitherlink 1/i).closest('article')
+    expect(card).not.toBeNull()
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: /to solve/i }))
+
+    expect(screen.getByRole('heading', { name: /puzzlekit web/i })).toBeInTheDocument()
+    expect(useSolverStore.getState().initialPuzzle.rows).toBe(10)
+    expect(useSolverStore.getState().initialPuzzle.cols).toBe(10)
+  })
+
+  it('opens preset URLs in a new tab', () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /load preset/i }))
+    const card = screen.getByText(/default slitherlink 1/i).closest('article')
+    expect(card).not.toBeNull()
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'URL' }))
+
+    expect(open).toHaveBeenCalledWith(
+      'https://puzz.link/p?slither/10/10/gdk8dh2ah738cgd60djagbdgcj25bdg817ah0dh8dk5',
+      '_blank',
+      'noopener,noreferrer',
+    )
+  })
+
+  it('closes the preset library with close controls and Escape', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /load preset/i }))
+    fireEvent.click(screen.getByRole('button', { name: /close preset library/i }))
+    expect(screen.queryByRole('dialog', { name: /load preset/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /load preset/i }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /load preset/i })).not.toBeInTheDocument()
   })
 
   it('keeps wheel scrolling separate from editor board zoom', () => {

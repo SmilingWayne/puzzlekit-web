@@ -34,7 +34,7 @@ const clampSlitherSize = (value: number): number => {
   return Math.min(SLITHER_CUSTOM_GRID_MAX, Math.max(SLITHER_CUSTOM_GRID_MIN, Math.floor(value)))
 }
 
-const defaultPuzzle = createSlitherPuzzle(5, 5)
+const defaultPuzzle = createSlitherPuzzle(10, 10)
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
   pluginId: 'slitherlink',
