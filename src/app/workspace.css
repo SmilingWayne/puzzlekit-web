@@ -205,7 +205,8 @@
 button,
 select,
 textarea,
-input[type='number'] {
+input[type='number'],
+input[type='search'] {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #f8fafc;
@@ -791,10 +792,6 @@ button[data-active='true'] {
   color: #4b5563;
 }
 
-.editor-workspace-grid {
-  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.8fr);
-}
-
 .editor-board-card {
   min-height: 0;
 }
@@ -857,8 +854,9 @@ button[data-active='true'] {
   flex-direction: column;
   gap: 14px;
   width: min(1120px, 94vw);
-  max-height: min(780px, 90vh);
-  overflow: auto;
+  height: min(900px, 94vh);
+  min-height: 0;
+  overflow: hidden;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   background: #ffffff;
@@ -917,7 +915,15 @@ button[data-active='true'] {
 }
 
 .preset-action-error {
+  flex: 0 0 auto;
   margin: 0;
+}
+
+.preset-grid-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .preset-grid {
@@ -963,6 +969,12 @@ button[data-active='true'] {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.preset-preview-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .preset-card-body {
@@ -1047,7 +1059,7 @@ details pre {
 
   .preset-modal {
     width: 100%;
-    max-height: 92vh;
+    height: 94vh;
   }
 
   .preset-modal-header {

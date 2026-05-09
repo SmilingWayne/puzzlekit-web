@@ -14,7 +14,7 @@ const PADDING = 48
 const EDGE_HIT_RADIUS = 5
 const EDGE_CLICK_HIT_RADIUS = 4
 const EDGE_DRAG_START_DISTANCE = 6
-const MIN_ZOOM = 10
+const MIN_ZOOM = 20
 const MAX_ZOOM = 200
 const ZOOM_STEP = 5
 
@@ -379,7 +379,7 @@ export const SlitherlinkEditorBoard = ({
           </span>
         </h2>
         <div className="board-header-tools">
-          <small>Click cells, type clues, drag edges</small>
+          <small>Click/type clues, drag edges</small>
           <label className="board-zoom-control">
             <span>Board zoom</span>
             <input

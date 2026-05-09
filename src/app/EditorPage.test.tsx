@@ -68,7 +68,7 @@ describe('EditorPage', () => {
     expect(screen.getByLabelText(/editor board scroll area/i)).toHaveClass('board-scroll-shell')
     const zoom = screen.getByLabelText(/board zoom/i)
     expect(zoom).toHaveValue('100')
-    expect(zoom).toHaveAttribute('min', '10')
+    expect(zoom).toHaveAttribute('min', '20')
     expect(zoom).toHaveAttribute('max', '200')
     expect(zoom).toHaveAttribute('step', '5')
     expect(canvas).toHaveClass('editor-board-canvas')
@@ -269,8 +269,10 @@ describe('EditorPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /load preset/i }))
 
     const dialog = screen.getByRole('dialog', { name: /load preset/i })
+    expect(dialog.querySelector('.preset-grid-scroll')).not.toBeNull()
     expect(within(dialog).getByText(/default slitherlink 1/i)).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /default/i })).toBeInTheDocument()
+    expect(within(dialog).getAllByLabelText(/preset preview/i).length).toBeGreaterThan(0)
 
     fireEvent.click(within(dialog).getByRole('button', { name: /puzz\.link/i }))
     expect(within(dialog).getByText(/default slitherlink 2/i)).toBeInTheDocument()
@@ -280,6 +282,16 @@ describe('EditorPage', () => {
     })
     expect(within(dialog).getByText(/default slitherlink 2/i)).toBeInTheDocument()
     expect(within(dialog).queryByText(/default slitherlink 1/i)).not.toBeInTheDocument()
+  })
+
+  it('uses the shared workspace grid columns on the editor page', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(document.querySelector('.workspace-grid.editor-workspace-grid')).not.toBeNull()
   })
 
   it('loads a preset into the editor from the preset library', () => {

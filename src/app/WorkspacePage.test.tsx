@@ -48,7 +48,7 @@ describe('WorkspacePage', () => {
     expect(screen.getByLabelText(/solver board scroll area/i)).toHaveClass('board-scroll-shell')
     const zoom = screen.getByLabelText(/board zoom/i)
     expect(zoom).toHaveValue('100')
-    expect(zoom).toHaveAttribute('min', '10')
+    expect(zoom).toHaveAttribute('min', '20')
     expect(zoom).toHaveAttribute('max', '200')
     expect(zoom).toHaveAttribute('step', '5')
     expect(screen.getByRole('button', { name: /show all/i })).toHaveAttribute(
