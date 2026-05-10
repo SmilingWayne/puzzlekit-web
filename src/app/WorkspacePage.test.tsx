@@ -55,6 +55,43 @@ describe('WorkspacePage', () => {
       'aria-pressed',
       'false',
     )
+    const boardTools = document.querySelector('.board-header-tools')
+    expect(boardTools?.children[0]?.tagName).toBe('SMALL')
+    expect(boardTools?.children[1]).toHaveClass('board-zoom-control')
+    const typeControls = document.querySelector('.type-row-controls')
+    expect(typeControls?.children[1]?.querySelector('[aria-label="Show Slitherlink rules"]')).not.toBeNull()
+    expect(typeControls?.children[2]?.querySelector('[aria-label="Show Slitherlink legend"]')).not.toBeNull()
+  })
+
+  it('opens slitherlink board legend from the puzzle type row', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink legend/i }))
+
+    const legendDialog = screen.getByRole('dialog', { name: /slitherlink legend/i })
+    expect(legendDialog).toBeInTheDocument()
+    expect(legendDialog).toHaveClass('board-legend-panel')
+    expect(legendDialog).toHaveAttribute('aria-modal', 'false')
+    expect(screen.getByText('Only One')).toBeInTheDocument()
+    expect(screen.getByText('NOT ONE')).toBeInTheDocument()
+    expect(screen.getByText('NOT ZERO')).toBeInTheDocument()
+    expect(screen.getByText('NOT TWO')).toBeInTheDocument()
+    expect(screen.getByText('YELLOW')).toBeInTheDocument()
+    expect(screen.getByText('GREEN')).toBeInTheDocument()
+    expect(screen.getByText(/ONLY have ONE connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/cannot have exactly one connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/cannot have ZERO connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/cannot both be connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/outside the final loop/i)).toBeInTheDocument()
+    expect(screen.getByText(/inside the final loop/i)).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/legend canvas/i)).toHaveLength(6)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /slitherlink legend/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink legend/i }))
+    fireEvent.click(screen.getByRole('button', { name: /close slitherlink legend/i }))
+    expect(screen.queryByRole('dialog', { name: /slitherlink legend/i })).not.toBeInTheDocument()
   })
 
   it('shows import errors in a closeable dialog with expandable details', () => {

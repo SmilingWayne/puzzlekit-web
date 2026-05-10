@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { exportPuzzle, exporters, tryEncodePuzzlink } from '../../domain/exporters'
 import type { ExportFormat } from '../../domain/exporters/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
+import { BoardLegendButton } from '../board/BoardLegendButton'
 import { PuzzleInfoButton } from '../puzzleInfo/PuzzleInfoButton'
 import { buildDifficultySnapshot, MAX_SOLVE_CHUNK_SIZE, useSolverStore } from './solverStore'
 
@@ -89,6 +90,7 @@ export const ControlPanel = () => {
             ))}
           </select>
           <PuzzleInfoButton pluginId={pluginId} />
+          <BoardLegendButton pluginId={pluginId} />
         </div>
       </div>
       <label className="label-row">

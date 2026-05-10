@@ -15,6 +15,33 @@ export type PuzzleHelpExample = {
   edges: PuzzleHelpExampleEdge[]
 }
 
+export type PuzzleLegendSectorMarker = {
+  row: number
+  col: number
+  corner: 'nw' | 'ne' | 'sw' | 'se'
+  kind: 'onlyOne' | 'notOne' | 'notZero' | 'notTwo'
+}
+
+export type PuzzleLegendExample = {
+  rows: number
+  cols: number
+  clues?: Array<{ row: number; col: number; value: number | '?' }>
+  edges?: PuzzleHelpExampleEdge[]
+  filledCells?: Array<{ row: number; col: number; fill: 'green' | 'yellow' }>
+  sectors?: PuzzleLegendSectorMarker[]
+}
+
+export type PuzzleLegendItem = {
+  label: string
+  description: string
+  example: PuzzleLegendExample
+}
+
+export type PuzzleLegendContent = {
+  title: string
+  items: PuzzleLegendItem[]
+}
+
 export type PuzzleHelpContent = {
   title: string
   summary: string
@@ -31,6 +58,7 @@ export interface PuzzlePlugin {
   id: string
   displayName: string
   help?: PuzzleHelpContent
+  legend?: PuzzleLegendContent
   parse: (input: string) => PuzzleIR
   encode: (puzzle: PuzzleIR) => string
   getRules: () => Rule[]

@@ -7,6 +7,7 @@ import {
 } from '../domain/ir/slither'
 import type { PuzzleIR } from '../domain/ir/types'
 import { puzzleRegistry } from '../domain/plugins/registry'
+import { BoardLegendButton } from '../features/board/BoardLegendButton'
 import { SlitherlinkEditorBoard } from '../features/editor/SlitherlinkEditorBoard'
 import { useEditorStore } from '../features/editor/editorStore'
 import { puzzlePresets, type PuzzlePreset } from '../features/editor/presets'
@@ -432,6 +433,7 @@ export const EditorPage = () => {
                   ))}
                 </select>
                 <PuzzleInfoButton pluginId={pluginId} />
+                <BoardLegendButton pluginId={pluginId} />
               </div>
             </div>
             <div className="control-group compact-control-group">
