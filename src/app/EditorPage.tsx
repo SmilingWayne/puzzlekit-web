@@ -10,6 +10,7 @@ import { puzzleRegistry } from '../domain/plugins/registry'
 import { SlitherlinkEditorBoard } from '../features/editor/SlitherlinkEditorBoard'
 import { useEditorStore } from '../features/editor/editorStore'
 import { puzzlePresets, type PuzzlePreset } from '../features/editor/presets'
+import { PuzzleInfoButton } from '../features/puzzleInfo/PuzzleInfoButton'
 import { useSolverStore } from '../features/solver/solverStore'
 import './workspace.css'
 
@@ -416,20 +417,23 @@ export const EditorPage = () => {
             <header className="panel-header">
               <h2>Puzzle Builder</h2>
             </header>
-            <label className="label-row">
-              Puzzle Type
-              <select value={pluginId} onChange={(event) => setPluginId(event.target.value)}>
-                {puzzleRegistry.all().map((plugin) => (
-                  <option
-                    key={plugin.id}
-                    value={plugin.id}
-                    disabled={plugin.id !== 'slitherlink'}
-                  >
-                    {plugin.id === 'nonogram' ? 'Nonogram (planned)' : plugin.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="label-row type-row-wrap">
+              <span className="type-row-label">Puzzle Type</span>
+              <div className="type-row-controls">
+                <select value={pluginId} onChange={(event) => setPluginId(event.target.value)}>
+                  {puzzleRegistry.all().map((plugin) => (
+                    <option
+                      key={plugin.id}
+                      value={plugin.id}
+                      disabled={plugin.id !== 'slitherlink'}
+                    >
+                      {plugin.id === 'nonogram' ? 'Nonogram (planned)' : plugin.displayName}
+                    </option>
+                  ))}
+                </select>
+                <PuzzleInfoButton pluginId={pluginId} />
+              </div>
+            </div>
             <div className="control-group compact-control-group">
               <span className="control-group-title">Grid</span>
               <div className="editor-size-row">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { exportPuzzle, exporters, tryEncodePuzzlink } from '../../domain/exporters'
 import type { ExportFormat } from '../../domain/exporters/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
+import { PuzzleInfoButton } from '../puzzleInfo/PuzzleInfoButton'
 import { buildDifficultySnapshot, MAX_SOLVE_CHUNK_SIZE, useSolverStore } from './solverStore'
 
 export const ControlPanel = () => {
@@ -87,6 +88,7 @@ export const ControlPanel = () => {
               </option>
             ))}
           </select>
+          <PuzzleInfoButton pluginId={pluginId} />
         </div>
       </div>
       <label className="label-row">
@@ -311,10 +313,11 @@ export const ControlPanel = () => {
             <h2 id="export-panel-title">Export Puzzle</h2>
             <button
               type="button"
-              className="button-compact"
+              className="panel-icon-close"
+              aria-label="Close export panel"
               onClick={() => setShowExportPanel(false)}
             >
-              Cancel
+              ×
             </button>
           </header>
           <label className="label-row compact">

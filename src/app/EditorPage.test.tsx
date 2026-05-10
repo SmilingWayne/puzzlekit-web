@@ -285,6 +285,28 @@ describe('EditorPage', () => {
     expect(within(dialog).queryByText(/default slitherlink 1/i)).not.toBeInTheDocument()
   })
 
+  it('opens slitherlink rules from the editor puzzle type row', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink rules/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /slitherlink rules/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'false')
+    expect(within(dialog).getByText(/draw lines along the edges/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/the loop cannot branch off or cross itself/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/a number indicates the amount of edges/i)).toBeInTheDocument()
+    expect(within(dialog).queryByText(/in puzzlekit/i)).not.toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/before example canvas/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/after example canvas/i)).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /close slitherlink rules/i }))
+    expect(screen.queryByRole('dialog', { name: /slitherlink rules/i })).not.toBeInTheDocument()
+  })
+
   it('uses the shared workspace grid columns on the editor page', () => {
     render(
       <MemoryRouter initialEntries={['/editor']}>

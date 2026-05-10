@@ -268,6 +268,129 @@ button[data-active='true'] {
   min-width: 140px;
 }
 
+.puzzle-info-anchor {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.puzzle-info-button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.puzzle-info-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 35;
+  width: min(432px, calc(100vw - 48px));
+  max-height: min(620px, calc(100vh - 120px));
+  overflow: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f9fafb;
+  box-shadow: 0 18px 48px rgb(15 23 42 / 0.16);
+  padding: 12px;
+  color: #4b5563;
+}
+
+.puzzle-info-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.puzzle-info-panel-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.puzzle-info-summary {
+  margin: 0 0 10px;
+  color: #1f2937;
+  line-height: 1.4;
+}
+
+.puzzle-info-section {
+  margin-top: 10px;
+}
+
+.puzzle-info-section h3 {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.puzzle-info-section ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.45;
+}
+
+.puzzle-info-section li + li {
+  margin-top: 4px;
+}
+
+.puzzle-info-example-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.puzzle-info-example-card {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.puzzle-info-example-card canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.puzzle-info-example-card figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px;
+  color: #6b7280;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.puzzle-info-example-card strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.panel-icon-close {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  padding: 0;
+  color: #475569;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .custom-grid-anchor {
   position: relative;
 }
@@ -1033,6 +1156,16 @@ details pre {
   .workspace-title {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .puzzle-info-panel {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .puzzle-info-example-grid {
+    grid-template-columns: 1fr;
   }
 
   .io-action-row {
