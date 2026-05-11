@@ -8,8 +8,8 @@ import {
 } from '../../domain/ir/keys'
 import {
   SECTOR_MASK_ALL,
+  SECTOR_MASK_ONLY_1,
   sectorMaskAllows,
-  sectorMaskIsSingle,
   type SectorCorner,
 } from '../../domain/ir/types'
 import type { PuzzleIR } from '../../domain/ir/types'
@@ -204,14 +204,8 @@ export const CanvasBoard = ({
         drawArc(sectorRadii.notTwo, '#f59e0b', 1.8, [4, 3])
       }
 
-      if (sectorMaskIsSingle(mask)) {
-        // Emphasize sectors that have been reduced to a single exact count.
-        ctx.strokeStyle = '#ef4444'
-        ctx.lineWidth = 2.4
-        ctx.setLineDash([])
-        ctx.beginPath()
-        ctx.arc(cornerX, cornerY, sectorRadii.single, start, end)
-        ctx.stroke()
+      if (mask === SECTOR_MASK_ONLY_1) {
+        drawArc(sectorRadii.single, '#ef4444', 2.4)
       }
       ctx.restore()
     }

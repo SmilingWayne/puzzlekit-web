@@ -33,6 +33,7 @@ export const deterministicSlitherRules: Rule[] = [
   createDiagonalAdjacentThreeOuterCornersRule(),
   createCellCountRule(),
   createVertexDegreeRule(),
+  createSectorConstraintEdgePropagationRule(),
   createColorOutsideSeedingRule(),
   createColorEdgePropagationRule(),
   createColorCluePropagationRule(),
@@ -47,7 +48,7 @@ export const deterministicSlitherRules: Rule[] = [
   createVertexCandidateEdgePruningRule(),
   createClueVertexCandidateCombinationPruningRule(),
   createSectorClueOneThreeIntraCellPropagationRule(),
-  createSectorConstraintEdgePropagationRule(),
+  // createSectorConstraintEdgePropagationRule(),
   createVertexOnlyOneNonSectorBalanceRule(),
   createSectorNotOneClueTwoPropagationRule(),
 ]

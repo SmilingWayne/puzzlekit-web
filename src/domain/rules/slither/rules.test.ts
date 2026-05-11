@@ -24,7 +24,7 @@ import {
 } from '../../ir/types'
 import { runNextRule } from '../engine'
 import type { Rule } from '../types'
-import { slitherRules } from './rules'
+import { deterministicSlitherRules, slitherRules } from './rules'
 import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createSectorParityInferenceRule } from './rules/sectorParityInference'
 import { createStrongInferenceRule } from './rules/strongInference'
@@ -38,6 +38,25 @@ const setClue = (puzzle: PuzzleIR, row: number, col: number, value: number): voi
 
 const getEdgeDiffKeys = (result: ReturnType<(typeof slitherRules)[number]['apply']>): string[] =>
   result?.diffs.flatMap((d) => (d.kind === 'edge' ? [d.edgeKey] : [])) ?? []
+
+describe('slither deterministic rule order', () => {
+  it('prioritizes exact sector edge propagation before color and sector inference rules', () => {
+    const edgePropagationIdx = deterministicSlitherRules.findIndex(
+      (rule) => rule.id === 'sector-constraint-edge-propagation',
+    )
+    const vertexDegreeIdx = deterministicSlitherRules.findIndex((rule) => rule.id === 'vertex-degree')
+    const colorOutsideIdx = deterministicSlitherRules.findIndex(
+      (rule) => rule.id === 'color-outside-seeding',
+    )
+    const sectorInferenceIdx = deterministicSlitherRules.findIndex(
+      (rule) => rule.id === 'sector-inference',
+    )
+
+    expect(edgePropagationIdx).toBeGreaterThan(vertexDegreeIdx)
+    expect(edgePropagationIdx).toBeLessThan(colorOutsideIdx)
+    expect(edgePropagationIdx).toBeLessThan(sectorInferenceIdx)
+  })
+})
 
 describe('slither contiguous 3-run boundaries rule', () => {
   const threeRunRule = slitherRules.find((rule) => rule.id === 'contiguous-three-run-boundaries')
@@ -1157,8 +1176,9 @@ describe('slither prevent premature loop rule', () => {
     throw new Error('Expected prevent-premature-loop rule')
   }
 
-  it('is ordered after vertex-degree, outside-seeding, edge-propagation, and clue-propagation', () => {
+  it('is ordered after vertex-degree, exact sector edge propagation, coloring, and clue-propagation', () => {
     const vertexRuleIdx = slitherRules.findIndex((rule) => rule.id === 'vertex-degree')
+    const sectorEdgeRuleIdx = slitherRules.findIndex((rule) => rule.id === 'sector-constraint-edge-propagation')
     const outsideRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-outside-seeding')
     const colorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-edge-propagation')
     const clueRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-clue-propagation')
@@ -1171,7 +1191,8 @@ describe('slither prevent premature loop rule', () => {
     const cutColorRuleIdx = slitherRules.findIndex((rule) => rule.id === 'color-connectivity-cut-coloring')
     const antiLoopRuleIdx = slitherRules.findIndex((rule) => rule.id === 'prevent-premature-loop')
     expect(vertexRuleIdx).toBeGreaterThanOrEqual(0)
-    expect(outsideRuleIdx).toBe(vertexRuleIdx + 1)
+    expect(sectorEdgeRuleIdx).toBe(vertexRuleIdx + 1)
+    expect(outsideRuleIdx).toBe(sectorEdgeRuleIdx + 1)
     expect(colorRuleIdx).toBe(outsideRuleIdx + 1)
     expect(clueRuleIdx).toBe(colorRuleIdx + 1)
     expect(sectorColorRuleIdx).toBe(clueRuleIdx + 1)
@@ -1645,6 +1666,48 @@ describe('slither sector constraint edge propagation rule', () => {
       { kind: 'edge', edgeKey: nwTop, from: 'unknown', to: 'blank' },
       { kind: 'edge', edgeKey: nwLeft, from: 'unknown', to: 'blank' },
     ])
+  })
+
+  it('propagates the provided 10x10 top-edge onlyTwo sector to lines immediately after inference', () => {
+    let current = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/10/10/g88b227637bg2067a7bj8c6a223c1adh1cb1bi32di1dc33783',
+    )
+    const targetSector = sectorKey(0, 1, 'ne')
+    const targetEdges = getCornerEdgeKeys(0, 1, 'ne')
+    let sawOnlyTwoInference = false
+
+    for (let stepNumber = 1; stepNumber <= 80; stepNumber += 1) {
+      const { nextPuzzle, step } = runNextRule(current, slitherRules, stepNumber)
+      if (!step) {
+        break
+      }
+
+      if (!sawOnlyTwoInference) {
+        const sectorDiff = step.diffs.find((d) => d.kind === 'sector' && d.sectorKey === targetSector)
+        if (sectorDiff?.kind === 'sector' && sectorDiff.toMask === SECTOR_MASK_ONLY_2) {
+          sawOnlyTwoInference = true
+          current = nextPuzzle
+          continue
+        }
+      } else {
+        expect(step.ruleId).toBe('sector-constraint-edge-propagation')
+        expect(step.diffs).toEqual(
+          expect.arrayContaining(
+            targetEdges.map((edge) => ({
+              kind: 'edge' as const,
+              edgeKey: edge,
+              from: 'unknown' as const,
+              to: 'line' as const,
+            })),
+          ),
+        )
+        return
+      }
+
+      current = nextPuzzle
+    }
+
+    throw new Error('Expected sector inference followed by immediate edge propagation for (R1, C2, NE).')
   })
 
   it('forces the last unknown corner edge to line when onlyOne with one blank', () => {
