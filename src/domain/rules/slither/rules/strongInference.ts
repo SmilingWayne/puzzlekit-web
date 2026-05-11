@@ -7,6 +7,7 @@ import {
   type PuzzleIR,
 } from '../../../ir/types'
 import { applyEdgeAssumption, runTrialUntilFixpoint } from './trial'
+import { formatEdgeLabel, formatSectorKeyLabel, formatVertexLabel } from './shared'
 
 // const STRONG_MAX_CANDIDATES = 1000
 // const STRONG_MAX_TRIAL_STEPS = 2000
@@ -183,18 +184,18 @@ const collectSharedEdgeDiffs = (basePuzzle: PuzzleIR, branchA: PuzzleIR, branchB
 
 const describeCandidate = (candidate: StrongCandidate): string => {
   if (candidate.kind === 'sector-only-one') {
-    return `candidate=sector-only-one(${candidate.sectorKey})`
+    return `sector ${formatSectorKeyLabel(candidate.sectorKey)} must have exactly one line`
   }
   if (candidate.kind === 'vertex-two-choice') {
-    return `candidate=vertex-two-choice((${candidate.vertexRow}, ${candidate.vertexCol}))`
+    return `vertex ${formatVertexLabel(candidate.vertexRow, candidate.vertexCol)} has two possible continuations`
   }
-  return `candidate=edge(${candidate.edgeKey})`
+  return `${formatEdgeLabel(candidate.edgeKey)} is undecided`
 }
 
 const describeBranch = (diffs: RuleApplication['diffs']): string =>
   diffs
     .filter((diff): diff is Extract<(typeof diffs)[number], { kind: 'edge' }> => diff.kind === 'edge')
-    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`)
     .join(', ')
 
 const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
@@ -203,11 +204,11 @@ const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
     return 'fixed no edges'
   }
   if (edgeDiffs.length <= 3) {
-    return `fixed ${edgeDiffs.map((diff) => `${diff.edgeKey}=${diff.to}`).join(', ')}`
+    return `fixed ${edgeDiffs.map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`).join(', ')}`
   }
   const preview = edgeDiffs
     .slice(0, 3)
-    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`)
     .join(', ')
   return `fixed ${edgeDiffs.length} edges (${preview}, ...)`
 }
@@ -282,7 +283,7 @@ export const createStrongInferenceRule = (
         }
 
         return {
-          message: `Strong inference ${describeCandidate(candidate)} result=contradiction: branch ${describeBranch(contradictionBranch.diffs)} fails, so ${summarizeFixedDiffs(diffs)}.`,
+          message: `Strong inference: ${describeCandidate(candidate)}. The branch ${describeBranch(contradictionBranch.diffs)} contradicts the puzzle, so the alternative is forced and ${summarizeFixedDiffs(diffs)}.`,
           diffs,
           affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
           affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
@@ -295,7 +296,7 @@ export const createStrongInferenceRule = (
       }
 
       return {
-        message: `Strong inference ${describeCandidate(candidate)} result=shared-consequence: both branches agree and ${summarizeFixedDiffs(diffs)}.`,
+        message: `Strong inference: ${describeCandidate(candidate)}. Both branches lead to the same consequence, so ${summarizeFixedDiffs(diffs)}.`,
         diffs,
         affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
         affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],

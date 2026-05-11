@@ -8,12 +8,18 @@ import {
   type PuzzleIR,
   type SectorCorner,
 } from '../../../ir/types'
-import { getCellNeighborKeys, isSlitherCellColor, oppositeSlitherCellColor, type SlitherCellColor } from './shared'
+import {
+  formatCellLabel,
+  getCellNeighborKeys,
+  isSlitherCellColor,
+  oppositeSlitherCellColor,
+  type SlitherCellColor,
+} from './shared'
 import { runTrialUntilFixpoint } from './trial'
 
 const COLOR_ASSUMPTION_MAX_CANDIDATES = 120
 const COLOR_ASSUMPTION_MAX_TRIAL_STEPS = 120
-const COLOR_ASSUMPTION_MAX_MS = 2000
+const COLOR_ASSUMPTION_MAX_MS = 4000
 
 type ColorAssumptionInferenceOptions = {
   maxCandidates?: number
@@ -90,7 +96,7 @@ const applyCellAssumption = (puzzle: PuzzleIR, key: string, toFill: SlitherCellC
 }
 
 const describeCandidate = (candidate: ColorAssumptionCandidate): string =>
-  `candidate=cell(${candidate.row}, ${candidate.col})`
+  formatCellLabel(candidate.row, candidate.col)
 
 const getCellAssumptionDiff = (
   puzzle: PuzzleIR,
@@ -164,7 +170,7 @@ export const createColorAssumptionInferenceRule = (
       const diffs = getCellAssumptionDiff(puzzle, candidate, inferredColor)
 
       return {
-        message: `Color assumption ${describeCandidate(candidate)} result=contradiction: ${failingColor} fails, so ${candidate.cellKey}=${inferredColor}.`,
+        message: `Assume ${describeCandidate(candidate)} is ${failingColor}; deterministic propagation reaches a contradiction, so it must be ${inferredColor}.`,
         diffs,
         affectedCells: [candidate.cellKey],
       }

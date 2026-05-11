@@ -1,7 +1,7 @@
 import { cellKey, edgeKey } from '../../../ir/keys'
 import type { EdgeMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
-import { isClueThree } from './shared'
+import { formatCellRunLabel, isClueThree } from './shared'
 
 export const createContiguousThreeRunBoundariesRule = (): Rule => ({
   id: 'contiguous-three-run-boundaries',
@@ -59,7 +59,7 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
 
         if (runAddedAny) {
           for (let col = cStart; col <= cEnd; col += 1) allAffectedCells.add(cellKey(r, col))
-          if (firstExample === null) firstExample = `row ${r} cols ${cStart}-${cEnd}`
+          if (firstExample === null) firstExample = formatCellRunLabel('row', r, cStart, cEnd)
         }
       }
     }
@@ -99,7 +99,7 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
 
         if (runAddedAny) {
           for (let row = rStart; row <= rEnd; row += 1) allAffectedCells.add(cellKey(row, c))
-          if (firstExample === null) firstExample = `col ${c} rows ${rStart}-${rEnd}`
+          if (firstExample === null) firstExample = formatCellRunLabel('col', c, rStart, rEnd)
         }
       }
     }
@@ -109,8 +109,8 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Contiguous 3-run pattern forced boundary lines and same-direction extension blanks (e.g., ${firstExample}).`
-          : 'Contiguous 3-run pattern forced boundary lines and same-direction extension blanks.',
+          ? `Contiguous 3-run at ${firstExample}: the 3-clues need the run boundary lines, so straight extensions outside the run are blank.`
+          : 'Contiguous 3-run: the 3-clues need the run boundary lines, so straight extensions outside the run are blank.',
       diffs: [...decidedEdges.entries()].map(([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,
@@ -177,7 +177,7 @@ export const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
     if (decidedEdges.size === 0) return null
 
     return {
-      message: 'Diagonal adjacent 3s force outer-corner boundary edges to be lines.',
+      message: 'Diagonal adjacent 3s force their outside corner edges to be lines; otherwise one of the 3-clues cannot reach three lines.',
       diffs: [...decidedEdges.entries()].map(([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,

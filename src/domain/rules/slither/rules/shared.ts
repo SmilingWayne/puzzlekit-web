@@ -1,4 +1,4 @@
-import { cellKey, parseCellKey, parseEdgeKey } from '../../../ir/keys'
+import { cellKey, parseCellKey, parseEdgeKey, parseSectorKey } from '../../../ir/keys'
 import {
   SECTOR_MASK_ONLY_0,
   SECTOR_MASK_ONLY_1,
@@ -10,6 +10,42 @@ import {
 export type SlitherCellColor = 'green' | 'yellow'
 
 const adjacentCellsByEdgeCache = new Map<string, string[]>()
+
+export const formatCellLabel = (row: number, col: number): string => `(R${row + 1}, C${col + 1})`
+
+export const formatCellKeyLabel = (key: string): string => {
+  const [row, col] = parseCellKey(key)
+  return formatCellLabel(row, col)
+}
+
+export const formatCellRunLabel = (
+  orientation: 'row' | 'col',
+  fixedIndex: number,
+  startIndex: number,
+  endIndex: number,
+): string => {
+  if (orientation === 'row') {
+    return `R${fixedIndex + 1} C${startIndex + 1}-C${endIndex + 1}`
+  }
+  return `C${fixedIndex + 1} R${startIndex + 1}-R${endIndex + 1}`
+}
+
+export const formatVertexLabel = (row: number, col: number): string => `V(${row + 1}, ${col + 1})`
+
+export const formatEdgeLabel = (edgeKeyValue: string): string => {
+  const [left, right] = parseEdgeKey(edgeKeyValue)
+  return `edge ${formatVertexLabel(left[0], left[1])}-${formatVertexLabel(right[0], right[1])}`
+}
+
+export const formatCornerLabel = (corner: SectorCorner): string => corner.toUpperCase()
+
+export const formatSectorLabel = (row: number, col: number, corner: SectorCorner): string =>
+  `(R${row + 1}, C${col + 1}, ${formatCornerLabel(corner)})`
+
+export const formatSectorKeyLabel = (key: string): string => {
+  const [row, col, corner] = parseSectorKey(key)
+  return formatSectorLabel(row, col, corner)
+}
 
 export const isSlitherCellColor = (fill: string | undefined): fill is SlitherCellColor =>
   fill === 'green' || fill === 'yellow'

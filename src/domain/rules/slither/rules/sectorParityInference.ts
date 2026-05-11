@@ -7,10 +7,11 @@ import {
   type PuzzleIR,
 } from '../../../ir/types'
 import { applyEdgeAssumption, runTrialUntilFixpoint } from './trial'
+import { formatEdgeLabel, formatSectorKeyLabel } from './shared'
 
-const SECTOR_PARITY_MAX_CANDIDATES = 160
+const SECTOR_PARITY_MAX_CANDIDATES = 200
 const SECTOR_PARITY_MAX_TRIAL_STEPS = 120
-const SECTOR_PARITY_MAX_MS = 2000
+const SECTOR_PARITY_MAX_MS = 3000
 
 type SectorParityInferenceOptions = {
   maxCandidates?: number
@@ -103,17 +104,17 @@ const collectSharedEdgeDiffs = (basePuzzle: PuzzleIR, branchA: PuzzleIR, branchB
 const describeBranch = (diffs: RuleApplication['diffs']): string =>
   diffs
     .filter((diff): diff is Extract<(typeof diffs)[number], { kind: 'edge' }> => diff.kind === 'edge')
-    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`)
     .join(', ')
 
 const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
   const edgeDiffs = diffs.filter((diff): diff is Extract<(typeof diffs)[number], { kind: 'edge' }> => diff.kind === 'edge')
   if (edgeDiffs.length <= 3) {
-    return `fixed ${edgeDiffs.map((diff) => `${diff.edgeKey}=${diff.to}`).join(', ')}`
+    return `fixed ${edgeDiffs.map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`).join(', ')}`
   }
   const preview = edgeDiffs
     .slice(0, 3)
-    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`)
     .join(', ')
   return `fixed ${edgeDiffs.length} edges (${preview}, ...)`
 }
@@ -167,13 +168,13 @@ export const createSectorParityInferenceRule = (
         continue
       }
 
-      const candidateLabel = `candidate=sector-not-one(${candidate.sectorKey})`
+      const candidateLabel = formatSectorKeyLabel(candidate.sectorKey)
       if (lineResult.contradiction !== blankResult.contradiction) {
         const contradictionBranch = lineResult.contradiction ? lineBranch.info : blankBranch.info
         const survivingBranch = lineResult.contradiction ? blankBranch.info : lineBranch.info
 
         return {
-          message: `Sector parity inference ${candidateLabel} result=contradiction: branch ${describeBranch(contradictionBranch.diffs)} fails, so ${summarizeFixedDiffs(survivingBranch.diffs)}.`,
+          message: `Sector ${candidateLabel} cannot have exactly one line. The branch ${describeBranch(contradictionBranch.diffs)} contradicts the puzzle, so the other parity branch is forced and ${summarizeFixedDiffs(survivingBranch.diffs)}.`,
           diffs: survivingBranch.diffs,
           affectedCells: [cellKey(candidate.row, candidate.col)],
           affectedSectors: [candidate.sectorKey],
@@ -186,7 +187,7 @@ export const createSectorParityInferenceRule = (
       }
 
       return {
-        message: `Sector parity inference ${candidateLabel} result=shared-consequence: both branches agree and ${summarizeFixedDiffs(diffs)}.`,
+        message: `Sector ${candidateLabel} cannot have exactly one line. Both parity branches lead to the same consequence, so ${summarizeFixedDiffs(diffs)}.`,
         diffs,
         affectedCells: [cellKey(candidate.row, candidate.col)],
         affectedSectors: [candidate.sectorKey],

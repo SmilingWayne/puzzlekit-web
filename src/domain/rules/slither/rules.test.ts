@@ -54,7 +54,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Contiguous 3-run pattern forced')
+    expect(result?.message).toContain('Contiguous 3-run')
     expect(result?.affectedCells).toEqual(['1,1', '1,2', '1,3'])
     expect(result?.diffs).toEqual([
       { kind: 'edge', edgeKey: edgeKey([1, 1], [2, 1]), from: 'unknown', to: 'line' },
@@ -77,7 +77,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Contiguous 3-run pattern forced')
+    expect(result?.message).toContain('Contiguous 3-run')
     expect(result?.affectedCells).toEqual(['1,2', '2,2', '3,2'])
     expect(result?.diffs).toEqual([
       { kind: 'edge', edgeKey: edgeKey([1, 2], [1, 3]), from: 'unknown', to: 'line' },
@@ -201,7 +201,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
     const result = diagonalRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
+    expect(result?.message).toContain('Diagonal adjacent 3s force their outside corner edges')
     expect(result?.affectedCells).toEqual(['0,0', '1,1'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([0, 0], [1, 0]),
@@ -219,7 +219,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
     const result = diagonalRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Diagonal adjacent 3s force outer-corner boundary edges to be lines.')
+    expect(result?.message).toContain('Diagonal adjacent 3s force their outside corner edges')
     expect(result?.affectedCells).toEqual(['0,1', '1,0'])
     expect(getEdgeDiffKeys(result)).toEqual([
       edgeKey([0, 1], [0, 2]),
@@ -1882,7 +1882,7 @@ describe('slither apply sectors rule', () => {
     const result = applySectorsRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Apply Sectors from Vertex')
+    expect(result?.message).toContain('narrow the allowed corner line counts')
     expect(result?.affectedCells).toEqual(['0,0'])
     expect(result?.affectedSectors).toEqual([
       sectorKey(0, 0, 'nw'),
@@ -2088,8 +2088,8 @@ describe('slither sector parity inference rule', () => {
       { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
     ])
     expect(result?.affectedSectors).toEqual([targetSector])
-    expect(result?.message).toContain('candidate=sector-not-one')
-    expect(result?.message).toContain('result=contradiction')
+    expect(result?.message).toContain('cannot have exactly one line')
+    expect(result?.message).toContain('contradicts the puzzle')
   })
 
   it('forces both notOne sector edges line when the both-blank branch violates a clue', () => {
@@ -2110,7 +2110,7 @@ describe('slither sector parity inference rule', () => {
       { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
     ])
     expect(result?.affectedSectors).toEqual([targetSector])
-    expect(result?.message).toContain('result=contradiction')
+    expect(result?.message).toContain('contradicts the puzzle')
   })
 
   it('returns null when both notOne parity branches remain feasible', () => {
@@ -2177,8 +2177,8 @@ describe('slither strong inference rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' }])
-    expect(result?.message).toContain('result=contradiction')
-    expect(result?.message).toContain('green fails')
+    expect(result?.message).toContain('contradiction')
+    expect(result?.message).toContain('is green')
   })
 
   it('uses boundary color contradiction to force the opposite color', () => {
@@ -2190,7 +2190,7 @@ describe('slither strong inference rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' }])
-    expect(result?.message).toContain('yellow fails')
+    expect(result?.message).toContain('is yellow')
   })
 
   it('uses deterministic downstream propagation to find a contradiction', () => {
@@ -2220,7 +2220,7 @@ describe('slither strong inference rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' }])
-    expect(result?.message).toContain('green fails')
+    expect(result?.message).toContain('is green')
   })
 
   it('treats unreachable fixed green regions as a contradiction', () => {
@@ -2232,7 +2232,7 @@ describe('slither strong inference rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' }])
-    expect(result?.message).toContain('yellow fails')
+    expect(result?.message).toContain('is yellow')
   })
 
   it('returns null when both color branches remain feasible', () => {
@@ -2260,8 +2260,8 @@ describe('slither strong inference rule', () => {
       { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
     ])
     expect(result?.affectedSectors).toEqual([sectorKey(0, 0, 'se')])
-    expect(result?.message).toContain('candidate=sector-only-one')
-    expect(result?.message).toContain('result=contradiction')
+    expect(result?.message).toContain('must have exactly one line')
+    expect(result?.message).toContain('contradicts the puzzle')
   })
 
   it('returns null when both onlyOne branches remain feasible', () => {
@@ -2290,8 +2290,8 @@ describe('slither strong inference rule', () => {
       { kind: 'edge', edgeKey: up, from: 'unknown', to: 'blank' },
       { kind: 'edge', edgeKey: down, from: 'unknown', to: 'line' },
     ])
-    expect(result?.message).toContain('candidate=vertex-two-choice((1, 0))')
-    expect(result?.message).toContain('result=contradiction')
+    expect(result?.message).toContain('has two possible continuations')
+    expect(result?.message).toContain('contradicts the puzzle')
   })
 
   it('extracts shared consequences when both feasible branches agree downstream', () => {
@@ -2326,8 +2326,8 @@ describe('slither strong inference rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' }])
-    expect(result?.message).toContain('candidate=sector-only-one')
-    expect(result?.message).toContain('result=shared-consequence')
+    expect(result?.message).toContain('must have exactly one line')
+    expect(result?.message).toContain('same consequence')
   })
 
   it('can run on the provided 10x10 puzzle after deterministic stabilization', () => {
