@@ -6,12 +6,12 @@ import {
   type EdgeMark,
   type PuzzleIR,
 } from '../../../ir/types'
-import { applyEdgeAssumption, runTrialUntilFixpoint } from './trial'
+import { applyEdgeAssumption, runTrialUntilFixpoint, type TrialResult } from './trial'
 import { formatEdgeLabel, formatSectorKeyLabel } from './shared'
 
 const SECTOR_PARITY_MAX_CANDIDATES = 200
-const SECTOR_PARITY_MAX_TRIAL_STEPS = 120
-const SECTOR_PARITY_MAX_MS = 3000
+const SECTOR_PARITY_MAX_TRIAL_STEPS = 50
+const SECTOR_PARITY_MAX_MS = 2000
 
 type SectorParityInferenceOptions = {
   maxCandidates?: number
@@ -30,6 +30,27 @@ type SectorParityCandidate = {
 type SectorParityBranch = {
   setupOk: boolean
   diffs: RuleApplication['diffs']
+}
+
+const immediateContradictionResult = (puzzle: PuzzleIR): TrialResult => ({
+  contradiction: true,
+  timedOut: false,
+  exhausted: false,
+  puzzle,
+  stepsRun: 0,
+  elapsedMs: 0,
+  contradictionReason: {
+    kind: 'sector-mask',
+    message: 'setup contradiction: this parity branch is already incompatible with the current edge state',
+  },
+})
+
+const deriveProbeBudgets = (maxTrialSteps: number): number[] => {
+  const cappedMax = Math.max(1, maxTrialSteps)
+  const budgets = [24, 96, 384, cappedMax]
+    .map((budget) => Math.min(budget, cappedMax))
+    .filter((budget, index, arr) => arr.indexOf(budget) === index)
+  return budgets.length > 0 ? budgets : [cappedMax]
 }
 
 const collectSectorParityCandidates = (puzzle: PuzzleIR, maxCandidates: number): SectorParityCandidate[] => {
@@ -119,6 +140,13 @@ const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
   return `fixed ${edgeDiffs.length} edges (${preview}, ...)`
 }
 
+const describeTrialBranch = (label: string, result: TrialResult): string => {
+  if (result.contradiction) {
+    return `${label} branch contradicted after ${result.stepsRun} ${result.stepsRun === 1 ? 'step' : 'steps'}`
+  }
+  return `${label} branch unresolved after ${result.stepsRun} ${result.stepsRun === 1 ? 'step' : 'steps'}`
+}
+
 export const createSectorParityInferenceRule = (
   getDeterministicRules: () => Rule[],
   options: SectorParityInferenceOptions = {},
@@ -136,61 +164,65 @@ export const createSectorParityInferenceRule = (
     }
 
     const deadlineMs = Date.now() + (options.maxMs ?? SECTOR_PARITY_MAX_MS)
-    for (const candidate of candidates) {
-      if (Date.now() > deadlineMs) {
-        break
-      }
+    const maxTrialSteps = options.maxTrialSteps ?? SECTOR_PARITY_MAX_TRIAL_STEPS
+    const probeBudgets = deriveProbeBudgets(maxTrialSteps)
+    for (const budget of probeBudgets) {
+      for (const candidate of candidates) {
+        if (Date.now() > deadlineMs) {
+          return null
+        }
 
-      const lineBranch = buildParityBranch(puzzle, candidate.edgeA, candidate.edgeB, 'line')
-      const blankBranch = buildParityBranch(puzzle, candidate.edgeA, candidate.edgeB, 'blank')
+        const lineBranch = buildParityBranch(puzzle, candidate.edgeA, candidate.edgeB, 'line')
+        const blankBranch = buildParityBranch(puzzle, candidate.edgeA, candidate.edgeB, 'blank')
 
-      const lineResult = lineBranch.info.setupOk
-        ? runTrialUntilFixpoint(
-            lineBranch.branch,
-            deterministicRules,
-            options.maxTrialSteps ?? SECTOR_PARITY_MAX_TRIAL_STEPS,
-            deadlineMs,
-          )
-        : { contradiction: true, timedOut: false, exhausted: false, puzzle: lineBranch.branch }
-      const blankResult = blankBranch.info.setupOk
-        ? runTrialUntilFixpoint(
-            blankBranch.branch,
-            deterministicRules,
-            options.maxTrialSteps ?? SECTOR_PARITY_MAX_TRIAL_STEPS,
-            deadlineMs,
-          )
-        : { contradiction: true, timedOut: false, exhausted: false, puzzle: blankBranch.branch }
+        const lineResult = lineBranch.info.setupOk
+          ? runTrialUntilFixpoint(
+              lineBranch.branch,
+              deterministicRules,
+              budget,
+              deadlineMs,
+            )
+          : immediateContradictionResult(lineBranch.branch)
+        const blankResult = blankBranch.info.setupOk
+          ? runTrialUntilFixpoint(
+              blankBranch.branch,
+              deterministicRules,
+              budget,
+              deadlineMs,
+            )
+          : immediateContradictionResult(blankBranch.branch)
 
-      if (lineResult.timedOut || blankResult.timedOut) {
-        break
-      }
-      if (lineResult.exhausted || blankResult.exhausted) {
-        continue
-      }
+        if (lineResult.timedOut || blankResult.timedOut) {
+          return null
+        }
 
-      const candidateLabel = formatSectorKeyLabel(candidate.sectorKey)
-      if (lineResult.contradiction !== blankResult.contradiction) {
-        const contradictionBranch = lineResult.contradiction ? lineBranch.info : blankBranch.info
-        const survivingBranch = lineResult.contradiction ? blankBranch.info : lineBranch.info
+        const candidateLabel = formatSectorKeyLabel(candidate.sectorKey)
+        if (lineResult.contradiction !== blankResult.contradiction) {
+          const contradictionBranch = lineResult.contradiction ? lineBranch.info : blankBranch.info
+          const survivingBranch = lineResult.contradiction ? blankBranch.info : lineBranch.info
+
+          return {
+            message: `Sector ${candidateLabel} cannot have exactly one line. The branch ${describeBranch(contradictionBranch.diffs)} contradicts the puzzle at probe budget ${budget}, so the other parity branch is forced and ${summarizeFixedDiffs(survivingBranch.diffs)}. ${describeTrialBranch('line', lineResult)}; ${describeTrialBranch('blank', blankResult)}.`,
+            diffs: survivingBranch.diffs,
+            affectedCells: [cellKey(candidate.row, candidate.col)],
+            affectedSectors: [candidate.sectorKey],
+          }
+        }
+        if (lineResult.contradiction && blankResult.contradiction) {
+          continue
+        }
+
+        const diffs = collectSharedEdgeDiffs(puzzle, lineResult.puzzle, blankResult.puzzle)
+        if (diffs.length === 0) {
+          continue
+        }
 
         return {
-          message: `Sector ${candidateLabel} cannot have exactly one line. The branch ${describeBranch(contradictionBranch.diffs)} contradicts the puzzle, so the other parity branch is forced and ${summarizeFixedDiffs(survivingBranch.diffs)}.`,
-          diffs: survivingBranch.diffs,
+          message: `Sector ${candidateLabel} cannot have exactly one line. Both parity branches lead to the same consequence at probe budget ${budget}, so ${summarizeFixedDiffs(diffs)}. ${describeTrialBranch('line', lineResult)}; ${describeTrialBranch('blank', blankResult)}.`,
+          diffs,
           affectedCells: [cellKey(candidate.row, candidate.col)],
           affectedSectors: [candidate.sectorKey],
         }
-      }
-
-      const diffs = collectSharedEdgeDiffs(puzzle, lineResult.puzzle, blankResult.puzzle)
-      if (diffs.length === 0) {
-        continue
-      }
-
-      return {
-        message: `Sector ${candidateLabel} cannot have exactly one line. Both parity branches lead to the same consequence, so ${summarizeFixedDiffs(diffs)}.`,
-        diffs,
-        affectedCells: [cellKey(candidate.row, candidate.col)],
-        affectedSectors: [candidate.sectorKey],
       }
     }
 

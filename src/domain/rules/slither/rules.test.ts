@@ -28,7 +28,7 @@ import { slitherRules } from './rules'
 import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createSectorParityInferenceRule } from './rules/sectorParityInference'
 import { createStrongInferenceRule } from './rules/strongInference'
-import { runTrialUntilFixpoint } from './rules/trial'
+import { findHardContradictionReason, runTrialUntilFixpoint } from './rules/trial'
 
 const setClue = (puzzle: PuzzleIR, row: number, col: number, value: number): void => {
   puzzle.cells[cellKey(row, col)] = {
@@ -2113,6 +2113,127 @@ describe('slither sector parity inference rule', () => {
     expect(result?.message).toContain('contradicts the puzzle')
   })
 
+  it('forces a sector parity branch when the opposite branch contradicts and the survivor reaches the probe budget', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    setClue(puzzle, 0, 0, 2)
+    const targetSector = sectorKey(0, 0, 'nw')
+    puzzle.sectors[targetSector].constraintsMask = SECTOR_MASK_NOT_1
+    const [top, left] = getCornerEdgeKeys(0, 0, 'nw')
+    const bottom = edgeKey([1, 0], [1, 1])
+    const right = edgeKey([0, 1], [1, 1])
+    const stallRule: Rule = {
+      id: 'sector-parity-stall-test',
+      name: 'Sector Parity Stall Test',
+      apply: (trial) => {
+        const topMark = trial.edges[top]?.mark ?? 'unknown'
+        const leftMark = trial.edges[left]?.mark ?? 'unknown'
+        if (topMark === 'blank' && leftMark === 'blank') {
+          return {
+            message: 'make blank branch contradict the clue',
+            diffs: [
+              { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
+              { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+            ],
+            affectedCells: [cellKey(0, 0)],
+          }
+        }
+        if (topMark !== 'line' || leftMark !== 'line') {
+          return null
+        }
+        return {
+          message: 'keep line branch unresolved',
+          diffs: [
+            {
+              kind: 'sector',
+              sectorKey: targetSector,
+              fromMask: trial.sectors[targetSector].constraintsMask,
+              toMask: trial.sectors[targetSector].constraintsMask,
+            },
+          ],
+          affectedCells: [cellKey(0, 0)],
+          affectedSectors: [targetSector],
+        }
+      },
+    }
+    const probingSectorParityRule = createSectorParityInferenceRule(() => [stallRule], {
+      maxMs: Number.POSITIVE_INFINITY,
+      maxTrialSteps: 24,
+    })
+
+    const result = probingSectorParityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: left, from: 'unknown', to: 'line' },
+    ])
+    expect(result?.message).toContain('probe budget 24')
+    expect(result?.message).toContain('line branch unresolved after 24 steps')
+    expect(result?.message).toContain('blank branch contradicted after 1 step')
+  })
+
+  it('checks later sector parity candidates at the first probe budget', () => {
+    const puzzle = createSlitherPuzzle(2, 1)
+    const firstSector = sectorKey(0, 0, 'nw')
+    const secondSector = sectorKey(1, 0, 'nw')
+    puzzle.sectors[firstSector].constraintsMask = SECTOR_MASK_NOT_1
+    puzzle.sectors[secondSector].constraintsMask = SECTOR_MASK_NOT_1
+    setClue(puzzle, 1, 0, 2)
+    const bottom = edgeKey([2, 0], [2, 1])
+    const right = edgeKey([1, 1], [2, 1])
+    const [firstA, firstB] = getCornerEdgeKeys(0, 0, 'nw')
+    const [secondA, secondB] = getCornerEdgeKeys(1, 0, 'nw')
+    const stallRule: Rule = {
+      id: 'sector-parity-first-candidate-stall-test',
+      name: 'Sector Parity First Candidate Stall Test',
+      apply: (trial) => {
+        if ((trial.edges[secondA]?.mark ?? 'unknown') === 'blank' && (trial.edges[secondB]?.mark ?? 'unknown') === 'blank') {
+          return {
+            message: 'make second blank branch contradict the clue',
+            diffs: [
+              { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
+              { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+            ],
+            affectedCells: [cellKey(1, 0)],
+          }
+        }
+        if ((trial.edges[firstA]?.mark ?? 'unknown') === 'unknown') {
+          return null
+        }
+        if ((trial.edges[firstB]?.mark ?? 'unknown') === 'unknown') {
+          return null
+        }
+        return {
+          message: 'keep first candidate unresolved',
+          diffs: [
+            {
+              kind: 'sector',
+              sectorKey: firstSector,
+              fromMask: trial.sectors[firstSector].constraintsMask,
+              toMask: trial.sectors[firstSector].constraintsMask,
+            },
+          ],
+          affectedCells: [cellKey(0, 0)],
+          affectedSectors: [firstSector],
+        }
+      },
+    }
+    const probingSectorParityRule = createSectorParityInferenceRule(() => [stallRule], {
+      maxMs: Number.POSITIVE_INFINITY,
+      maxTrialSteps: 24,
+    })
+
+    const result = probingSectorParityRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: secondA, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: secondB, from: 'unknown', to: 'line' },
+    ])
+    expect(result?.affectedSectors).toEqual([secondSector])
+    expect(result?.message).toContain('probe budget 24')
+  })
+
   it('returns null when both notOne parity branches remain feasible', () => {
     const directSectorParityRule = createSectorParityInferenceRule(() => [])
     const puzzle = createSlitherPuzzle(2, 2)
@@ -2121,6 +2242,129 @@ describe('slither sector parity inference rule', () => {
     const result = directSectorParityRule.apply(puzzle)
 
     expect(result).toBeNull()
+  })
+})
+
+describe('slither trial diagnostics', () => {
+  it('reports vertex-degree contradiction locations', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 1], [1, 2])].mark = 'line'
+
+    const reason = findHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('vertex-degree')
+    expect(reason?.message).toContain('V(1, 1)')
+  })
+
+  it('reports cell-clue contradiction locations', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    setClue(puzzle, 0, 0, 0)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+
+    const reason = findHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('cell-clue')
+    expect(reason?.message).toContain('(R1, C1)')
+  })
+
+  it('reports sector-mask contradiction locations', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const targetSector = sectorKey(0, 0, 'nw')
+    puzzle.sectors[targetSector].constraintsMask = 0
+
+    const reason = findHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('sector-mask')
+    expect(reason?.message).toContain('(R1, C1, NW)')
+  })
+
+  it('reports vertex-candidates contradiction locations', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    puzzle.vertices[vertexKey(0, 0)].candidateEdgeSets = []
+
+    const reason = findHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('vertex-candidates')
+    expect(reason?.message).toContain('V(0, 0)')
+  })
+
+  it('reports color-edge contradiction locations', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    const shared = edgeKey([0, 1], [1, 1])
+    puzzle.edges[shared].mark = 'line'
+
+    const reason = findHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('color-edge')
+    expect(reason?.message).toContain('edge V(0, 1)-V(1, 1)')
+  })
+
+  it('reports line-loop contradiction shape', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([2, 1], [2, 2])].mark = 'line'
+
+    const reason = findHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('line-loop')
+    expect(reason?.message).toContain('closed loop')
+  })
+
+  it('reports disconnected-green contradiction locations', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(0, 2)] = { fill: 'green' }
+
+    const reason = findHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('disconnected-green')
+    expect(reason?.message).toContain('(R1, C3)')
+  })
+
+  it('reports zero trial steps for immediate contradictions', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = runTrialUntilFixpoint(puzzle, [], 10, Number.POSITIVE_INFINITY)
+
+    expect(result.contradiction).toBe(true)
+    expect(result.stepsRun).toBe(0)
+    expect(result.contradictionReason?.kind).toBe('color-edge')
+  })
+
+  it('keeps exhausted trial behavior while reporting steps run', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    const target = edgeKey([0, 0], [0, 1])
+    const oneStepRule: Rule = {
+      id: 'trial-diagnostic-one-step',
+      name: 'Trial Diagnostic One Step',
+      apply: (trial) => {
+        if ((trial.edges[target]?.mark ?? 'unknown') !== 'unknown') {
+          return null
+        }
+        return {
+          message: 'test one trial step',
+          diffs: [{ kind: 'edge', edgeKey: target, from: 'unknown', to: 'blank' }],
+          affectedCells: [],
+        }
+      },
+    }
+
+    const result = runTrialUntilFixpoint(puzzle, [oneStepRule], 1, Number.POSITIVE_INFINITY)
+
+    expect(result.contradiction).toBe(false)
+    expect(result.exhausted).toBe(true)
+    expect(result.stepsRun).toBe(1)
   })
 })
 
@@ -2178,7 +2422,57 @@ describe('slither strong inference rule', () => {
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' }])
     expect(result?.message).toContain('contradiction')
+    expect(result?.message).toContain('color-edge contradiction')
+    expect(result?.message).toContain('edge V(0, 1)-V(1, 1)')
+    expect(result?.message).toContain('0 trial steps')
+    expect(result?.message).toContain('Searched 1 candidate')
     expect(result?.message).toContain('is green')
+  })
+
+  it('compresses same-color candidate components before searching', () => {
+    const puzzle = createSlitherPuzzle(1, 4)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.cells[cellKey(0, 3)] = { fill: 'yellow' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'blank'
+
+    const result = colorAssumptionRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' }])
+    expect(result?.message).toContain('from 2 candidate cells')
+    expect(result?.message).toContain('compressed to 1 component')
+  })
+
+  it('compresses opposite-color candidate components connected by a line edge', () => {
+    const puzzle = createSlitherPuzzle(1, 4)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(0, 3)] = { fill: 'yellow' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'line'
+
+    const result = colorAssumptionRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' }])
+    expect(result?.message).toContain('from 2 candidate cells')
+    expect(result?.message).toContain('compressed to 1 component')
+  })
+
+  it('keeps the highest-scored representative within a compressed component', () => {
+    const puzzle = createSlitherPuzzle(1, 4)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(0, 3)] = { fill: 'yellow' }
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'blank'
+    puzzle.edges[edgeKey([0, 3], [1, 3])].mark = 'line'
+    puzzle.sectors[sectorKey(0, 2, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+    const result = colorAssumptionRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'green' }])
+    expect(result?.message).toContain('from 2 candidate cells')
+    expect(result?.message).toContain('compressed to 1 component')
   })
 
   it('uses boundary color contradiction to force the opposite color', () => {
@@ -2221,6 +2515,86 @@ describe('slither strong inference rule', () => {
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' }])
     expect(result?.message).toContain('is green')
+    expect(result?.message).toContain('after 1 trial step')
+    expect(result?.message).toContain('green branch: 1 step')
+  })
+
+  it('infers from a quick contradiction even when the opposite branch only reaches the probe budget', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'blank'
+    const stallRule: Rule = {
+      id: 'stall-test',
+      name: 'Stall Test',
+      apply: (trial) => {
+        if (trial.cells[cellKey(0, 1)]?.fill !== 'green') {
+          return null
+        }
+        return {
+          message: 'keep this branch unresolved',
+          diffs: [
+            {
+              kind: 'sector',
+              sectorKey: sectorKey(2, 2, 'se'),
+              fromMask: trial.sectors[sectorKey(2, 2, 'se')].constraintsMask,
+              toMask: trial.sectors[sectorKey(2, 2, 'se')].constraintsMask,
+            },
+          ],
+          affectedCells: [],
+          affectedSectors: [sectorKey(2, 2, 'se')],
+        }
+      },
+    }
+    const probingRule = createColorAssumptionInferenceRule(() => [stallRule], {
+      maxMs: Number.POSITIVE_INFINITY,
+      maxTrialSteps: 24,
+    })
+
+    const result = probingRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' }])
+    expect(result?.message).toContain('probe budget 24')
+    expect(result?.message).toContain('green branch: unresolved after 24 steps')
+    expect(result?.message).toContain('yellow branch: 0 steps')
+  })
+
+  it('moves to later components when an earlier component is unresolved at the current probe budget', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.sectors[sectorKey(0, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.sectors[sectorKey(0, 1, 'ne')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.sectors[sectorKey(0, 1, 'sw')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.sectors[sectorKey(0, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    const stallRule: Rule = {
+      id: 'stall-test',
+      name: 'Stall Test',
+      apply: () => ({
+        message: 'keep this branch unresolved',
+        diffs: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(2, 2, 'se'),
+            fromMask: puzzle.sectors[sectorKey(2, 2, 'se')].constraintsMask,
+            toMask: puzzle.sectors[sectorKey(2, 2, 'se')].constraintsMask,
+          },
+        ],
+        affectedCells: [],
+        affectedSectors: [sectorKey(2, 2, 'se')],
+      }),
+    }
+    const probingRule = createColorAssumptionInferenceRule(() => [stallRule], {
+      maxMs: Number.POSITIVE_INFINITY,
+      maxTrialSteps: 24,
+    })
+
+    const result = probingRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(1, 0), fromFill: null, toFill: 'yellow' }])
+    expect(result?.message).toContain('Searched 2 candidate components')
+    expect(result?.message).toContain('probe budget 24')
   })
 
   it('treats unreachable fixed green regions as a contradiction', () => {
@@ -2233,6 +2607,8 @@ describe('slither strong inference rule', () => {
     expect(result).not.toBeNull()
     expect(result?.diffs).toEqual([{ kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' }])
     expect(result?.message).toContain('is yellow')
+    expect(result?.message).toContain('disconnected-green contradiction')
+    expect(result?.message).toContain('yellow branch: 0 steps')
   })
 
   it('returns null when both color branches remain feasible', () => {
@@ -2294,6 +2670,112 @@ describe('slither strong inference rule', () => {
     expect(result?.message).toContain('contradicts the puzzle')
   })
 
+  it('forces an edge branch when the opposite branch contradicts and the survivor reaches the probe budget', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    setClue(puzzle, 0, 0, 1)
+    const top = edgeKey([0, 0], [0, 1])
+    const bottom = edgeKey([1, 0], [1, 1])
+    const left = edgeKey([0, 0], [1, 0])
+    const right = edgeKey([0, 1], [1, 1])
+    const stallRule: Rule = {
+      id: 'strong-edge-stall-test',
+      name: 'Strong Edge Stall Test',
+      apply: (trial) => {
+        const topMark = trial.edges[top]?.mark ?? 'unknown'
+        if (topMark === 'blank') {
+          return {
+            message: 'make blank branch contradict the clue',
+            diffs: [
+              { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
+              { kind: 'edge', edgeKey: left, from: 'unknown', to: 'blank' },
+              { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+            ],
+            affectedCells: [cellKey(0, 0)],
+          }
+        }
+        if (topMark !== 'line') {
+          return null
+        }
+        return {
+          message: 'keep line branch unresolved',
+          diffs: [
+            {
+              kind: 'sector',
+              sectorKey: sectorKey(0, 0, 'nw'),
+              fromMask: trial.sectors[sectorKey(0, 0, 'nw')].constraintsMask,
+              toMask: trial.sectors[sectorKey(0, 0, 'nw')].constraintsMask,
+            },
+          ],
+          affectedCells: [cellKey(0, 0)],
+          affectedSectors: [sectorKey(0, 0, 'nw')],
+        }
+      },
+    }
+    const probingStrongRule = createStrongInferenceRule(() => [stallRule], {
+      maxMs: Number.POSITIVE_INFINITY,
+      maxTrialSteps: 24,
+    })
+
+    const result = probingStrongRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' }])
+    expect(result?.message).toContain('probe budget 24')
+    expect(result?.message).toContain('A branch unresolved after 24 steps')
+    expect(result?.message).toContain('B branch contradicted after 1 step')
+  })
+
+  it('forces a binary strong branch when the opposite branch contradicts and the survivor reaches the probe budget', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 1)
+
+    const up = edgeKey([0, 0], [1, 0])
+    const down = edgeKey([1, 0], [2, 0])
+    const right = edgeKey([1, 0], [1, 1])
+    puzzle.edges[right].mark = 'line'
+    const stallRule: Rule = {
+      id: 'strong-binary-stall-test',
+      name: 'Strong Binary Stall Test',
+      apply: (trial) => {
+        if ((trial.edges[up]?.mark ?? 'unknown') !== 'blank') {
+          return null
+        }
+        if ((trial.edges[down]?.mark ?? 'unknown') !== 'line') {
+          return null
+        }
+        return {
+          message: 'keep surviving binary branch unresolved',
+          diffs: [
+            {
+              kind: 'sector',
+              sectorKey: sectorKey(1, 0, 'nw'),
+              fromMask: trial.sectors[sectorKey(1, 0, 'nw')].constraintsMask,
+              toMask: trial.sectors[sectorKey(1, 0, 'nw')].constraintsMask,
+            },
+          ],
+          affectedCells: [cellKey(1, 0)],
+          affectedSectors: [sectorKey(1, 0, 'nw')],
+        }
+      },
+    }
+    const probingStrongRule = createStrongInferenceRule(() => [stallRule], {
+      maxMs: Number.POSITIVE_INFINITY,
+      maxTrialSteps: 24,
+    })
+
+    const result = probingStrongRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: up, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: down, from: 'unknown', to: 'line' },
+    ])
+    expect(result?.message).toContain('has two possible continuations')
+    expect(result?.message).toContain('probe budget 24')
+    expect(result?.message).toContain('A branch contradicted after 0 steps')
+    expect(result?.message).toContain('B branch unresolved after 24 steps')
+  })
+
   it('extracts shared consequences when both feasible branches agree downstream', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     const sector = sectorKey(0, 0, 'se')
@@ -2328,6 +2810,7 @@ describe('slither strong inference rule', () => {
     expect(result?.diffs).toEqual([{ kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' }])
     expect(result?.message).toContain('must have exactly one line')
     expect(result?.message).toContain('same consequence')
+    expect(result?.message).toContain('probe budget')
   })
 
   it('can run on the provided 10x10 puzzle after deterministic stabilization', () => {

@@ -8,13 +8,36 @@ import {
   type EdgeMark,
   type PuzzleIR,
 } from '../../../ir/types'
-import { getEdgeAdjacentCellKeys, isSlitherCellColor } from './shared'
+import {
+  formatCellKeyLabel,
+  formatCellLabel,
+  formatEdgeLabel,
+  formatSectorKeyLabel,
+  formatVertexLabel,
+  getEdgeAdjacentCellKeys,
+  isSlitherCellColor,
+} from './shared'
+
+export type TrialContradictionReason = {
+  kind:
+    | 'vertex-degree'
+    | 'cell-clue'
+    | 'sector-mask'
+    | 'vertex-candidates'
+    | 'color-edge'
+    | 'line-loop'
+    | 'disconnected-green'
+  message: string
+}
 
 export type TrialResult = {
   contradiction: boolean
   timedOut: boolean
   exhausted: boolean
   puzzle: PuzzleIR
+  stepsRun: number
+  elapsedMs: number
+  contradictionReason?: TrialContradictionReason
 }
 
 export const applyEdgeAssumption = (puzzle: PuzzleIR, edgeKeyValue: string, to: EdgeMark): boolean => {
@@ -26,7 +49,7 @@ export const applyEdgeAssumption = (puzzle: PuzzleIR, edgeKeyValue: string, to: 
   return true
 }
 
-const detectVertexContradiction = (puzzle: PuzzleIR): boolean => {
+const detectVertexContradiction = (puzzle: PuzzleIR): TrialContradictionReason | null => {
   for (let r = 0; r <= puzzle.rows; r += 1) {
     for (let c = 0; c <= puzzle.cols; c += 1) {
       const incident = getVertexIncidentEdges(r, c, puzzle.rows, puzzle.cols)
@@ -41,17 +64,23 @@ const detectVertexContradiction = (puzzle: PuzzleIR): boolean => {
         else if (mark === 'unknown') unknownCount += 1
       }
       if (lineCount > 2) {
-        return true
+        return {
+          kind: 'vertex-degree',
+          message: `vertex-degree contradiction at ${formatVertexLabel(r, c)}: ${lineCount} line edges meet there`,
+        }
       }
       if (unknownCount === 0 && lineCount !== 0 && lineCount !== 2) {
-        return true
+        return {
+          kind: 'vertex-degree',
+          message: `vertex-degree contradiction at ${formatVertexLabel(r, c)}: closed vertex has ${lineCount} line edge`,
+        }
       }
     }
   }
-  return false
+  return null
 }
 
-const detectCellClueContradiction = (puzzle: PuzzleIR): boolean => {
+const detectCellClueContradiction = (puzzle: PuzzleIR): TrialContradictionReason | null => {
   for (let r = 0; r < puzzle.rows; r += 1) {
     for (let c = 0; c < puzzle.cols; c += 1) {
       const clue = puzzle.cells[cellKey(r, c)]?.clue
@@ -67,19 +96,31 @@ const detectCellClueContradiction = (puzzle: PuzzleIR): boolean => {
         if (mark === 'line') lineCount += 1
         else if (mark === 'unknown') unknownCount += 1
       }
-      if (lineCount > target || lineCount + unknownCount < target) {
-        return true
+      if (lineCount > target) {
+        return {
+          kind: 'cell-clue',
+          message: `cell-clue contradiction at ${formatCellLabel(r, c)}: clue ${target} already has ${lineCount} line edges`,
+        }
+      }
+      if (lineCount + unknownCount < target) {
+        return {
+          kind: 'cell-clue',
+          message: `cell-clue contradiction at ${formatCellLabel(r, c)}: clue ${target} can reach at most ${lineCount + unknownCount} line edges`,
+        }
       }
     }
   }
-  return false
+  return null
 }
 
-const detectSectorContradiction = (puzzle: PuzzleIR): boolean => {
+const detectSectorContradiction = (puzzle: PuzzleIR): TrialContradictionReason | null => {
   for (const [sectorKeyValue, sectorState] of Object.entries(puzzle.sectors)) {
     const mask = sectorState?.constraintsMask ?? SECTOR_MASK_ALL
     if (!sectorMaskIsValid(mask)) {
-      return true
+      return {
+        kind: 'sector-mask',
+        message: `sector-mask contradiction at ${formatSectorKeyLabel(sectorKeyValue)}: no corner line count remains allowed`,
+      }
     }
     const [row, col, corner] = parseSectorKey(sectorKeyValue)
     const sectorEdges = getCornerEdgeKeys(row, col, corner)
@@ -91,7 +132,10 @@ const detectSectorContradiction = (puzzle: PuzzleIR): boolean => {
       else if (mark === 'unknown') unknownCount += 1
     }
     if (unknownCount === 0 && !sectorMaskAllows(mask, lineCount as 0 | 1 | 2)) {
-      return true
+      return {
+        kind: 'sector-mask',
+        message: `sector-mask contradiction at ${formatSectorKeyLabel(sectorKeyValue)}: fixed corner has ${lineCount} line edges, which the sector mask forbids`,
+      }
     }
     let hasFeasible = false
     for (let value = lineCount; value <= lineCount + unknownCount; value += 1) {
@@ -101,22 +145,29 @@ const detectSectorContradiction = (puzzle: PuzzleIR): boolean => {
       }
     }
     if (!hasFeasible) {
-      return true
+      return {
+        kind: 'sector-mask',
+        message: `sector-mask contradiction at ${formatSectorKeyLabel(sectorKeyValue)}: ${lineCount} fixed line edges and ${unknownCount} unknown edges leave no allowed corner count`,
+      }
     }
   }
-  return false
+  return null
 }
 
-const detectVertexCandidateContradiction = (puzzle: PuzzleIR): boolean => {
-  for (const vertexState of Object.values(puzzle.vertices ?? {})) {
+const detectVertexCandidateContradiction = (puzzle: PuzzleIR): TrialContradictionReason | null => {
+  for (const [vertexKeyValue, vertexState] of Object.entries(puzzle.vertices ?? {})) {
     if (vertexState.candidateEdgeSets.length === 0) {
-      return true
+      const [row, col] = vertexKeyValue.split(',').map(Number)
+      return {
+        kind: 'vertex-candidates',
+        message: `vertex-candidates contradiction at ${formatVertexLabel(row, col)}: no feasible degree state remains`,
+      }
     }
   }
-  return false
+  return null
 }
 
-const detectColorEdgeContradiction = (puzzle: PuzzleIR): boolean => {
+const detectColorEdgeContradiction = (puzzle: PuzzleIR): TrialContradictionReason | null => {
   for (const [edgeKeyValue, edgeState] of Object.entries(puzzle.edges)) {
     const mark = edgeState?.mark ?? 'unknown'
     if (mark !== 'line' && mark !== 'blank') {
@@ -130,7 +181,10 @@ const detectColorEdgeContradiction = (puzzle: PuzzleIR): boolean => {
       }
       const expected = mark === 'line' ? 'green' : 'yellow'
       if (color !== expected) {
-        return true
+        return {
+          kind: 'color-edge',
+          message: `color-edge contradiction at ${formatEdgeLabel(edgeKeyValue)}: boundary ${mark} requires ${formatCellKeyLabel(adjacentCells[0])} to be ${expected}, but it is ${color}`,
+        }
       }
       continue
     }
@@ -143,19 +197,25 @@ const detectColorEdgeContradiction = (puzzle: PuzzleIR): boolean => {
       continue
     }
     if (mark === 'line' && colorA === colorB) {
-      return true
+      return {
+        kind: 'color-edge',
+        message: `color-edge contradiction at ${formatEdgeLabel(edgeKeyValue)}: a line edge separates equal-colored cells ${formatCellKeyLabel(adjacentCells[0])} and ${formatCellKeyLabel(adjacentCells[1])}`,
+      }
     }
     if (mark === 'blank' && colorA !== colorB) {
-      return true
+      return {
+        kind: 'color-edge',
+        message: `color-edge contradiction at ${formatEdgeLabel(edgeKeyValue)}: a blank edge connects different-colored cells ${formatCellKeyLabel(adjacentCells[0])} and ${formatCellKeyLabel(adjacentCells[1])}`,
+      }
     }
   }
-  return false
+  return null
 }
 
-const detectLineLoopContradiction = (puzzle: PuzzleIR): boolean => {
+const detectLineLoopContradiction = (puzzle: PuzzleIR): TrialContradictionReason | null => {
   const lineEdges = Object.entries(puzzle.edges).filter(([, edgeState]) => (edgeState?.mark ?? 'unknown') === 'line')
   if (lineEdges.length === 0) {
-    return false
+    return null
   }
   const vertexCols = puzzle.cols + 1
   const vertexCount = (puzzle.rows + 1) * vertexCols
@@ -228,16 +288,19 @@ const detectLineLoopContradiction = (puzzle: PuzzleIR): boolean => {
     closedLoopEdges += edgeCount
     closedLoopComponents += 1
   }
-  if (closedLoopComponents > 1) {
-    return true
+  if (closedLoopComponents > 1 || (closedLoopComponents === 1 && closedLoopEdges < lineEdges.length)) {
+    return {
+      kind: 'line-loop',
+      message:
+        closedLoopComponents > 1
+          ? `line-loop contradiction: ${closedLoopComponents} separate closed loops are present`
+          : `line-loop contradiction: a closed loop of ${closedLoopEdges} edges exists while other line edges remain outside it`,
+    }
   }
-  if (closedLoopComponents === 1 && closedLoopEdges < lineEdges.length) {
-    return true
-  }
-  return false
+  return null
 }
 
-const detectDisconnectedGreenContradiction = (puzzle: PuzzleIR): boolean => {
+const detectDisconnectedGreenContradiction = (puzzle: PuzzleIR): TrialContradictionReason | null => {
   const greenCells: string[] = []
   for (let row = 0; row < puzzle.rows; row += 1) {
     for (let col = 0; col < puzzle.cols; col += 1) {
@@ -248,7 +311,7 @@ const detectDisconnectedGreenContradiction = (puzzle: PuzzleIR): boolean => {
     }
   }
   if (greenCells.length < 2) {
-    return false
+    return null
   }
 
   const inBounds = (row: number, col: number): boolean =>
@@ -284,17 +347,27 @@ const detectDisconnectedGreenContradiction = (puzzle: PuzzleIR): boolean => {
     }
   }
 
-  return greenCells.some((key) => !reachable.has(key))
+  const disconnectedCell = greenCells.find((key) => !reachable.has(key))
+  if (!disconnectedCell) {
+    return null
+  }
+  return {
+    kind: 'disconnected-green',
+    message: `disconnected-green contradiction: ${formatCellKeyLabel(disconnectedCell)} cannot connect to ${formatCellKeyLabel(greenCells[0])} through non-line edges`,
+  }
 }
 
-export const detectHardContradiction = (puzzle: PuzzleIR): boolean =>
-  detectVertexContradiction(puzzle) ||
-  detectCellClueContradiction(puzzle) ||
-  detectSectorContradiction(puzzle) ||
-  detectVertexCandidateContradiction(puzzle) ||
-  detectColorEdgeContradiction(puzzle) ||
-  detectLineLoopContradiction(puzzle) ||
+export const findHardContradictionReason = (puzzle: PuzzleIR): TrialContradictionReason | null =>
+  detectVertexContradiction(puzzle) ??
+  detectCellClueContradiction(puzzle) ??
+  detectSectorContradiction(puzzle) ??
+  detectVertexCandidateContradiction(puzzle) ??
+  detectColorEdgeContradiction(puzzle) ??
+  detectLineLoopContradiction(puzzle) ??
   detectDisconnectedGreenContradiction(puzzle)
+
+export const detectHardContradiction = (puzzle: PuzzleIR): boolean =>
+  findHardContradictionReason(puzzle) !== null
 
 export const runTrialUntilFixpoint = (
   puzzle: PuzzleIR,
@@ -302,28 +375,65 @@ export const runTrialUntilFixpoint = (
   maxTrialSteps: number,
   deadlineMs: number,
 ): TrialResult => {
-  if (detectHardContradiction(puzzle)) {
-    return { contradiction: true, timedOut: false, exhausted: false, puzzle }
+  const startedAt = performance.now()
+  const initialContradictionReason = findHardContradictionReason(puzzle)
+  if (initialContradictionReason) {
+    return {
+      contradiction: true,
+      timedOut: false,
+      exhausted: false,
+      puzzle,
+      stepsRun: 0,
+      elapsedMs: Math.max(0, performance.now() - startedAt),
+      contradictionReason: initialContradictionReason,
+    }
   }
 
   let trial = puzzle
   for (let stepNumber = 1; stepNumber <= maxTrialSteps; stepNumber += 1) {
     if (Date.now() > deadlineMs) {
-      return { contradiction: false, timedOut: true, exhausted: false, puzzle: trial }
+      return {
+        contradiction: false,
+        timedOut: true,
+        exhausted: false,
+        puzzle: trial,
+        stepsRun: stepNumber - 1,
+        elapsedMs: Math.max(0, performance.now() - startedAt),
+      }
     }
     const { nextPuzzle, step } = runNextRule(trial, deterministicRules, stepNumber)
     if (!step) {
+      const contradictionReason = findHardContradictionReason(trial)
       return {
-        contradiction: detectHardContradiction(trial),
+        contradiction: contradictionReason !== null,
         timedOut: false,
         exhausted: false,
         puzzle: trial,
+        stepsRun: stepNumber - 1,
+        elapsedMs: Math.max(0, performance.now() - startedAt),
+        contradictionReason: contradictionReason ?? undefined,
       }
     }
     trial = nextPuzzle
-    if (detectHardContradiction(trial)) {
-      return { contradiction: true, timedOut: false, exhausted: false, puzzle: trial }
+    const contradictionReason = findHardContradictionReason(trial)
+    if (contradictionReason) {
+      return {
+        contradiction: true,
+        timedOut: false,
+        exhausted: false,
+        puzzle: trial,
+        stepsRun: stepNumber,
+        elapsedMs: Math.max(0, performance.now() - startedAt),
+        contradictionReason,
+      }
     }
   }
-  return { contradiction: false, timedOut: false, exhausted: true, puzzle: trial }
+  return {
+    contradiction: false,
+    timedOut: false,
+    exhausted: true,
+    puzzle: trial,
+    stepsRun: maxTrialSteps,
+    elapsedMs: Math.max(0, performance.now() - startedAt),
+  }
 }

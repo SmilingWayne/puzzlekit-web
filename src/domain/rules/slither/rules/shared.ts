@@ -4,6 +4,7 @@ import {
   SECTOR_MASK_ONLY_1,
   SECTOR_MASK_ONLY_2,
   type PuzzleIR,
+  type SectorCorner,
   type SectorConstraintMask,
 } from '../../../ir/types'
 
@@ -30,7 +31,7 @@ export const formatCellRunLabel = (
   return `C${fixedIndex + 1} R${startIndex + 1}-R${endIndex + 1}`
 }
 
-export const formatVertexLabel = (row: number, col: number): string => `V(${row + 1}, ${col + 1})`
+export const formatVertexLabel = (row: number, col: number): string => `V(${row}, ${col})`
 
 export const formatEdgeLabel = (edgeKeyValue: string): string => {
   const [left, right] = parseEdgeKey(edgeKeyValue)
