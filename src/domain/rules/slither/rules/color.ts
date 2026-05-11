@@ -1,10 +1,13 @@
 import { cellKey, edgeKey, sectorKey } from '../../../ir/keys'
 import {
+  SECTOR_MASK_NOT_1,
   SECTOR_MASK_ONLY_1,
   type EdgeMark,
   type PuzzleIR,
+  type SectorConstraintMask,
   type SectorCorner,
   sectorMaskAllows,
+  sectorMaskIntersect,
 } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
 import {
@@ -399,7 +402,9 @@ export const createColorCluePropagationRule = (): Rule => ({
       const clue = Number(cell.clue.value)
       const neighbors = getCellNeighborKeys(puzzle, cellKeyValue)
       const innercnt = neighbors.filter((k) => getEffectiveCellColor(k) === 'green').length
-      const outercnt = neighbors.filter((k) => getEffectiveCellColor(k) === 'yellow').length
+      const boundaryOutercnt = 4 - neighbors.length
+      const outercnt =
+        neighbors.filter((k) => getEffectiveCellColor(k) === 'yellow').length + boundaryOutercnt
 
       if (clue < innercnt || 4 - clue < outercnt) {
         if (rememberCellFill(cellKeyValue, 'green') && firstReason === null) {
@@ -1089,11 +1094,16 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
     const decidedCellFills = new Map<string, SlitherCellColor>()
+    const decidedSectorMasks = new Map<string, SectorConstraintMask>()
     const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
     let firstReason: string | null = null
 
     const inBounds = (row: number, col: number): boolean =>
       row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols
+
+    const getEffectiveSectorMask = (key: string): SectorConstraintMask | undefined =>
+      decidedSectorMasks.get(key) ?? puzzle.sectors[key]?.constraintsMask
 
     const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
       const decided = decidedCellFills.get(key)
@@ -1117,18 +1127,28 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
       return true
     }
 
+    const rememberSectorMask = (key: string, targetMask: SectorConstraintMask): boolean => {
+      const current = getEffectiveSectorMask(key)
+      if (current === undefined) {
+        return false
+      }
+      const next = sectorMaskIntersect(current, targetMask)
+      if (next === 0 || next === current) {
+        return false
+      }
+      decidedSectorMasks.set(key, next)
+      affectedSectors.add(key)
+      return true
+    }
+
     for (let row = 0; row < puzzle.rows; row += 1) {
       for (let col = 0; col < puzzle.cols; col += 1) {
         const sourceCellKey = cellKey(row, col)
         for (const corner of corners) {
-          const mask = puzzle.sectors[sectorKey(row, col, corner)]?.constraintsMask
+          const currentSectorKey = sectorKey(row, col, corner)
+          const mask = getEffectiveSectorMask(currentSectorKey)
           const isOnlyOne = mask === SECTOR_MASK_ONLY_1
           const isNotOne = mask !== undefined && !sectorMaskAllows(mask, 1)
-          if (!isOnlyOne && !isNotOne) {
-            continue
-          }
-
-          const relation = isOnlyOne ? 'different' : 'same'
           const [firstNeighbor, secondNeighbor] = getCornerOutsideNeighbors(row, col, corner)
           const firstInBounds = inBounds(firstNeighbor.row, firstNeighbor.col)
           const secondInBounds = inBounds(secondNeighbor.row, secondNeighbor.col)
@@ -1138,6 +1158,20 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
           const firstColor: SlitherCellColor | null = firstKey !== null ? getEffectiveCellColor(firstKey) : 'yellow'
           const secondColor: SlitherCellColor | null =
             secondKey !== null ? getEffectiveCellColor(secondKey) : 'yellow'
+
+          if (firstColor !== null && secondColor !== null && (firstInBounds || secondInBounds)) {
+            const targetMask = firstColor === secondColor ? SECTOR_MASK_NOT_1 : SECTOR_MASK_ONLY_1
+            if (rememberSectorMask(currentSectorKey, targetMask) && firstReason === null) {
+              const relation = firstColor === secondColor ? 'same' : 'different'
+              firstReason = `${formatSectorLabel(row, col, corner)} sees ${relation} outside-neighbor colors, so its sector count is narrowed`
+            }
+          }
+
+          if (!isOnlyOne && !isNotOne) {
+            continue
+          }
+
+          const relation = isOnlyOne ? 'different' : 'same'
 
           if (firstColor === null && secondColor === null) {
             continue
@@ -1179,19 +1213,30 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
       }
     }
 
-    if (decidedCellFills.size === 0) {
+    if (decidedCellFills.size === 0 && decidedSectorMasks.size === 0) {
       return null
     }
 
-    return {
-      message: `${firstReason ?? 'Sector color relation propagated'} (${decidedCellFills.size} color update(s)).`,
-      diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
+    const diffs: RuleApplication['diffs'] = [
+      ...[...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
         fromFill: (puzzle.cells[k]?.fill ?? null) as string | null,
         toFill,
       })),
+      ...[...decidedSectorMasks.entries()].map(([k, toMask]) => ({
+        kind: 'sector' as const,
+        sectorKey: k,
+        fromMask: puzzle.sectors[k]?.constraintsMask ?? 0,
+        toMask,
+      })),
+    ]
+
+    return {
+      message: `${firstReason ?? 'Sector color relation propagated'} (${decidedCellFills.size} color update(s), ${decidedSectorMasks.size} sector update(s)).`,
+      diffs,
       affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
     }
   },
 })

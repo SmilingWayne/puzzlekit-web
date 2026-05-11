@@ -641,6 +641,45 @@ describe('slither color clue propagation rule', () => {
       toFill: 'yellow',
     })
   })
+
+  it('counts out-of-bounds directions as yellow when propagating from a green corner clue', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 2)
+    puzzle.cells[cellKey(0, 0)] = { ...puzzle.cells[cellKey(0, 0)], fill: 'green' }
+
+    const result = clueColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 0),
+      fromFill: null,
+      toFill: 'green',
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('counts out-of-bounds directions as yellow when coloring a corner numbered cell', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    setClue(puzzle, 0, 0, 1)
+    puzzle.cells[cellKey(1, 0)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+
+    const result = clueColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(0, 0),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
 })
 
 describe('slither color orthogonal consensus propagation rule', () => {
@@ -1138,6 +1177,115 @@ describe('slither color sector-mask propagation rule', () => {
     })
   })
 
+  it('infers onlyOne sectors from different diagonal-adjacent colors', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'yellow' }
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(0, 0, 'se'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'nw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+  })
+
+  it('infers notOne sectors from same diagonal-adjacent colors', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(0, 0, 'se'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_1,
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'nw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_NOT_1,
+    })
+  })
+
+  it('uses out-of-bounds yellow for color-to-sector propagation at the boundary', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+
+    const result = sectorColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(0, 0, 'ne'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(-1, 1, 'sw'),
+      fromMask: SECTOR_MASK_ALL,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+  })
+
+  it('does not emit redundant or invalid color-to-sector updates for the target sectors', () => {
+    const compatiblePuzzle = createSlitherPuzzle(3, 3)
+    compatiblePuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    compatiblePuzzle.sectors[sectorKey(2, 2, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+    compatiblePuzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+    compatiblePuzzle.cells[cellKey(2, 1)] = { fill: 'yellow' }
+
+    const compatibleResult = sectorColorRule.apply(compatiblePuzzle)
+
+    expect(compatibleResult?.diffs).not.toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'se'),
+      fromMask: SECTOR_MASK_ONLY_1,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+    expect(compatibleResult?.diffs).not.toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(2, 2, 'nw'),
+      fromMask: SECTOR_MASK_ONLY_1,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+
+    const invalidPuzzle = createSlitherPuzzle(3, 3)
+    invalidPuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_1
+    invalidPuzzle.sectors[sectorKey(2, 2, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+    invalidPuzzle.cells[cellKey(1, 2)] = { fill: 'green' }
+    invalidPuzzle.cells[cellKey(2, 1)] = { fill: 'yellow' }
+
+    const invalidResult = sectorColorRule.apply(invalidPuzzle)
+
+    expect(invalidResult?.diffs).not.toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'se'),
+      fromMask: SECTOR_MASK_NOT_1,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+    expect(invalidResult?.diffs).not.toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(2, 2, 'nw'),
+      fromMask: SECTOR_MASK_NOT_1,
+      toMask: SECTOR_MASK_ONLY_1,
+    })
+  })
+
   it('does not apply when both adjacent cells are unknown and in bounds', () => {
     const puzzle = createSlitherPuzzle(3, 3)
     puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_1
@@ -1147,26 +1295,27 @@ describe('slither color sector-mask propagation rule', () => {
     expect(result).toBeNull()
   })
 
-  it('does not apply when both adjacent cells are already colored', () => {
-    const puzzle = createSlitherPuzzle(3, 3)
-    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_NOT_1
-    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
-    puzzle.cells[cellKey(2, 1)] = { fill: 'yellow' }
+  it('skips conflicting color-to-sector inference without reporting an invalid mask', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    puzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
 
     const result = sectorColorRule.apply(puzzle)
 
-    expect(result).toBeNull()
-  })
-
-  it('skips conflicting inference and returns null when no other updates exist', () => {
-    const puzzle = createSlitherPuzzle(3, 3)
-    puzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask = SECTOR_MASK_ONLY_1
-    puzzle.cells[cellKey(1, 2)] = { fill: 'green' }
-    puzzle.cells[cellKey(2, 1)] = { fill: 'green' }
-
-    const result = sectorColorRule.apply(puzzle)
-
-    expect(result).toBeNull()
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(0, 0, 'se'),
+      fromMask: SECTOR_MASK_ONLY_1,
+      toMask: SECTOR_MASK_NOT_1,
+    })
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'sector',
+      sectorKey: sectorKey(1, 1, 'nw'),
+      fromMask: SECTOR_MASK_ONLY_1,
+      toMask: SECTOR_MASK_NOT_1,
+    })
   })
 })
 
@@ -1685,6 +1834,9 @@ describe('slither sector constraint edge propagation rule', () => {
       if (!sawOnlyTwoInference) {
         const sectorDiff = step.diffs.find((d) => d.kind === 'sector' && d.sectorKey === targetSector)
         if (sectorDiff?.kind === 'sector' && sectorDiff.toMask === SECTOR_MASK_ONLY_2) {
+          if (targetEdges.every((edge) => nextPuzzle.edges[edge]?.mark === 'line')) {
+            return
+          }
           sawOnlyTwoInference = true
           current = nextPuzzle
           continue
