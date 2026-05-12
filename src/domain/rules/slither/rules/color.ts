@@ -799,10 +799,18 @@ type ConnectivityCutPassOptions = {
   getEffectiveCellColor: (key: string) => SlitherCellColor | null
 }
 
-const findConnectivityCutCells = (
+type ConnectivityColorReason = 'cut' | 'unreachable'
+
+type ConnectivityColorUpdate = {
+  cellKey: string
+  toFill: SlitherCellColor
+  reason: ConnectivityColorReason
+}
+
+const findConnectivityColorUpdates = (
   puzzle: PuzzleIR,
   { target, includeOutsideSource, getEffectiveCellColor }: ConnectivityCutPassOptions,
-): Set<string> => {
+): ConnectivityColorUpdate[] => {
   const blocked = oppositeSlitherCellColor(target)
   const parent = new Map<string, string>()
   const rank = new Map<string, number>()
@@ -814,8 +822,7 @@ const findConnectivityCutCells = (
     }
   }
 
-  const isCandidateCell = (key: string): boolean =>
-    !isNumberClueThree(puzzle, key) && getEffectiveCellColor(key) !== blocked
+  const isCandidateCell = (key: string): boolean => getEffectiveCellColor(key) !== blocked
 
   const ensureNode = (key: string): void => {
     if (parent.has(key)) {
@@ -891,8 +898,8 @@ const findConnectivityCutCells = (
   if (includeOutsideSource) {
     sourceComponents.add(find(OUTSIDE_COMPONENT))
   }
-  if (sourceComponents.size < 2) {
-    return new Set()
+  if (sourceComponents.size === 0) {
+    return []
   }
 
   const graph = new Map<string, Set<string>>()
@@ -941,6 +948,7 @@ const findConnectivityCutCells = (
   const subtreeSources = new Map<string, number>()
   const treeChildren = new Map<string, string[]>()
   const cutComponents = new Set<string>()
+  const reachableComponents = new Set<string>()
   let timestamp = 0
 
   const dfs = (node: string, parentNode: string | null, connectedNodes: string[]): void => {
@@ -949,6 +957,7 @@ const findConnectivityCutCells = (
     timestamp += 1
     subtreeSources.set(node, sourceComponents.has(node) ? 1 : 0)
     connectedNodes.push(node)
+    reachableComponents.add(node)
 
     for (const neighbor of graph.get(node) ?? []) {
       if (neighbor === parentNode) {
@@ -979,7 +988,7 @@ const findConnectivityCutCells = (
     }
   }
 
-  for (const node of graph.keys()) {
+  for (const node of sourceComponents) {
     if (discovery.has(node)) {
       continue
     }
@@ -992,15 +1001,28 @@ const findConnectivityCutCells = (
     evaluateCuts(node, totalSources)
   }
 
-  const cutCells = new Set<string>()
+  const updates = new Map<string, ConnectivityColorUpdate>()
   for (const component of cutComponents) {
     for (const key of componentCells.get(component) ?? []) {
       if (getEffectiveCellColor(key) === null) {
-        cutCells.add(key)
+        updates.set(key, { cellKey: key, toFill: target, reason: 'cut' })
       }
     }
   }
-  return cutCells
+
+  const unreachableFill = oppositeSlitherCellColor(target)
+  for (const [component, cells] of componentCells) {
+    if (reachableComponents.has(component)) {
+      continue
+    }
+    for (const key of cells) {
+      if (getEffectiveCellColor(key) === null) {
+        updates.set(key, { cellKey: key, toFill: unreachableFill, reason: 'unreachable' })
+      }
+    }
+  }
+
+  return inBoundsCellKeys.flatMap((key) => updates.get(key) ?? [])
 }
 
 export const createColorConnectivityCutColoringRule = (): Rule => ({
@@ -1009,8 +1031,12 @@ export const createColorConnectivityCutColoringRule = (): Rule => ({
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
-    let greenCuts = 0
-    let yellowCuts = 0
+    const stats = {
+      greenCuts: 0,
+      yellowCuts: 0,
+      greenUnreachable: 0,
+      yellowUnreachable: 0,
+    }
 
     const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
       const decided = decidedCellFills.get(key)
@@ -1021,30 +1047,38 @@ export const createColorConnectivityCutColoringRule = (): Rule => ({
       return isSlitherCellColor(current) ? current : null
     }
 
-    const rememberCellFill = (key: string, to: SlitherCellColor): void => {
+    const rememberCellFill = (update: ConnectivityColorUpdate): void => {
+      const { cellKey: key, toFill, reason } = update
       if (getEffectiveCellColor(key) !== null) {
         return
       }
-      decidedCellFills.set(key, to)
+      decidedCellFills.set(key, toFill)
       affectedCells.add(key)
+      if (reason === 'cut' && toFill === 'green') {
+        stats.greenCuts += 1
+      } else if (reason === 'cut' && toFill === 'yellow') {
+        stats.yellowCuts += 1
+      } else if (reason === 'unreachable' && toFill === 'yellow') {
+        stats.greenUnreachable += 1
+      } else if (reason === 'unreachable' && toFill === 'green') {
+        stats.yellowUnreachable += 1
+      }
     }
 
-    for (const key of findConnectivityCutCells(puzzle, {
+    for (const update of findConnectivityColorUpdates(puzzle, {
       target: 'green',
       includeOutsideSource: false,
       getEffectiveCellColor,
     })) {
-      rememberCellFill(key, 'green')
-      greenCuts += 1
+      rememberCellFill(update)
     }
 
-    for (const key of findConnectivityCutCells(puzzle, {
+    for (const update of findConnectivityColorUpdates(puzzle, {
       target: 'yellow',
       includeOutsideSource: true,
       getEffectiveCellColor,
     })) {
-      rememberCellFill(key, 'yellow')
-      yellowCuts += 1
+      rememberCellFill(update)
     }
 
     if (decidedCellFills.size === 0) {
@@ -1069,7 +1103,7 @@ export const createColorConnectivityCutColoringRule = (): Rule => ({
     }
 
     return {
-      message: `Connectivity cut cells must take the color they connect; otherwise same-color regions would be separated (${greenCuts} inside, ${yellowCuts} outside).`,
+      message: `Cell connectivity forces color updates: inside cuts ${stats.greenCuts}, outside cuts ${stats.yellowCuts}, unreachable-from-inside ${stats.greenUnreachable}, unreachable-from-outside ${stats.yellowUnreachable}.`,
       diffs,
       affectedCells: [...affectedCells],
     }

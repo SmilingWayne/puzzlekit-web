@@ -1213,7 +1213,7 @@ describe('slither color connectivity cut coloring rule', () => {
     expect(result).toBeNull()
   })
 
-  it('does not traverse through an unknown clue-3 cell', () => {
+  it('treats an unknown clue-3 cell as a colorable connectivity candidate', () => {
     const puzzle = createSlitherPuzzle(1, 3)
     puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
     puzzle.cells[cellKey(0, 2)] = { fill: 'green' }
@@ -1221,7 +1221,10 @@ describe('slither color connectivity cut coloring rule', () => {
 
     const result = cutColorRule.apply(puzzle)
 
-    expect(result).toBeNull()
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'green' },
+    ])
   })
 
   it('colors every unknown cell inside a blank-compressed green bottleneck', () => {
@@ -1252,6 +1255,44 @@ describe('slither color connectivity cut coloring rule', () => {
     expect(result?.diffs).toEqual([
       { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' },
     ])
+  })
+
+  it('colors cells unreachable from green sources yellow', () => {
+    const puzzle = createSlitherPuzzle(1, 3)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 1), fromFill: null, toFill: 'yellow' },
+      { kind: 'cell', cellKey: cellKey(0, 2), fromFill: null, toFill: 'yellow' },
+    ])
+  })
+
+  it('colors cells unreachable from the exterior green without an existing yellow source', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    puzzle.edges[edgeKey([0, 0], [0, 1])].mark = 'line'
+    puzzle.edges[edgeKey([1, 0], [1, 1])].mark = 'line'
+    puzzle.edges[edgeKey([0, 0], [1, 0])].mark = 'line'
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'line'
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+    ])
+  })
+
+  it('keeps unknown edges passable for connectivity reachability', () => {
+    const puzzle = createSlitherPuzzle(1, 2)
+    puzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+
+    const result = cutColorRule.apply(puzzle)
+
+    expect(result).toBeNull()
   })
 })
 
