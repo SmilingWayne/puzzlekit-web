@@ -12,6 +12,7 @@ import {
 import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
 import { createCellCountRule, createPreventPrematureLoopRule, createVertexDegreeRule } from './rules/core'
 import {
+  createAdjacentTwoThreeOppositeCrossRule,
   createContiguousThreeRunBoundariesRule,
   createDiagonalAdjacentThreeOuterCornersRule,
 } from './rules/patterns'
@@ -31,6 +32,7 @@ import { createStrongInferenceRule } from './rules/strongInference'
 export const deterministicSlitherRules: Rule[] = [
   createContiguousThreeRunBoundariesRule(),
   createDiagonalAdjacentThreeOuterCornersRule(),
+  createAdjacentTwoThreeOppositeCrossRule(),
   createCellCountRule(),
   createVertexDegreeRule(),
   createSectorConstraintEdgePropagationRule(),

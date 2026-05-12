@@ -308,6 +308,122 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
   })
 })
 
+describe('slither adjacent 2-3 opposite-cross rule', () => {
+  const adjacentRule = slitherRules.find((rule) => rule.id === 'adjacent-two-three-opposite-cross')
+  if (!adjacentRule) {
+    throw new Error('Expected adjacent-two-three-opposite-cross rule')
+  }
+
+  it('forces the 3 opposite edge and shared-edge extensions for a horizontal 2-3 pair', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 2)
+    setClue(puzzle, 1, 2, 3)
+    puzzle.edges[edgeKey([1, 1], [2, 1])].mark = 'blank'
+
+    const result = adjacentRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.affectedCells).toEqual([cellKey(1, 1), cellKey(1, 2)])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([1, 3], [2, 3]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([0, 2], [1, 2]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([2, 2], [3, 2]), from: 'unknown', to: 'blank' },
+    ])
+  })
+
+  it('supports the mirrored horizontal 3-2 order', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 3)
+    setClue(puzzle, 1, 2, 2)
+    puzzle.edges[edgeKey([1, 3], [2, 3])].mark = 'blank'
+
+    const result = adjacentRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.affectedCells).toEqual([cellKey(1, 2), cellKey(1, 1)])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([1, 1], [2, 1]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([0, 2], [1, 2]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([2, 2], [3, 2]), from: 'unknown', to: 'blank' },
+    ])
+  })
+
+  it('forces the 3 opposite edge and shared-edge extensions for a vertical 2-3 pair', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 2)
+    setClue(puzzle, 2, 1, 3)
+    puzzle.edges[edgeKey([1, 1], [1, 2])].mark = 'blank'
+
+    const result = adjacentRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.affectedCells).toEqual([cellKey(1, 1), cellKey(2, 1)])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([3, 1], [3, 2]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([2, 0], [2, 1]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([2, 2], [2, 3]), from: 'unknown', to: 'blank' },
+    ])
+  })
+
+  it('supports the mirrored vertical 3-2 order', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 3)
+    setClue(puzzle, 2, 1, 2)
+    puzzle.edges[edgeKey([3, 1], [3, 2])].mark = 'blank'
+
+    const result = adjacentRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.affectedCells).toEqual([cellKey(2, 1), cellKey(1, 1)])
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([1, 1], [1, 2]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([2, 0], [2, 1]), from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: edgeKey([2, 2], [2, 3]), from: 'unknown', to: 'blank' },
+    ])
+  })
+
+  it('only emits in-bounds extension blanks at the boundary', () => {
+    const puzzle = createSlitherPuzzle(3, 4)
+    setClue(puzzle, 0, 1, 2)
+    setClue(puzzle, 0, 2, 3)
+    puzzle.edges[edgeKey([0, 1], [1, 1])].mark = 'blank'
+
+    const result = adjacentRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([0, 3], [1, 3]), from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: edgeKey([1, 2], [2, 2]), from: 'unknown', to: 'blank' },
+    ])
+  })
+
+  it('does not apply when the 2 opposite edge is not explicitly blank', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 2)
+    setClue(puzzle, 1, 2, 3)
+
+    const result = adjacentRule.apply(puzzle)
+
+    expect(result).toBeNull()
+  })
+
+  it('emits diffs only for unknown target edges', () => {
+    const puzzle = createSlitherPuzzle(4, 4)
+    setClue(puzzle, 1, 1, 2)
+    setClue(puzzle, 1, 2, 3)
+    puzzle.edges[edgeKey([1, 1], [2, 1])].mark = 'blank'
+    puzzle.edges[edgeKey([1, 3], [2, 3])].mark = 'line'
+    puzzle.edges[edgeKey([0, 2], [1, 2])].mark = 'blank'
+
+    const result = adjacentRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([2, 2], [3, 2]), from: 'unknown', to: 'blank' },
+    ])
+  })
+})
+
 describe('slither cell clue completion rule', () => {
   const cellCountRule = slitherRules.find((rule) => rule.id === 'cell-count-completion')
   if (!cellCountRule) {
