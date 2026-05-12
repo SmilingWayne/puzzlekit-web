@@ -417,6 +417,21 @@ export const createColorCluePropagationRule = (): Rule => ({
         }
       }
 
+      if (clue === 2 && outercnt === 2) {
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'green') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} has two outside neighbors for clue 2, so remaining neighbors are inside`
+          }
+        })
+      }
+      if (clue === 2 && innercnt === 2) {
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'yellow') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} has two inside neighbors for clue 2, so remaining neighbors are outside`
+          }
+        })
+      }
+
       const currentColor = getEffectiveCellColor(cellKeyValue)
       if (currentColor === 'green' && clue === outercnt) {
         neighbors.forEach((neighbor) => {

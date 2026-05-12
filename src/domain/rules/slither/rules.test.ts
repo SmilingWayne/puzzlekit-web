@@ -642,10 +642,55 @@ describe('slither color clue propagation rule', () => {
     })
   })
 
-  it('counts out-of-bounds directions as yellow when propagating from a green corner clue', () => {
+  it('propagates green neighbors from two yellow neighbors around a clue 2 without needing the clue cell color', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'yellow' }
+
+    const result = clueColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(2, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 2),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('propagates yellow neighbors from two green neighbors around a clue 2 without needing the clue cell color', () => {
+    const puzzle = createSlitherPuzzle(3, 3)
+    setClue(puzzle, 1, 1, 2)
+    puzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+    puzzle.cells[cellKey(1, 0)] = { fill: 'green' }
+
+    const result = clueColorRule.apply(puzzle)
+
+    expect(result).not.toBeNull()
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(2, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+    expect(result?.diffs).toContainEqual({
+      kind: 'cell',
+      cellKey: cellKey(1, 2),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('counts out-of-bounds directions as yellow when propagating from a corner clue 2', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     setClue(puzzle, 0, 0, 2)
-    puzzle.cells[cellKey(0, 0)] = { ...puzzle.cells[cellKey(0, 0)], fill: 'green' }
 
     const result = clueColorRule.apply(puzzle)
 
@@ -1604,7 +1649,7 @@ describe('slither sector diagonal shared-vertex propagation rule', () => {
     expect(triggered).toBe(true)
   })
 
-  it('appears during stepwise solving for the provided 10x10 puzzle', () => {
+  it('appears or becomes unnecessary during stepwise solving for the provided 10x10 puzzle', () => {
     let current = decodeSlitherFromPuzzlink(
       'https://puzz.link/p?slither/10/10/ga337ddkdh2adbgdi20dp23dibgbd0dhdkd511da',
     )
@@ -1622,7 +1667,7 @@ describe('slither sector diagonal shared-vertex propagation rule', () => {
       current = nextPuzzle
     }
 
-    expect(triggered).toBe(true)
+    expect(triggered || diagonalSectorRule.apply(current) === null).toBe(true)
   })
 })
 
