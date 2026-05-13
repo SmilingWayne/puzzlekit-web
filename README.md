@@ -53,7 +53,7 @@ pnpm dev
 
 This starts the local Vite development server.
 
-![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260427202121944.png)
+![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260514010419047.png)
 
 ### 2.3 Common Commands
 
