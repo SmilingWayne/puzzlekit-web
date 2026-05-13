@@ -34,6 +34,7 @@ export const WorkspacePage = () => {
               <Link aria-current="page" to="/">
                 Solver
               </Link>
+              <Link to="/dataset">Dataset</Link>
               <Link to="/editor">Editor</Link>
             </nav>
           </header>
