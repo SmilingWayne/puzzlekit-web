@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 benchmark-results
+playwright-report
+test-results
 dataset/private/
 *.local
 

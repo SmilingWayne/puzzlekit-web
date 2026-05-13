@@ -88,7 +88,7 @@ Data locations:
 
 Run:
 
-- `npm run benchmark:solve`
+- `pnpm benchmark:solve`
 
 This command scans public/private manifests, runs each puzzle with the default
 plugin rule order, and writes one report per manifest to
@@ -234,9 +234,20 @@ When editing:
 
 ## 11. Development Commands
 
-- `npm run dev` - local development
-- `npm run benchmark:solve` - run all public/private benchmark manifests
-- `npm run lint` - linting
-- `npm run test:run` - unit/component tests
-- `npm run build` - production build
-- `npm run test:e2e` - Playwright end-to-end tests
+- `pnpm install` - install dependencies using the locked pnpm dependency graph
+- `pnpm dev` - local development
+- `pnpm benchmark:solve` - run all public/private benchmark manifests
+- `pnpm lint` - linting
+- `pnpm test:run` - unit/component tests
+- `pnpm build` - production build
+- `pnpm test:e2e` - Playwright end-to-end tests
+
+## 12. Deployment and Release Flow
+
+- Package management is standardized on pnpm 10.33.0 via Corepack and the
+  `packageManager` field in `package.json`.
+- CI runs on pushes and pull requests targeting `main`; it installs with
+  `pnpm install --frozen-lockfile`, then runs linting, unit tests, and build.
+- GitHub Pages deployment is triggered by pushing a `v*` tag. The deployment
+  workflow runs the same checks and build, copies `dist/index.html` to
+  `dist/404.html` for SPA fallback, then publishes `dist/`.
