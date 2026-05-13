@@ -124,7 +124,6 @@ export const DatasetPage = () => {
       const puzzle = parseDatasetPuzzle(item)
       loadEditorPuzzle(puzzle, {
         sourceUrl: item.sourceUrl,
-        presetId: null,
       })
       setActionError('')
       navigate('/editor')
@@ -171,7 +170,7 @@ export const DatasetPage = () => {
                     <span className="dataset-card-meta">
                       {buildSizeLabel(item)} · {item.puzzleType}
                     </span>
-                    <div className="preset-tags dataset-tags">
+                    <div className="dataset-tags">
                       {item.tags.map((tag) => (
                         <span key={tag}>{tag}</span>
                       ))}
@@ -204,7 +203,7 @@ export const DatasetPage = () => {
                 </article>
               ))}
             </div>
-            {filteredItems.length === 0 ? <p className="preset-empty">No dataset puzzles match the current filters.</p> : null}
+            {filteredItems.length === 0 ? <p className="dataset-empty">No dataset puzzles match the current filters.</p> : null}
           </section>
         </div>
         <div className="right-column">
@@ -248,7 +247,7 @@ export const DatasetPage = () => {
             </label>
             <div className="control-group compact-control-group dataset-filter-group">
               <span className="control-group-title">Tags</span>
-              <div className="preset-filter-row" aria-label="Dataset tag filters">
+              <div className="dataset-filter-row" aria-label="Dataset tag filters">
                 <button type="button" data-active={activeTag === null} onClick={() => setActiveTag(null)}>
                   All
                 </button>

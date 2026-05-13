@@ -8,7 +8,6 @@ import {
 } from '../../domain/ir/slither'
 import type { EdgeMark, NumberClueValue, PuzzleIR } from '../../domain/ir/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
-import { puzzlePresets, type PuzzlePreset } from './presets'
 
 export type SlitherClueDraft = NumberClueValue | null
 
@@ -17,12 +16,10 @@ type EditorStore = {
   puzzle: PuzzleIR
   sourceUrl: string
   importError?: string
-  selectedPresetId: string | null
   setPluginId: (pluginId: string) => void
   createBlankSlither: (rows: number, cols: number) => void
-  loadEditorPuzzle: (puzzle: PuzzleIR, options?: { sourceUrl?: string; presetId?: string | null }) => void
+  loadEditorPuzzle: (puzzle: PuzzleIR, options?: { sourceUrl?: string }) => void
   importFromUrl: (url: string) => void
-  loadPreset: (preset: PuzzlePreset) => void
   setSlitherCellClue: (key: string, value: SlitherClueDraft) => void
   setSlitherEdgeMark: (key: string, mark: EdgeMark) => void
 }
@@ -41,7 +38,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   puzzle: defaultPuzzle,
   sourceUrl: '',
   importError: undefined,
-  selectedPresetId: null,
   setPluginId: (pluginId) => set({ pluginId, importError: undefined }),
   createBlankSlither: (rows, cols) => {
     const puzzle = createSlitherPuzzle(clampSlitherSize(rows), clampSlitherSize(cols))
@@ -50,7 +46,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       puzzle,
       sourceUrl: '',
       importError: undefined,
-      selectedPresetId: null,
     })
   },
   loadEditorPuzzle: (puzzle, options) => {
@@ -59,7 +54,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       puzzle: clonePuzzle(puzzle),
       sourceUrl: options?.sourceUrl ?? '',
       importError: undefined,
-      selectedPresetId: options?.presetId ?? null,
     })
   },
   importFromUrl: (url) => {
@@ -70,35 +64,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
     try {
       const puzzle = plugin.parse(url)
-      get().loadEditorPuzzle(puzzle, { sourceUrl: url, presetId: null })
+      get().loadEditorPuzzle(puzzle, { sourceUrl: url })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       set({ sourceUrl: url, importError: message })
-    }
-  },
-  loadPreset: (preset) => {
-    if (preset.puzzle) {
-      get().loadEditorPuzzle(preset.puzzle, {
-        sourceUrl: preset.sourceUrl ?? '',
-        presetId: preset.id,
-      })
-      return
-    }
-    if (!preset.sourceUrl) {
-      set({ importError: `Preset "${preset.name}" does not include puzzle data.` })
-      return
-    }
-    const plugin = puzzleRegistry.get(preset.puzzleType)
-    if (!plugin) {
-      set({ importError: `Plugin "${preset.puzzleType}" not found.` })
-      return
-    }
-    try {
-      const puzzle = plugin.parse(preset.sourceUrl)
-      get().loadEditorPuzzle(puzzle, { sourceUrl: preset.sourceUrl, presetId: preset.id })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      set({ importError: message, selectedPresetId: preset.id })
     }
   },
   setSlitherCellClue: (key, value) => {
@@ -135,7 +104,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         clue: { kind: 'number', value },
       }
     }
-    set({ puzzle: next, selectedPresetId: null })
+    set({ puzzle: next })
   },
   setSlitherEdgeMark: (key, mark) => {
     const { puzzle } = get()
@@ -144,10 +113,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
     const next = clonePuzzle(puzzle)
     next.edges[key] = { ...next.edges[key], mark }
-    set({ puzzle: next, selectedPresetId: null })
+    set({ puzzle: next })
   },
 }))
-
-export const getInitialEditorPreset = (): PuzzlePreset | undefined => puzzlePresets[0]
 
 export const getEditorCellKey = cellKey

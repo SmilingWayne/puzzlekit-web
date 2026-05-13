@@ -63,8 +63,8 @@ export const ControlPanel = () => {
     setShowImportErrorDialog(Boolean(importError))
   }, [importError])
 
-  const solveChunkLabel = `Solve Next ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
-  const previousChunkLabel = `Previous ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
+  const solveChunkLabel = `Next ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
+  const previousChunkLabel = `Prev ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
   const timelineStepForTooltip = timelinePreviewStep ?? pointer
   const timelineTooltipLeft =
     steps.length > 0 ? `${Math.min(100, Math.max(0, (timelineStepForTooltip / steps.length) * 100))}%` : '0%'
@@ -140,7 +140,7 @@ export const ControlPanel = () => {
           <span className="control-group-title">Replay</span>
           <div className="button-row replay-step-row">
             <button disabled={isRunning || pointer === 0} onClick={prevStep}>
-              Previous Step
+              Prev Step
             </button>
             <button disabled={isRunning || terminalReport !== null} onClick={nextStep}>
               Next Step

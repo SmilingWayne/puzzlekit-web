@@ -179,7 +179,7 @@ describe('WorkspacePage', () => {
     useSolverStore.getState().setSolveChunkSize(100)
 
     renderWorkspace()
-    fireEvent.click(screen.getByRole('button', { name: /solve next 100 steps/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next 100 steps/i }))
 
     expect(screen.getByRole('dialog', { name: /solving to end/i })).toBeInTheDocument()
     expect(screen.getByText(/step 0 \/ 100/i)).toBeInTheDocument()
@@ -191,19 +191,19 @@ describe('WorkspacePage', () => {
     expect(screen.getByRole('dialog', { name: /solved/i })).toBeInTheDocument()
     expect(screen.getByText(/total time/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next step/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next step/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /reset replay/i }))
     expect(screen.getByRole('button', { name: /next step/i })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).not.toBeDisabled()
 
-    fireEvent.click(screen.getByRole('button', { name: /solve next 100 steps/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next 100 steps/i }))
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: /solving to end/i })).not.toBeInTheDocument()
     })
@@ -211,7 +211,7 @@ describe('WorkspacePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /reset replay/i }))
 
     expect(screen.getByRole('button', { name: /next step/i })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).not.toBeDisabled()
   })
 
   it('updates solve chunk controls and uses the chosen progress total', async () => {
@@ -229,11 +229,11 @@ describe('WorkspacePage', () => {
 
     renderWorkspace()
 
-    expect(screen.getByRole('button', { name: /solve next 50 steps/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next 50 steps/i })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText(/step chunk/i), { target: { value: '25' } })
-    expect(screen.getByRole('button', { name: /solve next 25 steps/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next 25 steps/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /solve next 25 steps/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next 25 steps/i }))
     expect(screen.getByRole('dialog', { name: /solving to end/i })).toBeInTheDocument()
     expect(screen.getByText(/step 0 \/ 25/i)).toBeInTheDocument()
 
@@ -266,12 +266,12 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/showing 3 \/ 3/i)).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/step chunk/i), { target: { value: '2' } })
-    fireEvent.click(screen.getByRole('button', { name: /^previous 2 steps$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^prev 2 steps$/i }))
 
     expect(screen.getByText(/showing 1 \/ 1/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('1')
 
-    fireEvent.click(screen.getByRole('button', { name: /^previous 2 steps$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^prev 2 steps$/i }))
 
     expect(screen.getByText(/showing 0 \/ 0/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('0')
@@ -401,13 +401,13 @@ describe('WorkspacePage', () => {
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
     renderWorkspace()
 
-    const previousButton = screen.getByRole('button', { name: /previous step/i })
+    const previousButton = screen.getByRole('button', { name: /prev step/i })
     const nextButton = screen.getByRole('button', { name: /next step/i })
     expect(
       previousButton.compareDocumentPosition(nextButton) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
 
-    const previousChunkButton = screen.getByRole('button', { name: /previous 50 steps/i })
+    const previousChunkButton = screen.getByRole('button', { name: /prev 50 steps/i })
     const timeline = screen.getByLabelText(/replay timeline/i)
     expect(
       nextButton.compareDocumentPosition(previousChunkButton) & Node.DOCUMENT_POSITION_FOLLOWING,

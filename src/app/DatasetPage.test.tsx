@@ -120,6 +120,5 @@ describe('DatasetPage', () => {
     expect(useEditorStore.getState().sourceUrl).toBe(
       'https://puzz.link/p?slither/10/10/372d23djdh738adl72882dj18538ald838dhaj21d272c',
     )
-    expect(useEditorStore.getState().selectedPresetId).toBeNull()
   })
 })

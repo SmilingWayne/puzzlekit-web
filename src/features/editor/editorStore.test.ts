@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { cellKey, edgeKey } from '../../domain/ir/keys'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
-import { puzzlePresets } from './presets'
 import { useEditorStore } from './editorStore'
 
 const SAMPLE_URL = 'https://puzz.link/p?slither/3/3/g0h'
@@ -41,14 +40,4 @@ describe('editor store', () => {
     expect(after.puzzle.cols).toBe(3)
   })
 
-  it('loads typed presets with metadata and parsed puzzle data', () => {
-    const preset = puzzlePresets[0]
-    useEditorStore.getState().loadPreset(preset)
-
-    const after = useEditorStore.getState()
-    expect(after.selectedPresetId).toBe(preset.id)
-    expect(after.puzzle.rows).toBe(preset.rows)
-    expect(after.puzzle.cols).toBe(preset.cols)
-    expect(preset.tags.length).toBeGreaterThan(0)
-  })
 })

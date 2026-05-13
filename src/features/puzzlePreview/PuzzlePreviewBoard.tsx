@@ -132,7 +132,7 @@ type PuzzlePreviewBoardProps = {
 export const PuzzlePreviewBoard = ({
   puzzle,
   label,
-  className = 'preset-preview-canvas',
+  className = 'puzzle-preview-canvas',
   width = DEFAULT_PREVIEW_WIDTH,
   height = DEFAULT_PREVIEW_HEIGHT,
   padding = DEFAULT_PREVIEW_PADDING,
