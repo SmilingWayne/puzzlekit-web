@@ -133,6 +133,99 @@
   color: #6b7280;
 }
 
+.puzzle-stats-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.puzzle-stats-info-trigger {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: help;
+  font-size: 0.68rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 2px;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.puzzle-stats-info-trigger:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+
+.puzzle-stats-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  width: 240px;
+  gap: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  box-shadow: 0 14px 34px rgb(15 23 42 / 0.16);
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  padding: 10px;
+}
+
+.puzzle-stats-panel[hidden] {
+  display: none;
+}
+
+.puzzle-stats-panel strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.puzzle-stats-summary {
+  color: #475569;
+}
+
+.puzzle-stats-group {
+  display: grid;
+  gap: 4px;
+}
+
+.puzzle-stats-group-title {
+  color: #0f172a;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.puzzle-stats-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.puzzle-stats-row > span:last-child {
+  display: inline-flex;
+  gap: 6px;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.puzzle-stats-row small {
+  color: #64748b;
+  font-size: inherit;
+  font-weight: 600;
+}
+
 .board-focus-shell {
   outline: none;
 }

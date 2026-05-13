@@ -13,9 +13,11 @@ import {
   type SectorCorner,
 } from '../../domain/ir/types'
 import type { PuzzleIR } from '../../domain/ir/types'
+import { PuzzleStatsInfoButton } from '../puzzleStats/PuzzleStatsInfoButton'
 
 type Props = {
   puzzle: PuzzleIR
+  pluginId: string
   highlightedEdges: string[]
   highlightedCells: string[]
   highlightedColorCells: string[]
@@ -48,6 +50,7 @@ const getSectorArcAngles = (corner: SectorCorner): [number, number] => {
 
 export const CanvasBoard = ({
   puzzle,
+  pluginId,
   highlightedEdges,
   highlightedCells,
   highlightedColorCells,
@@ -298,6 +301,7 @@ export const CanvasBoard = ({
           <span className="board-dimensions">
             {puzzle.rows} × {puzzle.cols}
           </span>
+          <PuzzleStatsInfoButton pluginId={pluginId} puzzle={puzzle} />
         </h2>
         <div className="board-header-tools">
           <small>

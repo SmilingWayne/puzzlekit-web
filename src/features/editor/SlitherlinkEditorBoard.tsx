@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cellKey, edgeKey, parseCellKey, parseEdgeKey } from '../../domain/ir/keys'
 import type { EdgeMark, NumberClueValue, PuzzleIR } from '../../domain/ir/types'
+import { PuzzleStatsInfoButton } from '../puzzleStats/PuzzleStatsInfoButton'
 import type { SlitherClueDraft } from './editorStore'
 
 type Props = {
   puzzle: PuzzleIR
+  pluginId: string
   onCellClueChange: (key: string, value: SlitherClueDraft) => void
   onEdgeMarkChange: (key: string, mark: EdgeMark) => void
 }
@@ -61,6 +63,7 @@ const isCellKeyInPuzzle = (key: string, puzzle: PuzzleIR): boolean => {
 
 export const SlitherlinkEditorBoard = ({
   puzzle,
+  pluginId,
   onCellClueChange,
   onEdgeMarkChange,
 }: Props) => {
@@ -377,6 +380,7 @@ export const SlitherlinkEditorBoard = ({
           <span className="board-dimensions">
             {puzzle.rows} × {puzzle.cols}
           </span>
+          <PuzzleStatsInfoButton pluginId={pluginId} puzzle={puzzle} />
         </h2>
         <div className="board-header-tools">
           <small>Click/type clues, drag edges</small>

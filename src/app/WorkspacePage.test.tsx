@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { cellKey, edgeKey } from '../domain/ir/keys'
 import { createSlitherPuzzle } from '../domain/ir/slither'
@@ -162,6 +162,32 @@ describe('WorkspacePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /show slitherlink rules/i }))
     fireEvent.click(screen.getByRole('button', { name: /close slitherlink rules/i }))
     expect(screen.queryByRole('dialog', { name: /slitherlink rules/i })).not.toBeInTheDocument()
+  })
+
+  it('shows slitherlink puzzle stats from the solver board title', () => {
+    const puzzle = createSlitherPuzzle(10, 10)
+    puzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 0 } }
+    puzzle.cells[cellKey(0, 1)] = { clue: { kind: 'number', value: 1 } }
+    puzzle.cells[cellKey(0, 2)] = { clue: { kind: 'number', value: 1 } }
+    puzzle.cells[cellKey(0, 3)] = { clue: { kind: 'number', value: 2 } }
+    puzzle.cells[cellKey(0, 4)] = { clue: { kind: 'number', value: 3 } }
+    puzzle.cells[cellKey(0, 5)] = { clue: { kind: 'number', value: '?' } }
+    useSolverStore.getState().loadPuzzle(puzzle, { pluginId: 'slitherlink' })
+
+    renderWorkspace()
+
+    const boardTools = document.querySelector('.board-header-tools')
+    expect(boardTools?.children[0]?.tagName).toBe('SMALL')
+    expect(boardTools?.children[1]).toHaveClass('board-zoom-control')
+
+    fireEvent.focus(screen.getByRole('button', { name: /show puzzle stats/i }))
+
+    const statsTooltip = screen.getByRole('tooltip')
+    expect(within(statsTooltip).getByText('Numbered Cells')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('Numbered cells 5 / 100 (5.0%)')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('Clue 0')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('Clue 1')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('40.0%')).toBeInTheDocument()
   })
 
   it('shows solve progress, then terminal report, and keeps solve buttons disabled after close', async () => {

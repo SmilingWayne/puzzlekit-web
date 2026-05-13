@@ -161,6 +161,27 @@ describe('EditorPage', () => {
     expect(useEditorStore.getState().puzzle.edges[topEdge]?.mark).toBe('line')
   })
 
+  it('updates slitherlink puzzle stats as editor clues change', () => {
+    render(
+      <MemoryRouter initialEntries={['/editor']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const canvas = screen.getByLabelText(/slitherlink editor canvas/i) as HTMLCanvasElement
+    mockCanvasRect(canvas)
+
+    fireEvent.focus(screen.getByRole('button', { name: /show puzzle stats/i }))
+    expect(within(screen.getByRole('tooltip')).getByText('Numbered cells 0 / 25 (0.0%)')).toBeInTheDocument()
+
+    clickCanvas(canvas, 74, 74)
+    fireEvent.keyDown(canvas, { key: '3' })
+
+    expect(within(screen.getByRole('tooltip')).getByText('Numbered cells 1 / 25 (4.0%)')).toBeInTheDocument()
+    expect(within(screen.getByRole('tooltip')).getByText('Clue 3')).toBeInTheDocument()
+    expect(within(screen.getByRole('tooltip')).getByText('100.0%')).toBeInTheDocument()
+  })
+
   it('marks crosses with a strict right-click edge target', () => {
     render(
       <MemoryRouter initialEntries={['/editor']}>

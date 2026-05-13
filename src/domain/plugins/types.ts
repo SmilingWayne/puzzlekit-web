@@ -54,11 +54,29 @@ export type PuzzleHelpContent = {
   }
 }
 
+export type PuzzleStatsItem = {
+  label: string
+  value: string
+  detail?: string
+}
+
+export type PuzzleStatsGroup = {
+  title: string
+  items: PuzzleStatsItem[]
+}
+
+export type PuzzleStatsContent = {
+  title: string
+  summary: string
+  groups: PuzzleStatsGroup[]
+}
+
 export interface PuzzlePlugin {
   id: string
   displayName: string
   help?: PuzzleHelpContent
   legend?: PuzzleLegendContent
+  getStats?: (puzzle: PuzzleIR) => PuzzleStatsContent | null
   parse: (input: string) => PuzzleIR
   encode: (puzzle: PuzzleIR) => string
   getRules: () => Rule[]

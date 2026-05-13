@@ -9,6 +9,7 @@ import './workspace.css'
 
 export const WorkspacePage = () => {
   const {
+    pluginId,
     currentPuzzle,
     steps,
     pointer,
@@ -40,6 +41,7 @@ export const WorkspacePage = () => {
           </header>
           <CanvasBoard
             puzzle={currentPuzzle}
+            pluginId={pluginId}
             highlightedCells={highlightedCells}
             highlightedColorCells={highlightedColorCells}
             highlightedEdges={highlightedEdges}

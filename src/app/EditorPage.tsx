@@ -66,6 +66,7 @@ export const EditorPage = () => {
           </header>
           <SlitherlinkEditorBoard
             puzzle={puzzle}
+            pluginId={pluginId}
             onCellClueChange={setSlitherCellClue}
             onEdgeMarkChange={setSlitherEdgeMark}
           />

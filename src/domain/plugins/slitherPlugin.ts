@@ -1,7 +1,13 @@
 import { decodeSlitherFromPuzzlink, encodeSlitherToPuzzlink } from '../parsers/puzzlink'
 import { decodeSlitherFromPenpa } from '../parsers/penpa'
 import { slitherRules } from '../rules/slither/rules'
-import type { PuzzleHelpContent, PuzzleLegendContent, PuzzlePlugin } from './types'
+import type { PuzzleIR } from '../ir/types'
+import type {
+  PuzzleHelpContent,
+  PuzzleLegendContent,
+  PuzzlePlugin,
+  PuzzleStatsContent,
+} from './types'
 
 const parseSlitherInput = (input: string) => {
   try {
@@ -195,11 +201,69 @@ const slitherLegend: PuzzleLegendContent = {
   ],
 }
 
+const formatPercent = (count: number, total: number): string => {
+  if (total <= 0) {
+    return '0.0%'
+  }
+  return `${((count / total) * 100).toFixed(1)}%`
+}
+
+export const getSlitherStats = (puzzle: PuzzleIR): PuzzleStatsContent => {
+  const clueCounts = new Map<number, number>([
+    [0, 0],
+    [1, 0],
+    [2, 0],
+    [3, 0],
+  ])
+  let numberedCellCount = 0
+
+  Object.values(puzzle.cells).forEach((cell) => {
+    if (cell.clue?.kind !== 'number' || typeof cell.clue.value !== 'number') {
+      return
+    }
+    numberedCellCount += 1
+    if (clueCounts.has(cell.clue.value)) {
+      clueCounts.set(cell.clue.value, (clueCounts.get(cell.clue.value) ?? 0) + 1)
+    }
+  })
+
+  const totalCells = puzzle.rows * puzzle.cols
+
+  return {
+    title: 'Puzzle Stats',
+    summary: `Numbered cells ${numberedCellCount} / ${totalCells} (${formatPercent(numberedCellCount, totalCells)})`,
+    groups: [
+      {
+        title: 'Numbered Cells',
+        items: [
+          {
+            label: 'Total',
+            value: `${numberedCellCount} / ${totalCells}`,
+            detail: formatPercent(numberedCellCount, totalCells),
+          },
+        ],
+      },
+      {
+        title: 'Clue Distribution',
+        items: [0, 1, 2, 3].map((clue) => {
+          const count = clueCounts.get(clue) ?? 0
+          return {
+            label: `Clue ${clue}`,
+            value: String(count),
+            detail: formatPercent(count, numberedCellCount),
+          }
+        }),
+      },
+    ],
+  }
+}
+
 export const slitherPlugin: PuzzlePlugin = {
   id: 'slitherlink',
   displayName: 'Slitherlink',
   help: slitherHelp,
   legend: slitherLegend,
+  getStats: getSlitherStats,
   parse: parseSlitherInput,
   encode: encodeSlitherToPuzzlink,
   getRules: () => slitherRules,
