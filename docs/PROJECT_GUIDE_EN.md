@@ -58,6 +58,7 @@ Design rule:
 - UI should render and orchestrate.
 - Domain should decide logic.
 - The solver workspace and puzzle editor are separate product surfaces that exchange normalized `PuzzleIR`.
+- Puzzle-specific behavior should enter through `PuzzlePlugin` or puzzle-specific feature modules, not shared solver orchestration.
 
 ---
 
@@ -69,13 +70,32 @@ Design rule:
 4. Rule engine runs ordered rules and returns one step at a time.
 5. Each step stores rule metadata + explicit diffs.
 6. Timeline store replays diffs forward/backward.
-7. Board and explanation panel render current state + reasoning history.
+7. Board, stats, and explanation panels render current state + reasoning history.
 
 This guarantees the same inference chain can be replayed and inspected later.
 
 ---
 
-## 5. Benchmark and Dataset Flow
+## 5. Plugin Contract
+
+Puzzle families are registered in `src/domain/plugins/registry.ts`.
+
+Each `PuzzlePlugin` owns the puzzle-family boundary:
+
+- `parse(input)` converts supported source input into normalized `PuzzleIR`.
+- `encode(puzzle)` exports a puzzle back to a supported URL/string format.
+- `getRules()` returns the ordered rule list used by the solver.
+- `help` optionally powers the puzzle rules popout.
+- `legend` optionally powers board legend examples.
+- `getStats(puzzle)` optionally powers compact board-title puzzle stats via `PuzzleStatsInfoButton`.
+
+The current registry includes Slitherlink plus planned Masyu/Nonogram stubs. The
+stubs are visible as future puzzle families but do not yet parse, render, edit,
+or solve real puzzles.
+
+---
+
+## 6. Benchmark and Dataset Flow
 
 Benchmarks evaluate solver behavior across JSON dataset manifests. They are for
 solver quality and rule-usage analysis, not for unit-test correctness.
@@ -107,20 +127,23 @@ Report intent:
 - `steps` is intentionally an empty array for now to keep large reports small.
 - `ruleSteps[ruleId] = [stepNumbers...]` records where each rule fired.
 
+The Dataset page browses public manifests, renders compact puzzle previews, and
+can load a puzzle into either Solver or Editor.
+
 ---
 
-## 6. Slitherlink Rule Architecture (Current)
+## 7. Slitherlink Rule Architecture (Current)
 
 The Slitherlink rules are now modularized under `src/domain/rules/slither/rules/`.
 
-### 6.1 Aggregation entrypoint
+### 7.1 Aggregation entrypoint
 
 - `src/domain/rules/slither/rules.ts`
   - Exports `deterministicSlitherRules` in a fixed order
   - Exports `slitherRules = deterministic + strong-inference`
   - Serves as the single place for execution-order control
 
-### 6.2 Rule modules
+### 7.2 Rule modules
 
 - `patterns.ts`
   - pattern-style clue rules (e.g. contiguous 3-run, diagonal adjacent 3)
@@ -141,7 +164,7 @@ The Slitherlink rules are now modularized under `src/domain/rules/slither/rules/
 - `shared.ts`
   - reusable helpers (geometry adjacency, clue/color utilities, mask helpers)
 
-### 6.3 Branch inference decoupling
+### 7.3 Branch inference decoupling
 
 Branch-based inference rules should not self-reference the exported
 `slitherRules` array. They receive deterministic rules via dependency
@@ -153,7 +176,7 @@ This prevents circular coupling and keeps branch inference reusable/testable.
 
 ---
 
-## 7. Sector Constraint Model (Critical)
+## 8. Sector Constraint Model (Critical)
 
 Sector state is represented as a bitmask of allowed corner line counts `{0,1,2}`.
 
@@ -166,7 +189,7 @@ Do not revert to old single-label sector semantics.
 
 ---
 
-## 8. Replay and Determinism Contract
+## 9. Replay and Determinism Contract
 
 Two files must stay behaviorally aligned:
 
@@ -181,28 +204,32 @@ If these two paths diverge, timeline replay and solver state will drift.
 
 ---
 
-## 9. Current Capability Snapshot
+## 10. Current Capability Snapshot
 
 Implemented:
 
-- Dedicated solver workspace for import, solving, replay, explanation, stats, and export
+- Dedicated solver workspace for import, solving, replay, explanation, live stats, terminal reports, and export
 - Dedicated editor workspace for puzzle construction before loading into the solver
+- Public Dataset page with filters, compact previews, and load-to-Solver/Editor actions
 - Slitherlink puzz.link parse/encode baseline
 - Slitherlink Penpa import baseline
 - Slitherlink editor tools for clues, pre-drawn line edges, crossed/blank edges, erasing, custom grid sizes, and built-in presets
+- Plugin-powered rule help, board legend, and compact board-title puzzle stats
+- Slitherlink board stats for numeric clue count and 0/1/2/3 clue distribution
 - Ordered rule execution with step metadata
 - Step replay (`Next`, `Previous`, `Solve to End`)
 - Explanation-oriented deduction trace
 - Sector mask inference/propagation pipeline
 - Strong-inference fallback for harder states
+- Slitherlink completion analysis for solved/stalled terminal reports
 - Public/private benchmark manifest workflow
 - Compact benchmark reports with solve status, timing, rule usage, and rule step indices
+- GitHub Pages release workflow for tagged builds
 
 Partially implemented / planned:
 
-- More puzzle families (e.g. Masyu/Nonogram)
+- Masyu and Nonogram plugin stubs only; real parsers, renderers, editors, rules, and completion checks are still planned
 - Puzzle-specific editor support for each puzzle family
-- Dataset browsing as a product surface
 - Canvas interaction and rendering optimization for larger boards and richer editor states
 - Penpa adapter/export completeness
 - Better calibrated difficulty modeling
@@ -211,16 +238,17 @@ Important expectation: difficult puzzles may stop at a stable but incomplete sta
 
 ---
 
-## 10. AI Agent Quick Start
+## 11. AI Agent Quick Start
 
 If you are an AI agent onboarding this repository, do this first:
 
 1. Read `src/domain/rules/types.ts` and `src/domain/rules/engine.ts`.
-2. Read `src/domain/rules/slither/rules.ts` to understand execution order.
-3. Read `src/domain/rules/slither/rules/*.ts` by module category.
-4. Verify replay contract in `src/features/solver/solverStore.ts`.
-5. For benchmark work, read `src/domain/benchmark/runner.ts` and `scripts/benchmark-solve.ts`.
-6. Use `src/domain/rules/slither/rules.test.ts` and `src/domain/benchmark/*.test.ts` as behavior references.
+2. Read `src/domain/plugins/types.ts` and `src/domain/plugins/registry.ts`.
+3. Read `src/features/solver/solverStore.ts` to verify replay and terminal-report behavior.
+4. For Slitherlink work, read `src/domain/rules/slither/rules.ts` and the rule modules by category.
+5. For editor/UI work, inspect the relevant `src/features/*` component and page tests first.
+6. For benchmark work, read `src/domain/benchmark/runner.ts` and `scripts/benchmark-solve.ts`.
+7. Use `src/domain/rules/slither/rules.test.ts`, page tests, and benchmark tests as behavior references.
 
 When editing:
 
@@ -232,7 +260,7 @@ When editing:
 
 ---
 
-## 11. Development Commands
+## 12. Development Commands
 
 - `pnpm install` - install dependencies using the locked pnpm dependency graph
 - `pnpm dev` - local development
@@ -242,7 +270,7 @@ When editing:
 - `pnpm build` - production build
 - `pnpm test:e2e` - Playwright end-to-end tests
 
-## 12. Deployment and Release Flow
+## 13. Deployment and Release Flow
 
 - Package management is standardized on pnpm 10.33.0 via the `packageManager`
   field in `package.json`. GitHub Actions installs that pnpm version before
