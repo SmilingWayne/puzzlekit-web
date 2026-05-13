@@ -244,8 +244,9 @@ When editing:
 
 ## 12. Deployment and Release Flow
 
-- Package management is standardized on pnpm 10.33.0 via Corepack and the
-  `packageManager` field in `package.json`.
+- Package management is standardized on pnpm 10.33.0 via the `packageManager`
+  field in `package.json`. GitHub Actions installs that pnpm version before
+  enabling `actions/setup-node` pnpm caching.
 - CI runs on pushes and pull requests targeting `main`; it installs with
   `pnpm install --frozen-lockfile`, then runs linting, unit tests, and build.
 - GitHub Pages deployment is triggered by pushing a `v*` tag. The deployment
