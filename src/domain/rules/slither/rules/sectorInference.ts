@@ -18,7 +18,7 @@ import {
   sectorMaskIntersect,
 } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
-import { maskForExactLineCount } from './shared'
+import { formatSectorLabel, maskForExactLineCount } from './shared'
 
 const inferSectorMaskByVertex = (
   puzzle: PuzzleIR,
@@ -144,6 +144,7 @@ export const createApplySectorsInference = (): Rule => ({
     const diffs: RuleApplication['diffs'] = []
     const affectedCells = new Set<string>()
     const affectedSectors: string[] = []
+    let firstSector: string | null = null
     for (let r = 0; r < puzzle.rows; r += 1) {
       for (let c = 0; c < puzzle.cols; c += 1) {
         for (const corner of corners) {
@@ -162,6 +163,9 @@ export const createApplySectorsInference = (): Rule => ({
           })
           affectedCells.add(cellKey(r, c))
           affectedSectors.push(key)
+          if (firstSector === null) {
+            firstSector = formatSectorLabel(r, c, corner)
+          }
         }
       }
     }
@@ -169,7 +173,10 @@ export const createApplySectorsInference = (): Rule => ({
       return null
     }
     return {
-      message: 'Apply Sectors from Vertex: inferred corner sector constraints from current edges.',
+      message:
+        firstSector !== null
+          ? `Sector ${firstSector}: existing edge, vertex, and clue constraints narrow the allowed corner line counts.`
+          : 'Existing edge, vertex, and clue constraints narrow allowed corner sector line counts.',
       diffs,
       affectedCells: [...affectedCells],
       affectedSectors,

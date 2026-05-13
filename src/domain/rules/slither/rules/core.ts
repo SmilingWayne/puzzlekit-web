@@ -1,6 +1,7 @@
 import { getCellEdgeKeys, getVertexIncidentEdges, parseCellKey, parseEdgeKey } from '../../../ir/keys'
 import type { EdgeMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
+import { formatCellLabel, formatEdgeLabel, formatVertexLabel } from './shared'
 
 const numberClueCellKeysCache = new WeakMap<PuzzleIR['cells'], string[]>()
 
@@ -26,6 +27,7 @@ export const createCellCountRule = (): Rule => ({
     const decidedEdges = new Map<string, EdgeMark>()
     const affectedCells = new Set<string>()
     let firstExample: string | null = null
+    let firstReason: string | null = null
 
     for (const key of getNumberClueCellKeys(puzzle)) {
       const cell = puzzle.cells[key]
@@ -50,10 +52,13 @@ export const createCellCountRule = (): Rule => ({
       }
 
       let toMark: EdgeMark | null = null
+      let reason: string | null = null
       if (lineCount === clue) {
         toMark = 'blank'
+        reason = `the clue already has ${clue} line(s), so every remaining unknown edge is blank`
       } else if (lineCount + unknownEdges.length === clue) {
         toMark = 'line'
+        reason = `all remaining unknown edge(s) are needed to reach clue ${clue}, so they are lines`
       }
       if (toMark === null) continue
 
@@ -67,7 +72,10 @@ export const createCellCountRule = (): Rule => ({
 
       if (addedAny) {
         affectedCells.add(key)
-        if (firstExample === null) firstExample = `(${row}, ${col})`
+        if (firstExample === null) {
+          firstExample = formatCellLabel(row, col)
+          firstReason = reason
+        }
       }
     }
 
@@ -77,7 +85,7 @@ export const createCellCountRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: clue completion applied.`
+          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: ${firstReason}.`
           : 'Cell clue completion applied.',
       diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
         kind: 'edge' as const,
@@ -96,6 +104,7 @@ export const createVertexDegreeRule = (): Rule => ({
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedEdges = new Map<string, EdgeMark>()
     let firstVertex: string | null = null
+    let firstReason: string | null = null
 
     for (let r = 0; r <= puzzle.rows; r += 1) {
       for (let c = 0; c <= puzzle.cols; c += 1) {
@@ -119,16 +128,20 @@ export const createVertexDegreeRule = (): Rule => ({
 
         let toMark: EdgeMark | null = null
         let edgesToDecide: string[] = []
+        let reason: string | null = null
 
         if (lineCount === 2) {
           toMark = 'blank'
           edgesToDecide = unknownEdges
+          reason = 'it already has degree 2, so all other incident edges are blank'
         } else if (lineCount === 1 && unknownEdges.length === 1) {
           toMark = 'line'
           edgesToDecide = [unknownEdges[0]]
+          reason = 'one line must continue through the only remaining unknown edge'
         } else if (lineCount === 0 && unknownEdges.length === 1) {
           toMark = 'blank'
           edgesToDecide = [unknownEdges[0]]
+          reason = 'using the only remaining unknown edge would leave a dead-end degree 1 vertex'
         }
 
         if (toMark === null) continue
@@ -142,7 +155,8 @@ export const createVertexDegreeRule = (): Rule => ({
         }
 
         if (addedAny && firstVertex === null) {
-          firstVertex = `(${r}, ${c})`
+          firstVertex = formatVertexLabel(r, c)
+          firstReason = reason
         }
       }
     }
@@ -151,7 +165,7 @@ export const createVertexDegreeRule = (): Rule => ({
 
     return {
       message:
-        firstVertex !== null ? `Vertex ${firstVertex}: degree rule applied.` : 'Vertex degree rule applied.',
+        firstVertex !== null ? `Vertex ${firstVertex}: ${firstReason}.` : 'Vertex degree rule applied.',
       diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
         kind: 'edge' as const,
         edgeKey,
@@ -215,7 +229,7 @@ export const createPreventPrematureLoopRule = (): Rule => ({
       }
       decidedEdges.set(edgeKeyValue, 'blank')
       if (firstExample === null) {
-        firstExample = edgeKeyValue
+        firstExample = formatEdgeLabel(edgeKeyValue)
       }
     }
 
@@ -226,8 +240,8 @@ export const createPreventPrematureLoopRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Edge ${firstExample} would close a premature loop, so matching edges are blanked.`
-          : 'Edges that would close a premature loop are blanked.',
+          ? `${firstExample} would close the current path into a smaller loop, so it must be blank.`
+          : 'Edges that would close the current path into a smaller loop are blank.',
       diffs: [...decidedEdges.entries()].map(([edgeKeyValue, to]) => ({
         kind: 'edge' as const,
         edgeKey: edgeKeyValue,

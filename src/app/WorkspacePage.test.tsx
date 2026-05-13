@@ -55,6 +55,43 @@ describe('WorkspacePage', () => {
       'aria-pressed',
       'false',
     )
+    const boardTools = document.querySelector('.board-header-tools')
+    expect(boardTools?.children[0]?.tagName).toBe('SMALL')
+    expect(boardTools?.children[1]).toHaveClass('board-zoom-control')
+    const typeControls = document.querySelector('.type-row-controls')
+    expect(typeControls?.children[1]?.querySelector('[aria-label="Show Slitherlink rules"]')).not.toBeNull()
+    expect(typeControls?.children[2]?.querySelector('[aria-label="Show Slitherlink legend"]')).not.toBeNull()
+  })
+
+  it('opens slitherlink board legend from the puzzle type row', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink legend/i }))
+
+    const legendDialog = screen.getByRole('dialog', { name: /slitherlink legend/i })
+    expect(legendDialog).toBeInTheDocument()
+    expect(legendDialog).toHaveClass('board-legend-panel')
+    expect(legendDialog).toHaveAttribute('aria-modal', 'false')
+    expect(screen.getByText('Only One')).toBeInTheDocument()
+    expect(screen.getByText('NOT ONE')).toBeInTheDocument()
+    expect(screen.getByText('NOT ZERO')).toBeInTheDocument()
+    expect(screen.getByText('NOT TWO')).toBeInTheDocument()
+    expect(screen.getByText('YELLOW')).toBeInTheDocument()
+    expect(screen.getByText('GREEN')).toBeInTheDocument()
+    expect(screen.getByText(/ONLY have ONE connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/cannot have exactly one connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/cannot have ZERO connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/cannot both be connected/i)).toBeInTheDocument()
+    expect(screen.getByText(/outside the final loop/i)).toBeInTheDocument()
+    expect(screen.getByText(/inside the final loop/i)).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/legend canvas/i)).toHaveLength(6)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /slitherlink legend/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink legend/i }))
+    fireEvent.click(screen.getByRole('button', { name: /close slitherlink legend/i }))
+    expect(screen.queryByRole('dialog', { name: /slitherlink legend/i })).not.toBeInTheDocument()
   })
 
   it('shows import errors in a closeable dialog with expandable details', () => {
@@ -90,17 +127,41 @@ describe('WorkspacePage', () => {
     expect(exportDialog).toBeInTheDocument()
     expect(exportDialog).toHaveClass('export-panel')
     expect(exportDialog).toHaveAttribute('aria-modal', 'false')
-    expect(screen.getByRole('button', { name: /close export/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^close export$/i })).toHaveAttribute(
       'data-active',
       'true',
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /close export/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^close export$/i }))
     expect(screen.queryByRole('dialog', { name: /export puzzle/i })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /export/i }))
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    fireEvent.click(screen.getByRole('button', { name: /close export panel/i }))
     expect(screen.queryByRole('dialog', { name: /export puzzle/i })).not.toBeInTheDocument()
+  })
+
+  it('opens slitherlink rules as a closeable puzzle info popout', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink rules/i }))
+
+    const infoDialog = screen.getByRole('dialog', { name: /slitherlink rules/i })
+    expect(infoDialog).toBeInTheDocument()
+    expect(infoDialog).toHaveClass('puzzle-info-panel')
+    expect(infoDialog).toHaveAttribute('aria-modal', 'false')
+    expect(screen.getByText(/draw lines along the edges/i)).toBeInTheDocument()
+    expect(screen.getByText(/the loop cannot branch off or cross itself/i)).toBeInTheDocument()
+    expect(screen.getByText(/a number indicates the amount of edges/i)).toBeInTheDocument()
+    expect(screen.queryByText(/in puzzlekit/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/before example canvas/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/after example canvas/i)).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /slitherlink rules/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink rules/i }))
+    fireEvent.click(screen.getByRole('button', { name: /close slitherlink rules/i }))
+    expect(screen.queryByRole('dialog', { name: /slitherlink rules/i })).not.toBeInTheDocument()
   })
 
   it('shows solve progress, then terminal report, and keeps solve buttons disabled after close', async () => {

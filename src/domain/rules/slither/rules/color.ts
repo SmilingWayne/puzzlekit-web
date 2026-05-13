@@ -1,15 +1,21 @@
 import { cellKey, edgeKey, sectorKey } from '../../../ir/keys'
 import {
+  SECTOR_MASK_NOT_1,
   SECTOR_MASK_ONLY_1,
   type EdgeMark,
   type PuzzleIR,
+  type SectorConstraintMask,
   type SectorCorner,
   sectorMaskAllows,
+  sectorMaskIntersect,
 } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
 import {
   getCellNeighborKeys,
   getEdgeAdjacentCellKeys,
+  formatCellKeyLabel,
+  formatEdgeLabel,
+  formatSectorLabel,
   isSlitherCellColor,
   oppositeSlitherCellColor,
   type SlitherCellColor,
@@ -22,6 +28,7 @@ export const createColorEdgePropagationRule = (): Rule => ({
     const decidedEdges = new Map<string, EdgeMark>()
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
+    let firstReason: string | null = null
 
     const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
       const decided = decidedCellFills.get(key)
@@ -87,6 +94,12 @@ export const createColorEdgePropagationRule = (): Rule => ({
         }
         if (decidedEdges.get(edgeKeyValue) === toMark) {
           affectedCells.add(cell)
+          if (firstReason === null) {
+            firstReason =
+              toMark === 'line'
+                ? `${formatCellKeyLabel(cell)} is inside, so boundary ${formatEdgeLabel(edgeKeyValue)} must be a line`
+                : `${formatCellKeyLabel(cell)} is outside, so boundary ${formatEdgeLabel(edgeKeyValue)} must be blank`
+          }
         }
         continue
       }
@@ -103,6 +116,12 @@ export const createColorEdgePropagationRule = (): Rule => ({
       if (decidedEdges.get(edgeKeyValue) === toMark) {
         affectedCells.add(cellA)
         affectedCells.add(cellB)
+        if (firstReason === null) {
+          firstReason =
+            toMark === 'line'
+              ? `${formatCellKeyLabel(cellA)} and ${formatCellKeyLabel(cellB)} have different colors, so their shared edge is a line`
+              : `${formatCellKeyLabel(cellA)} and ${formatCellKeyLabel(cellB)} have the same color, so their shared edge is blank`
+        }
       }
     }
 
@@ -135,6 +154,12 @@ export const createColorEdgePropagationRule = (): Rule => ({
       }
       affectedCells.add(cellA)
       affectedCells.add(cellB)
+      if (firstReason === null) {
+        firstReason =
+          effectiveMark === 'line'
+            ? `${formatEdgeLabel(edgeKeyValue)} is a line, so adjacent cells must have opposite colors`
+            : `${formatEdgeLabel(edgeKeyValue)} is blank, so adjacent cells must have the same color`
+      }
     }
 
     if (decidedEdges.size === 0 && decidedCellFills.size === 0) {
@@ -159,7 +184,7 @@ export const createColorEdgePropagationRule = (): Rule => ({
     const edgeCount = decidedEdges.size
     const colorCount = decidedCellFills.size
     return {
-      message: `Color-edge propagation applied (${edgeCount} edge update(s), ${colorCount} color update(s)).`,
+      message: `${firstReason ?? 'Known color-edge relations propagate across the grid'} (${edgeCount} edge update(s), ${colorCount} color update(s)).`,
       diffs,
       affectedCells: [...affectedCells],
     }
@@ -246,6 +271,7 @@ export const createColorOutsideSeedingRule = (): Rule => ({
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
     const anchoredRootColors = new Map<string, SlitherCellColor>()
+    let firstInferredCell: string | null = null
 
     for (let row = 0; row < puzzle.rows; row += 1) {
       for (let col = 0; col < puzzle.cols; col += 1) {
@@ -316,6 +342,9 @@ export const createColorOutsideSeedingRule = (): Rule => ({
         const inferredColor = applyParity(rootColor, parity)
         decidedCellFills.set(key, inferredColor)
         affectedCells.add(key)
+        if (firstInferredCell === null) {
+          firstInferredCell = formatCellKeyLabel(key)
+        }
       }
     }
 
@@ -324,7 +353,7 @@ export const createColorOutsideSeedingRule = (): Rule => ({
     }
 
     return {
-      message: `Color outside seeding applied (${decidedCellFills.size} color update(s)).`,
+      message: `Known colors and boundary edges anchor a parity component, so ${firstInferredCell ?? 'matching cells'} inherit inside/outside color (${decidedCellFills.size} color update(s)).`,
       diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
@@ -342,6 +371,7 @@ export const createColorCluePropagationRule = (): Rule => ({
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
+    let firstReason: string | null = null
 
     const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
       const decided = decidedCellFills.get(key)
@@ -372,27 +402,64 @@ export const createColorCluePropagationRule = (): Rule => ({
       const clue = Number(cell.clue.value)
       const neighbors = getCellNeighborKeys(puzzle, cellKeyValue)
       const innercnt = neighbors.filter((k) => getEffectiveCellColor(k) === 'green').length
-      const outercnt = neighbors.filter((k) => getEffectiveCellColor(k) === 'yellow').length
+      const boundaryOutercnt = 4 - neighbors.length
+      const outercnt =
+        neighbors.filter((k) => getEffectiveCellColor(k) === 'yellow').length + boundaryOutercnt
 
       if (clue < innercnt || 4 - clue < outercnt) {
-        rememberCellFill(cellKeyValue, 'green')
+        if (rememberCellFill(cellKeyValue, 'green') && firstReason === null) {
+          firstReason = `${formatCellKeyLabel(cellKeyValue)} must be inside; the neighboring outside/inside counts would otherwise exceed clue ${clue}`
+        }
       }
       if (clue < outercnt || 4 - clue < innercnt) {
-        rememberCellFill(cellKeyValue, 'yellow')
+        if (rememberCellFill(cellKeyValue, 'yellow') && firstReason === null) {
+          firstReason = `${formatCellKeyLabel(cellKeyValue)} must be outside; the neighboring inside/outside counts would otherwise exceed clue ${clue}`
+        }
+      }
+
+      if (clue === 2 && outercnt === 2) {
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'green') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} has two outside neighbors for clue 2, so remaining neighbors are inside`
+          }
+        })
+      }
+      if (clue === 2 && innercnt === 2) {
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'yellow') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} has two inside neighbors for clue 2, so remaining neighbors are outside`
+          }
+        })
       }
 
       const currentColor = getEffectiveCellColor(cellKeyValue)
       if (currentColor === 'green' && clue === outercnt) {
-        neighbors.forEach((neighbor) => rememberCellFill(neighbor, 'green'))
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'green') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} is inside and already has enough outside neighbors for clue ${clue}, so remaining neighbors are inside`
+          }
+        })
       }
       if (currentColor === 'yellow' && clue === innercnt) {
-        neighbors.forEach((neighbor) => rememberCellFill(neighbor, 'yellow'))
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'yellow') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} is outside and already has enough inside neighbors for clue ${clue}, so remaining neighbors are outside`
+          }
+        })
       }
       if (currentColor === 'yellow' && clue === 4 - outercnt) {
-        neighbors.forEach((neighbor) => rememberCellFill(neighbor, 'green'))
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'green') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} is outside and all remaining neighbors must be inside to satisfy clue ${clue}`
+          }
+        })
       }
       if (currentColor === 'green' && clue === 4 - innercnt) {
-        neighbors.forEach((neighbor) => rememberCellFill(neighbor, 'yellow'))
+        neighbors.forEach((neighbor) => {
+          if (rememberCellFill(neighbor, 'yellow') && firstReason === null) {
+            firstReason = `${formatCellKeyLabel(cellKeyValue)} is inside and all remaining neighbors must be outside to satisfy clue ${clue}`
+          }
+        })
       }
     }
 
@@ -401,7 +468,7 @@ export const createColorCluePropagationRule = (): Rule => ({
     }
 
     return {
-      message: `Color clue propagation applied (${decidedCellFills.size} color update(s)).`,
+      message: `${firstReason ?? 'A clue tightens neighboring inside/outside colors'} (${decidedCellFills.size} color update(s)).`,
       diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
@@ -419,6 +486,7 @@ export const createColorOrthogonalConsensusPropagationRule = (): Rule => ({
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
+    let firstInferredCell: string | null = null
 
     const inBounds = (row: number, col: number): boolean =>
       row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols
@@ -484,6 +552,9 @@ export const createColorOrthogonalConsensusPropagationRule = (): Rule => ({
         }
 
         if (rememberCellFill(currentKey, firstColor)) {
+          if (firstInferredCell === null) {
+            firstInferredCell = formatCellKeyLabel(currentKey)
+          }
           for (const [neighborRow, neighborCol] of orthogonals) {
             if (inBounds(neighborRow, neighborCol)) {
               affectedCells.add(cellKey(neighborRow, neighborCol))
@@ -498,7 +569,7 @@ export const createColorOrthogonalConsensusPropagationRule = (): Rule => ({
     }
 
     return {
-      message: `Color orthogonal consensus propagation applied (${decidedCellFills.size} color update(s)).`,
+      message: `All orthogonal neighbors around ${firstInferredCell ?? 'a cell'} have the same color, so the center cell must match them (${decidedCellFills.size} color update(s)).`,
       diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
@@ -597,7 +668,7 @@ export const createInsideReachabilityColoringRule = (): Rule => ({
     }
 
     return {
-      message: `Inside reachability coloring applied (${decidedCellFills.size} color update(s)).`,
+      message: `Cells unreachable from known inside cells through non-line passages must be outside (${decidedCellFills.size} color update(s)).`,
       diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
@@ -708,7 +779,7 @@ export const createOutsideReachabilityColoringRule = (): Rule => ({
     }
 
     return {
-      message: `Outside reachability coloring applied (${decidedCellFills.size} color update(s)).`,
+      message: `Cells unreachable from the exterior through non-line passages must be inside (${decidedCellFills.size} color update(s)).`,
       diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
@@ -728,10 +799,18 @@ type ConnectivityCutPassOptions = {
   getEffectiveCellColor: (key: string) => SlitherCellColor | null
 }
 
-const findConnectivityCutCells = (
+type ConnectivityColorReason = 'cut' | 'unreachable'
+
+type ConnectivityColorUpdate = {
+  cellKey: string
+  toFill: SlitherCellColor
+  reason: ConnectivityColorReason
+}
+
+const findConnectivityColorUpdates = (
   puzzle: PuzzleIR,
   { target, includeOutsideSource, getEffectiveCellColor }: ConnectivityCutPassOptions,
-): Set<string> => {
+): ConnectivityColorUpdate[] => {
   const blocked = oppositeSlitherCellColor(target)
   const parent = new Map<string, string>()
   const rank = new Map<string, number>()
@@ -743,8 +822,7 @@ const findConnectivityCutCells = (
     }
   }
 
-  const isCandidateCell = (key: string): boolean =>
-    !isNumberClueThree(puzzle, key) && getEffectiveCellColor(key) !== blocked
+  const isCandidateCell = (key: string): boolean => getEffectiveCellColor(key) !== blocked
 
   const ensureNode = (key: string): void => {
     if (parent.has(key)) {
@@ -820,8 +898,8 @@ const findConnectivityCutCells = (
   if (includeOutsideSource) {
     sourceComponents.add(find(OUTSIDE_COMPONENT))
   }
-  if (sourceComponents.size < 2) {
-    return new Set()
+  if (sourceComponents.size === 0) {
+    return []
   }
 
   const graph = new Map<string, Set<string>>()
@@ -870,6 +948,7 @@ const findConnectivityCutCells = (
   const subtreeSources = new Map<string, number>()
   const treeChildren = new Map<string, string[]>()
   const cutComponents = new Set<string>()
+  const reachableComponents = new Set<string>()
   let timestamp = 0
 
   const dfs = (node: string, parentNode: string | null, connectedNodes: string[]): void => {
@@ -878,6 +957,7 @@ const findConnectivityCutCells = (
     timestamp += 1
     subtreeSources.set(node, sourceComponents.has(node) ? 1 : 0)
     connectedNodes.push(node)
+    reachableComponents.add(node)
 
     for (const neighbor of graph.get(node) ?? []) {
       if (neighbor === parentNode) {
@@ -908,7 +988,7 @@ const findConnectivityCutCells = (
     }
   }
 
-  for (const node of graph.keys()) {
+  for (const node of sourceComponents) {
     if (discovery.has(node)) {
       continue
     }
@@ -921,15 +1001,28 @@ const findConnectivityCutCells = (
     evaluateCuts(node, totalSources)
   }
 
-  const cutCells = new Set<string>()
+  const updates = new Map<string, ConnectivityColorUpdate>()
   for (const component of cutComponents) {
     for (const key of componentCells.get(component) ?? []) {
       if (getEffectiveCellColor(key) === null) {
-        cutCells.add(key)
+        updates.set(key, { cellKey: key, toFill: target, reason: 'cut' })
       }
     }
   }
-  return cutCells
+
+  const unreachableFill = oppositeSlitherCellColor(target)
+  for (const [component, cells] of componentCells) {
+    if (reachableComponents.has(component)) {
+      continue
+    }
+    for (const key of cells) {
+      if (getEffectiveCellColor(key) === null) {
+        updates.set(key, { cellKey: key, toFill: unreachableFill, reason: 'unreachable' })
+      }
+    }
+  }
+
+  return inBoundsCellKeys.flatMap((key) => updates.get(key) ?? [])
 }
 
 export const createColorConnectivityCutColoringRule = (): Rule => ({
@@ -938,6 +1031,12 @@ export const createColorConnectivityCutColoringRule = (): Rule => ({
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
+    const stats = {
+      greenCuts: 0,
+      yellowCuts: 0,
+      greenUnreachable: 0,
+      yellowUnreachable: 0,
+    }
 
     const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
       const decided = decidedCellFills.get(key)
@@ -948,28 +1047,38 @@ export const createColorConnectivityCutColoringRule = (): Rule => ({
       return isSlitherCellColor(current) ? current : null
     }
 
-    const rememberCellFill = (key: string, to: SlitherCellColor): void => {
+    const rememberCellFill = (update: ConnectivityColorUpdate): void => {
+      const { cellKey: key, toFill, reason } = update
       if (getEffectiveCellColor(key) !== null) {
         return
       }
-      decidedCellFills.set(key, to)
+      decidedCellFills.set(key, toFill)
       affectedCells.add(key)
+      if (reason === 'cut' && toFill === 'green') {
+        stats.greenCuts += 1
+      } else if (reason === 'cut' && toFill === 'yellow') {
+        stats.yellowCuts += 1
+      } else if (reason === 'unreachable' && toFill === 'yellow') {
+        stats.greenUnreachable += 1
+      } else if (reason === 'unreachable' && toFill === 'green') {
+        stats.yellowUnreachable += 1
+      }
     }
 
-    for (const key of findConnectivityCutCells(puzzle, {
+    for (const update of findConnectivityColorUpdates(puzzle, {
       target: 'green',
       includeOutsideSource: false,
       getEffectiveCellColor,
     })) {
-      rememberCellFill(key, 'green')
+      rememberCellFill(update)
     }
 
-    for (const key of findConnectivityCutCells(puzzle, {
+    for (const update of findConnectivityColorUpdates(puzzle, {
       target: 'yellow',
       includeOutsideSource: true,
       getEffectiveCellColor,
     })) {
-      rememberCellFill(key, 'yellow')
+      rememberCellFill(update)
     }
 
     if (decidedCellFills.size === 0) {
@@ -994,7 +1103,7 @@ export const createColorConnectivityCutColoringRule = (): Rule => ({
     }
 
     return {
-      message: `Color connectivity cut coloring applied (${decidedCellFills.size} color update(s)).`,
+      message: `Cell connectivity forces color updates: inside cuts ${stats.greenCuts}, outside cuts ${stats.yellowCuts}, unreachable-from-inside ${stats.greenUnreachable}, unreachable-from-outside ${stats.yellowUnreachable}.`,
       diffs,
       affectedCells: [...affectedCells],
     }
@@ -1034,10 +1143,16 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
     const decidedCellFills = new Map<string, SlitherCellColor>()
+    const decidedSectorMasks = new Map<string, SectorConstraintMask>()
     const affectedCells = new Set<string>()
+    const affectedSectors = new Set<string>()
+    let firstReason: string | null = null
 
     const inBounds = (row: number, col: number): boolean =>
       row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols
+
+    const getEffectiveSectorMask = (key: string): SectorConstraintMask | undefined =>
+      decidedSectorMasks.get(key) ?? puzzle.sectors[key]?.constraintsMask
 
     const getEffectiveCellColor = (key: string): SlitherCellColor | null => {
       const decided = decidedCellFills.get(key)
@@ -1061,18 +1176,28 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
       return true
     }
 
+    const rememberSectorMask = (key: string, targetMask: SectorConstraintMask): boolean => {
+      const current = getEffectiveSectorMask(key)
+      if (current === undefined) {
+        return false
+      }
+      const next = sectorMaskIntersect(current, targetMask)
+      if (next === 0 || next === current) {
+        return false
+      }
+      decidedSectorMasks.set(key, next)
+      affectedSectors.add(key)
+      return true
+    }
+
     for (let row = 0; row < puzzle.rows; row += 1) {
       for (let col = 0; col < puzzle.cols; col += 1) {
         const sourceCellKey = cellKey(row, col)
         for (const corner of corners) {
-          const mask = puzzle.sectors[sectorKey(row, col, corner)]?.constraintsMask
+          const currentSectorKey = sectorKey(row, col, corner)
+          const mask = getEffectiveSectorMask(currentSectorKey)
           const isOnlyOne = mask === SECTOR_MASK_ONLY_1
           const isNotOne = mask !== undefined && !sectorMaskAllows(mask, 1)
-          if (!isOnlyOne && !isNotOne) {
-            continue
-          }
-
-          const relation = isOnlyOne ? 'different' : 'same'
           const [firstNeighbor, secondNeighbor] = getCornerOutsideNeighbors(row, col, corner)
           const firstInBounds = inBounds(firstNeighbor.row, firstNeighbor.col)
           const secondInBounds = inBounds(secondNeighbor.row, secondNeighbor.col)
@@ -1082,6 +1207,20 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
           const firstColor: SlitherCellColor | null = firstKey !== null ? getEffectiveCellColor(firstKey) : 'yellow'
           const secondColor: SlitherCellColor | null =
             secondKey !== null ? getEffectiveCellColor(secondKey) : 'yellow'
+
+          if (firstColor !== null && secondColor !== null && (firstInBounds || secondInBounds)) {
+            const targetMask = firstColor === secondColor ? SECTOR_MASK_NOT_1 : SECTOR_MASK_ONLY_1
+            if (rememberSectorMask(currentSectorKey, targetMask) && firstReason === null) {
+              const relation = firstColor === secondColor ? 'same' : 'different'
+              firstReason = `${formatSectorLabel(row, col, corner)} sees ${relation} outside-neighbor colors, so its sector count is narrowed`
+            }
+          }
+
+          if (!isOnlyOne && !isNotOne) {
+            continue
+          }
+
+          const relation = isOnlyOne ? 'different' : 'same'
 
           if (firstColor === null && secondColor === null) {
             continue
@@ -1100,6 +1239,9 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
             if (secondKey) {
               affectedCells.add(secondKey)
             }
+            if (firstReason === null) {
+              firstReason = `${formatSectorLabel(row, col, corner)} says the two outside-neighbor cells are ${relation}, so ${formatCellKeyLabel(firstKey)} is ${inferred}`
+            }
             continue
           }
 
@@ -1112,24 +1254,38 @@ export const createColorSectorMaskPropagationRule = (): Rule => ({
             if (firstKey) {
               affectedCells.add(firstKey)
             }
+            if (firstReason === null) {
+              firstReason = `${formatSectorLabel(row, col, corner)} says the two outside-neighbor cells are ${relation}, so ${formatCellKeyLabel(secondKey)} is ${inferred}`
+            }
           }
         }
       }
     }
 
-    if (decidedCellFills.size === 0) {
+    if (decidedCellFills.size === 0 && decidedSectorMasks.size === 0) {
       return null
     }
 
-    return {
-      message: `Color sector-mask propagation applied (${decidedCellFills.size} color update(s)).`,
-      diffs: [...decidedCellFills.entries()].map(([k, toFill]) => ({
+    const diffs: RuleApplication['diffs'] = [
+      ...[...decidedCellFills.entries()].map(([k, toFill]) => ({
         kind: 'cell' as const,
         cellKey: k,
         fromFill: (puzzle.cells[k]?.fill ?? null) as string | null,
         toFill,
       })),
+      ...[...decidedSectorMasks.entries()].map(([k, toMask]) => ({
+        kind: 'sector' as const,
+        sectorKey: k,
+        fromMask: puzzle.sectors[k]?.constraintsMask ?? 0,
+        toMask,
+      })),
+    ]
+
+    return {
+      message: `${firstReason ?? 'Sector color relation propagated'} (${decidedCellFills.size} color update(s), ${decidedSectorMasks.size} sector update(s)).`,
+      diffs,
       affectedCells: [...affectedCells],
+      affectedSectors: [...affectedSectors],
     }
   },
 })

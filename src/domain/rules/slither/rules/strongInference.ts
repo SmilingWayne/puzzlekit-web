@@ -6,14 +6,15 @@ import {
   sectorMaskSingleValue,
   type PuzzleIR,
 } from '../../../ir/types'
-import { applyEdgeAssumption, runTrialUntilFixpoint } from './trial'
+import { applyEdgeAssumption, runTrialUntilFixpoint, type TrialResult } from './trial'
+import { formatEdgeLabel, formatSectorKeyLabel, formatVertexLabel } from './shared'
 
 // const STRONG_MAX_CANDIDATES = 1000
 // const STRONG_MAX_TRIAL_STEPS = 2000
 // const STRONG_MAX_MS = 1000
-const STRONG_MAX_CANDIDATES = 400
-const STRONG_MAX_TRIAL_STEPS = 120
-const STRONG_MAX_MS = 4000
+const STRONG_MAX_CANDIDATES = 200
+const STRONG_MAX_TRIAL_STEPS = 50
+const STRONG_MAX_MS = 3000
 
 type StrongInferenceOptions = {
   maxCandidates?: number
@@ -129,6 +130,27 @@ type StrongCandidateBranch = {
   diffs: RuleApplication['diffs']
 }
 
+const immediateContradictionResult = (puzzle: PuzzleIR): TrialResult => ({
+  contradiction: true,
+  timedOut: false,
+  exhausted: false,
+  puzzle,
+  stepsRun: 0,
+  elapsedMs: 0,
+  contradictionReason: {
+    kind: 'sector-mask',
+    message: 'setup contradiction: this branch is already incompatible with the current edge state',
+  },
+})
+
+const deriveProbeBudgets = (maxTrialSteps: number): number[] => {
+  const cappedMax = Math.max(1, maxTrialSteps)
+  const budgets = [24, 96, 384, cappedMax]
+    .map((budget) => Math.min(budget, cappedMax))
+    .filter((budget, index, arr) => arr.indexOf(budget) === index)
+  return budgets.length > 0 ? budgets : [cappedMax]
+}
+
 const buildBinaryCandidateBranches = (
   puzzle: PuzzleIR,
   edgeA: string,
@@ -183,18 +205,18 @@ const collectSharedEdgeDiffs = (basePuzzle: PuzzleIR, branchA: PuzzleIR, branchB
 
 const describeCandidate = (candidate: StrongCandidate): string => {
   if (candidate.kind === 'sector-only-one') {
-    return `candidate=sector-only-one(${candidate.sectorKey})`
+    return `sector ${formatSectorKeyLabel(candidate.sectorKey)} must have exactly one line`
   }
   if (candidate.kind === 'vertex-two-choice') {
-    return `candidate=vertex-two-choice((${candidate.vertexRow}, ${candidate.vertexCol}))`
+    return `vertex ${formatVertexLabel(candidate.vertexRow, candidate.vertexCol)} has two possible continuations`
   }
-  return `candidate=edge(${candidate.edgeKey})`
+  return `${formatEdgeLabel(candidate.edgeKey)} is undecided`
 }
 
 const describeBranch = (diffs: RuleApplication['diffs']): string =>
   diffs
     .filter((diff): diff is Extract<(typeof diffs)[number], { kind: 'edge' }> => diff.kind === 'edge')
-    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`)
     .join(', ')
 
 const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
@@ -203,13 +225,20 @@ const summarizeFixedDiffs = (diffs: RuleApplication['diffs']): string => {
     return 'fixed no edges'
   }
   if (edgeDiffs.length <= 3) {
-    return `fixed ${edgeDiffs.map((diff) => `${diff.edgeKey}=${diff.to}`).join(', ')}`
+    return `fixed ${edgeDiffs.map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`).join(', ')}`
   }
   const preview = edgeDiffs
     .slice(0, 3)
-    .map((diff) => `${diff.edgeKey}=${diff.to}`)
+    .map((diff) => `${formatEdgeLabel(diff.edgeKey)} ${diff.to}`)
     .join(', ')
   return `fixed ${edgeDiffs.length} edges (${preview}, ...)`
+}
+
+const describeTrialBranch = (label: string, result: TrialResult): string => {
+  if (result.contradiction) {
+    return `${label} branch contradicted after ${result.stepsRun} ${result.stepsRun === 1 ? 'step' : 'steps'}`
+  }
+  return `${label} branch unresolved after ${result.stepsRun} ${result.stepsRun === 1 ? 'step' : 'steps'}`
 }
 
 export const createStrongInferenceRule = (
@@ -226,79 +255,83 @@ export const createStrongInferenceRule = (
     }
 
     const deadlineMs = Date.now() + (options.maxMs ?? STRONG_MAX_MS)
-    for (const candidate of candidates) {
-      if (Date.now() > deadlineMs) {
-        break
-      }
-
-      let branchA: PuzzleIR
-      let branchB: PuzzleIR
-      let branchAInfo: StrongCandidateBranch
-      let branchBInfo: StrongCandidateBranch
-
-      if (candidate.kind === 'sector-only-one' || candidate.kind === 'vertex-two-choice') {
-        ;({ branchA, branchB, branchAInfo, branchBInfo } = buildBinaryCandidateBranches(
-          puzzle,
-          candidate.edgeA,
-          candidate.edgeB,
-        ))
-      } else {
-        branchA = clonePuzzle(puzzle)
-        branchB = clonePuzzle(puzzle)
-        branchAInfo = {
-          setupOk: applyEdgeAssumption(branchA, candidate.edgeKey, 'line'),
-          diffs: [{ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'line' }],
+    const maxTrialSteps = options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS
+    const probeBudgets = deriveProbeBudgets(maxTrialSteps)
+    for (const budget of probeBudgets) {
+      for (const candidate of candidates) {
+        if (Date.now() > deadlineMs) {
+          return null
         }
-        branchBInfo = {
-          setupOk: applyEdgeAssumption(branchB, candidate.edgeKey, 'blank'),
-          diffs: [{ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'blank' }],
-        }
-      }
 
-      const branchAResult = branchAInfo.setupOk
-        ? runTrialUntilFixpoint(branchA, deterministicRules, options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS, deadlineMs)
-        : { contradiction: true, timedOut: false, exhausted: false, puzzle: branchA }
-      const branchBResult = branchBInfo.setupOk
-        ? runTrialUntilFixpoint(branchB, deterministicRules, options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS, deadlineMs)
-        : { contradiction: true, timedOut: false, exhausted: false, puzzle: branchB }
+        let branchA: PuzzleIR
+        let branchB: PuzzleIR
+        let branchAInfo: StrongCandidateBranch
+        let branchBInfo: StrongCandidateBranch
 
-      if (branchAResult.timedOut || branchBResult.timedOut) {
-        break
-      }
-      if (branchAResult.exhausted || branchBResult.exhausted) {
-        continue
-      }
-      if (branchAResult.contradiction !== branchBResult.contradiction) {
-        const contradictionBranch = branchAResult.contradiction ? branchAInfo : branchBInfo
-        const survivingBranch = branchAResult.contradiction ? branchBInfo : branchAInfo
-        const diffs = survivingBranch.diffs.filter((diff) => {
-          if (diff.kind !== 'edge') {
-            return false
+        if (candidate.kind === 'sector-only-one' || candidate.kind === 'vertex-two-choice') {
+          ;({ branchA, branchB, branchAInfo, branchBInfo } = buildBinaryCandidateBranches(
+            puzzle,
+            candidate.edgeA,
+            candidate.edgeB,
+          ))
+        } else {
+          branchA = clonePuzzle(puzzle)
+          branchB = clonePuzzle(puzzle)
+          branchAInfo = {
+            setupOk: applyEdgeAssumption(branchA, candidate.edgeKey, 'line'),
+            diffs: [{ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'line' }],
           }
-          return (puzzle.edges[diff.edgeKey]?.mark ?? 'unknown') === 'unknown'
-        })
+          branchBInfo = {
+            setupOk: applyEdgeAssumption(branchB, candidate.edgeKey, 'blank'),
+            diffs: [{ kind: 'edge', edgeKey: candidate.edgeKey, from: 'unknown', to: 'blank' }],
+          }
+        }
+
+        const branchAResult = branchAInfo.setupOk
+          ? runTrialUntilFixpoint(branchA, deterministicRules, budget, deadlineMs)
+          : immediateContradictionResult(branchA)
+        const branchBResult = branchBInfo.setupOk
+          ? runTrialUntilFixpoint(branchB, deterministicRules, budget, deadlineMs)
+          : immediateContradictionResult(branchB)
+
+        if (branchAResult.timedOut || branchBResult.timedOut) {
+          return null
+        }
+        if (branchAResult.contradiction !== branchBResult.contradiction) {
+          const contradictionBranch = branchAResult.contradiction ? branchAInfo : branchBInfo
+          const survivingBranch = branchAResult.contradiction ? branchBInfo : branchAInfo
+          const diffs = survivingBranch.diffs.filter((diff) => {
+            if (diff.kind !== 'edge') {
+              return false
+            }
+            return (puzzle.edges[diff.edgeKey]?.mark ?? 'unknown') === 'unknown'
+          })
+          if (diffs.length === 0) {
+            continue
+          }
+
+          return {
+            message: `Strong inference: ${describeCandidate(candidate)}. The branch ${describeBranch(contradictionBranch.diffs)} contradicts the puzzle at probe budget ${budget}, so the alternative is forced and ${summarizeFixedDiffs(diffs)}. ${describeTrialBranch('A', branchAResult)}; ${describeTrialBranch('B', branchBResult)}.`,
+            diffs,
+            affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
+            affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
+          }
+        }
+        if (branchAResult.contradiction && branchBResult.contradiction) {
+          continue
+        }
+
+        const diffs = collectSharedEdgeDiffs(puzzle, branchAResult.puzzle, branchBResult.puzzle)
         if (diffs.length === 0) {
           continue
         }
 
         return {
-          message: `Strong inference ${describeCandidate(candidate)} result=contradiction: branch ${describeBranch(contradictionBranch.diffs)} fails, so ${summarizeFixedDiffs(diffs)}.`,
+          message: `Strong inference: ${describeCandidate(candidate)}. Both branches lead to the same consequence at probe budget ${budget}, so ${summarizeFixedDiffs(diffs)}. ${describeTrialBranch('A', branchAResult)}; ${describeTrialBranch('B', branchBResult)}.`,
           diffs,
           affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
           affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
         }
-      }
-
-      const diffs = collectSharedEdgeDiffs(puzzle, branchAResult.puzzle, branchBResult.puzzle)
-      if (diffs.length === 0) {
-        continue
-      }
-
-      return {
-        message: `Strong inference ${describeCandidate(candidate)} result=shared-consequence: both branches agree and ${summarizeFixedDiffs(diffs)}.`,
-        diffs,
-        affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
-        affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
       }
     }
 

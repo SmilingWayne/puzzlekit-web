@@ -21,6 +21,7 @@ import {
   type VertexCandidate,
 } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
+import { formatCellLabel, formatSectorLabel, formatVertexLabel } from './shared'
 
 const CORNERS: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
 
@@ -165,7 +166,8 @@ export const createVertexCandidateEdgePruningRule = (): Rule => ({
     }
 
     return {
-      message: 'Vertex candidate pruning removed impossible vertex states and propagated forced edges.',
+      message:
+        'Vertex candidate pruning removed degree-0/degree-2 states that conflict with known edges, then forced edges shared by every remaining state.',
       diffs,
       affectedCells: [],
     }
@@ -339,7 +341,8 @@ export const createClueVertexCandidateCombinationPruningRule = (): Rule => ({
     }
 
     return {
-      message: 'Clue vertex-candidate combinations pruned impossible corner states.',
+      message:
+        'Only clue-compatible corner combinations survive, so unsupported vertex states and sector counts are removed.',
       diffs,
       affectedCells: [...affectedCells],
       affectedSectors: [...affectedSectors],
@@ -418,7 +421,8 @@ export const createSectorDiagonalSharedVertexPropagationRule = (): Rule => ({
     }
 
     return {
-      message: 'Diagonal shared-vertex sectors propagate corner constraints to opposite diagonal sectors.',
+      message:
+        'Diagonal sectors sharing a vertex must agree on compatible corner counts, so the opposite sector constraint is narrowed.',
       diffs,
       affectedCells: [...affectedCells],
       affectedSectors: [...affectedSectors],
@@ -434,6 +438,7 @@ export const createSectorClueOneThreeIntraCellPropagationRule = (): Rule => ({
     const affectedCells = new Set<string>()
     const affectedSectors = new Set<string>()
     let firstExample: string | null = null
+    let firstReason: string | null = null
 
     for (let r = 0; r < puzzle.rows; r += 1) {
       for (let c = 0; c < puzzle.cols; c += 1) {
@@ -464,7 +469,13 @@ export const createSectorClueOneThreeIntraCellPropagationRule = (): Rule => ({
               decidedEdges.set(edge, toMark)
               affectedCells.add(cellKey(r, c))
               affectedSectors.add(sk)
-              if (firstExample === null) firstExample = `(${r}, ${c}, ${corner})`
+              if (firstExample === null) {
+                firstExample = formatSectorLabel(r, c, corner)
+                firstReason =
+                  clueValue === 1
+                    ? 'this clue-1 sector already has exactly one line, so the opposite cell edges are blank'
+                    : 'this clue-3 sector already has exactly one line, so the opposite cell edges must be lines'
+              }
             }
           }
         }
@@ -477,7 +488,7 @@ export const createSectorClueOneThreeIntraCellPropagationRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: clue-1/3 onlyOne forces opposite cell edges.`
+          ? `Sector ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: ${firstReason}.`
           : 'Clue-1/3 onlyOne opposite edges applied.',
       diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
         kind: 'edge' as const,
@@ -499,6 +510,7 @@ export const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
     const affectedCells = new Set<string>()
     const affectedSectors = new Set<string>()
     let firstExample: string | null = null
+    let firstReason: string | null = null
 
     const { rows, cols } = puzzle
 
@@ -537,7 +549,10 @@ export const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
               decidedEdges.set(forcedEdge, 'line')
               affectedCells.add(cellKey(row, col))
               affectedSectors.add(sk)
-              if (firstExample === null) firstExample = `(${vr}, ${vc})`
+              if (firstExample === null) {
+                firstExample = formatVertexLabel(vr, vc)
+                firstReason = 'an exactly-one sector uses one line at this vertex, so the only outside edge must complete degree 2'
+              }
             }
             continue
           }
@@ -572,7 +587,13 @@ export const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
             decidedEdges.set(unknownEdge, toMark)
             affectedCells.add(cellKey(row, col))
             affectedSectors.add(sk)
-            if (firstExample === null) firstExample = `(${vr}, ${vc})`
+            if (firstExample === null) {
+              firstExample = formatVertexLabel(vr, vc)
+              firstReason =
+                toMark === 'line'
+                  ? 'the outside sector balance needs one more line at this vertex'
+                  : 'the outside sector balance already has its needed line, so the other outside edge is blank'
+            }
           }
         }
       }
@@ -583,7 +604,7 @@ export const createVertexOnlyOneNonSectorBalanceRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Vertex ${firstExample}: onlyOne non-sector balance applied.`
+          ? `Vertex ${firstExample}: ${firstReason}.`
           : 'Vertex onlyOne non-sector balance applied.',
       diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
         kind: 'edge' as const,
@@ -605,6 +626,7 @@ export const createSectorConstraintEdgePropagationRule = (): Rule => ({
     const affectedCells = new Set<string>()
     const affectedSectors = new Set<string>()
     let firstExample: string | null = null
+    let firstReason: string | null = null
 
     for (let r = 0; r < puzzle.rows; r += 1) {
       for (let c = 0; c < puzzle.cols; c += 1) {
@@ -624,28 +646,35 @@ export const createSectorConstraintEdgePropagationRule = (): Rule => ({
 
           let toMark: EdgeMark | null = null
           let edgesToDecide: string[] = []
+          let reason: string | null = null
 
           if (mask === SECTOR_MASK_ONLY_2) {
             toMark = 'line'
             edgesToDecide = unknownEdges
+            reason = 'the sector must contain two lines, so every unknown sector edge is a line'
           } else if (mask === SECTOR_MASK_ONLY_0) {
             toMark = 'blank'
             edgesToDecide = unknownEdges
+            reason = 'the sector must contain zero lines, so every unknown sector edge is blank'
           } else if (mask === SECTOR_MASK_ONLY_1) {
             if (lineCount === 1 && blankCount === 0 && unknownEdges.length === 1) {
               toMark = 'blank'
               edgesToDecide = [unknownEdges[0]]
+              reason = 'the sector already has its one line, so the remaining sector edge is blank'
             } else if (blankCount === 1 && lineCount === 0 && unknownEdges.length === 1) {
               toMark = 'line'
               edgesToDecide = [unknownEdges[0]]
+              reason = 'the sector needs exactly one line, so the remaining sector edge is a line'
             }
           } else if (mask === SECTOR_MASK_NOT_1) {
             if (lineCount === 1 && blankCount === 0 && unknownEdges.length === 1) {
               toMark = 'line'
               edgesToDecide = [unknownEdges[0]]
+              reason = 'the sector cannot have exactly one line, so the remaining sector edge is also a line'
             } else if (blankCount === 1 && lineCount === 0 && unknownEdges.length === 1) {
               toMark = 'blank'
               edgesToDecide = [unknownEdges[0]]
+              reason = 'the sector cannot have exactly one line, so the remaining sector edge is also blank'
             }
           }
 
@@ -662,7 +691,10 @@ export const createSectorConstraintEdgePropagationRule = (): Rule => ({
           if (addedAny) {
             affectedCells.add(cellKey(r, c))
             affectedSectors.add(key)
-            if (firstExample === null) firstExample = `(${r}, ${c}, ${corner})`
+            if (firstExample === null) {
+              firstExample = formatSectorLabel(r, c, corner)
+              firstReason = reason
+            }
           }
         }
       }
@@ -674,7 +706,7 @@ export const createSectorConstraintEdgePropagationRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Sector ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: constraint propagated to edges.`
+          ? `Sector ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: ${firstReason}.`
           : 'Sector constraint edge propagation applied.',
       diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
         kind: 'edge' as const,
@@ -744,7 +776,7 @@ export const createSectorNotOneClueTwoPropagationRule = (): Rule => ({
           affectedCells.add(cellKey(r, c))
           affectedSectors.add(targetSectorKey)
           affectedSectors.add(sectorKey(r, c, opposite))
-          if (firstExample === null) firstExample = `(${r}, ${c})`
+          if (firstExample === null) firstExample = formatCellLabel(r, c)
         }
       }
     }
@@ -755,7 +787,7 @@ export const createSectorNotOneClueTwoPropagationRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: clue-2 notOne propagation applied.`
+          ? `Cell ${firstExample}${extra > 0 ? ` and ${extra} other(s)` : ''}: with clue 2, a not-one sector opposite an existing line cannot take any line, so its edges are blank.`
           : 'Clue-2 notOne propagation applied.',
       diffs: [...decidedEdges.entries()].map(([edgeKey, to]) => ({
         kind: 'edge' as const,

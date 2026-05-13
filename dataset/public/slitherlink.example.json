@@ -1,0 +1,512 @@
+{
+  "schemaVersion": 1,
+  "id": "slitherlink-example",
+  "title": "Slitherlink Example Dataset",
+  "puzzleType": "slitherlink",
+  "items": [
+    {
+      "id": "slitherlink-10x10-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/372d23djdh738adl72882dj18538ald838dhaj21d272c",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0002",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/q2111221ch6212b212611b61262cg1c6bb2121c2bcc621112bo",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0003",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/6dcbg8228cn23836b50bgdjbg26c71812cn8308dgdd6d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0004",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/811817djb3dgdgcclc7882587ccldcgdg2cbj628228b",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-6x6-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/6/6/1bg688cgc121186dgbg2b",
+      "width": 6,
+      "height": 6,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-6x6-0002",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/6/6/hch36dg11671176dgbg2b",
+      "width": 6,
+      "height": 6,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0005",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/cdi6d5dhajd7835d8dh122dh7d6188ccjbh8c8didc",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-18x10-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/18/10/gagd26bg3c68di7dkcgdi6113dh75326bh6267cm1dm6537bh71166ch1218diagbk6di66d1cg71bbgc",
+      "width": 18,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0006",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/gdai8dg83aidh5b731278cn763336d6chci38bg6diab",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-19x10-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/19/10/y13c22d32c1186b8c8b8631d31b13c32czx32c22b21d3376d8d8c7612d32b23b31cw",
+      "width": 19,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0007",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/673cgcdg33dgag7bg8dg67ccg2agc75bg8dg7agbg32dgdcg178d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0008",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/g0bh2a37063bi2dr0b1c122d0d0dr0ci28183b0bh2a",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0009",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/l2bg2bd8c6d6bc3cg2dr0cg1cd6d5b8dd2ag3bj",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-18x10-0002",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb",
+      "width": 18,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0010",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/h8dd32d8112dnbbg7a78ch78d8dgcdn1315d32bd8d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0011",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/g13d225dgacbl3d338dm518cm831d2blbcbg822a22d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0012",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/68638b6dh2cjd536858dgdg2bgcg788838dbj3ch8b83888d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0013",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/c7db3862bpbg8bg5ccg1bgb7ag8agbp3882dc6cc",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-18x10-0003",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/18/10/i61ch28cg16dg122cg63bi3ah1di2dcg0bgb1bc6c8bchd8b6cd1cbg2cgb3ci1dh3ci18dg132bg72bg82bh36dg",
+      "width": 18,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-20x20-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/20/20/d362275132cjbgb3bb2231121ddi261d81c2cdh8c281ccgcg732117bg222b8ch32781262d1bh272122dg2b31b3321ccd213c083162223bg17cdg3371321bcgcmcg261762dd2122358767572cgcc2223212b2cbcccg233128151d8ci211bibh73c3cg77c1bb6d223c22531132a23cbi0",
+      "width": 20,
+      "height": 20,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-25x15-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/25/15/gdgbhbgdhagbg31d0c03c3b32bcibcidbi0aiccibdic33d2d03c1d22dgcgchcgbhdg8bicciadi0dabcacba1cidcibbi7bgbhdgdhbgcg11b1d23b1b23dcidcibdi0aidcidcib02a3c33d1d23dgbgbhagbhagc",
+      "width": 25,
+      "height": 15,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0014",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/i33328837ai3bdc223cgc3c333ccg216621ci23733chd2c27817c31d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0015",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/h582068cjdi20bg20bn2adp82a20bp25871dja",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0016",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/320c02djdj1ag18ah0bibiaaibi2ah53dg3cjdj32d232a",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-13x13-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/13/13/g2azg1czv3aziapaodpcldh1bg386ah2cjb",
+      "width": 13,
+      "height": 13,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-15x15-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/15/15/ah232557702bg2cg3173c7dg12di1a0djbi22781272bdbh2721bi82cgdcg0832722512cic23d22d717di21881811bg2b1cg2c632dgd2bc03cg71d33381d2",
+      "width": 15,
+      "height": 15,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-18x18-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/18/18/c27c1761833222222212cgai3283c5cgb2866ag67ci23150136c3dj7c2772d32cci12272bg22716d1277271d3152832dach2dh2bg322chbi167232c872327db232612bj28dg223c61218chd2778211b8bibi317c3028122323cg326d",
+      "width": 18,
+      "height": 18,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-30x20-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/30/20/g228bh262c3223322221011db122ag2bhbcc7166dic31c212a332b38063b3118atbddhcg12dd161d7cb2271d6206d82bibyd06710000000000000a73ahb8ar57cg2312bar577211877ara0122bg78ar5cdh36d00000000000000681dcybi28bd28c2611dc7b27273c10cgdhddbt8311a25182a230c223d22ddi7817bcbbh1bg322bc1122222012311c272bh512d",
+      "width": 30,
+      "height": 20,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-30x30-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/30/30/3271b622817228d18123cdg8dibh1bhb2b62bh8a7d636b718b3cg0a3bg016817c8c32b06d20cha18cb77ah75c377d1c7b1ah1a6cgbidgdg253cbgdg87211012c327bc2d223617bagbg7373ccgc7cg1acgdh0cb3cg37bg062d16ah22bg82d63c1aca28005bb23cgc00a01bbg00a3bi8bh1d87cbg2cgc86b3bh7di2b00agb32a00abg23bd60053bab0b26d17dg11bh52d371ag72bg3cb1ahcgb0b26cbgd1628cgbgahd332b1dc713c1210687bgdgc370bgcg6cgcg7b0ch0b8d2c783b75ch57cb72dch10c62a03c8c726612ag3b0bg1c636d817c8b5ch17c3ccgdbgci8bgd21282c632616328c1622b",
+      "width": 30,
+      "height": 30,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-7x7-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/7/7/h182cl60bb273dg6c7bcj",
+      "width": 7,
+      "height": 7,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-31x45-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/31/45/i8327bdhahc723cgdjc7dhab87bg6133dhcgahag712cgdi028diacdjbp12aia6021bg2020dhah2020bgdi8ci23bpamcai632cibg2201agchagch3016ddi22bah5ccjbbahdhahb8206cgch517ahad886ccah0bgahcg6227bbhagbiadajd7aha02aic7122bhcgal2023bgai218bi5cnbp20di10bibg1120bhbh0113bg3218adi30dpdjcabi611bi65126cgdhdgch01367767dcdh7bcj65126ddhahd81168cjc7dhab65657311dhcgdhbg71167bi118biddbjap30did7231dg3321bhch0223dgbi23ai33cpan8di811bibg1302bldgbh1216aai12cah8cdjbccicgdha6237cgahbg0dhdd577ccah717dhag7307dbhahahdbajd7chb11dic7113chdgahcg3322dgai336dibdmdp02ai5cicg3112ahdh2011dg1326dai12cpdjccai722cidg227dgahagbh3327ag86ccah5ddjcg206cbhahd6107bg",
+      "width": 31,
+      "height": 45,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-31x45-0002",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/31/45/g33di10c32c22ai338dh30dh786ch22ah2do7317ao3d323032ccic102130ddgcibodich7ai8c33d7di7c7cd6b6b6cb5c6ai7a21c8ai8ahdiaodibga121233dbib213020c2bo5027co2ah20ch677dh31bh531bi33d22c33bi23dj7as8bo6880220212b7dk302acsc0207bhch23ci12bhch2ch57dh01bh85bh3dhcgaobgch3ch56d011032b78ch6223dchcibhd302blb5bi6ddl778a7ci6b867dlc5ci7ddl021cchbichc2107bh87c111102d87dh2chagaobgah2ch78dh13dh67ch1bhbh23ci31ahbh8303bcsd021dk8c1112213788co7ds7cj32ci23d12c10di238bh12ah767dh33dh0do8037do1d122021aaid221112dagbicodich5bi6b20c7bi6b7aa8c8d7dc7a8bi6c31d8ai7dhbicocibgc021113bbib310212a3ao6326bo2ch02ah676ah32ch522ci01a22c13ci32b",
+      "width": 31,
+      "height": 45,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-31x45-0003",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/31/45/10ci2201ci2111ai23d877cg887cg778chbidgcibgaibh767cg785bg688d22ai1011di0212bi22cg1120ci3111bi2222dh8bg878cg668cg8dhcgbibgcicgch5dg667cg566ag7dh1120bi0211ci2222dg02bi1010ci1202di33d678bg686bg757chaibgbibgbibh878bg588ag878d22bi1122bi1211ci12cg3010di1210bi1121bh8dg866cg777bg7chdgbiagcicgdh8dg687bg577ag6ch3111bi1011ci2223cg13ci0211bi0121di23a787cg588dg757chbibgcibgcich877cg877cg588b21ci2112ci1121bi12cg1121bi1112ai1133dh7dg678ag758bg6dhcgdicgaibgdh5cg757ag758bg7ch3220bi2112ai1021bg33di2123bi1121bi30d686cg557cg787chbibgbicgcich678dg787cg587a11bi1322bi2212di21cg3311ci0102bi2222ch8bg788cg766dg7dhcgcicgbidgch6bg657bg776bg8bh1101bi2213bi2022dg13bi2112ai0211bi23b655bg677bg668ahbiagbibgbidh785bg777cg888c33di0122bi2220ci22c",
+      "width": 31,
+      "height": 45,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-31x45-0004",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/31/45/g20136dg61113cg21215cndg8cgamcg223dg32227cg61233bg201cgcmcg8bgbn62331bg22135dg70113dh5bgcmbg5bg62238cg72130bg21027agcjcg6agcmcg51bg01226cg62222ag0222ccmbg5cgcn81023bg10127cg52021bh7bgbmag6dgcg18bg51022ag11216ag62bgcg6bgcmcg7ah01226bg62332bg01125cnag6bgdmb2333cg13117bg82301bg26cgdmag7cgcjbg72021cg11216bg71138bg6bgcmbg7ch12127bg72231ag21217cnbg5bgcmbg211bg11216dg72221bg102cgambg7bgdn71120bg20116cg82223bh7bgbmcg6dg81017bg60121bg11126bgdjdg6cgbmdg72dg11116cg71113bg3233dbmag6bgdn82211bg11206dg62221bh5bgbmbg8cgag36dg61213cg21107cg61cgdg6bgbmcg6ch12316bg61010cg21106dnbg8dgbma3313bg33218dg72233cg37bgbmbg8bgbjdg51322cg01136bg72206bg7dgcmcg7ch31207cg70321bg10216bncg5dgcmcg102ag23226cg70111dg223cgcmcg7cgdn71322cg22027cg82333b",
+      "width": 31,
+      "height": 45,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-31x45-0005",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/31/45/g0ca1722ah827072a2dag5ci381aiag0121b1bcg215bh1aod21akc0dh2bcbh8686bgch8ag23daajabg17cg5c5d2c37c851agagah2bbac77bcb20diaj6dbg0cn3576dha52cg518abg5708ch65ddgc61d203caahbh6c07agcck0bg32agagbbj80bibia23bj3dag835d20ck011bi75ch51b132cgd8dic7bidhdag508207ag06ag0bgadjajah12dhb880207cg0cg1aid37bk1cjb8chaai8ch2ak153660b13bh0d8c2dh21a185352dk0ch5cibch5cdj3ak73ddi0dg1ag732358adh30bhdjbjadg3cg81cg731537agdchbi5cai5dcg303c18ah56ai210dk21a625cgd0dj30baici38cjaagdg22ag0dkcag72b5dhbhdd111b15adgd56ch8356cgd508dg38dbh8652dn1dgd7cjbi02cdb86dacc0chagag375c71a2a7c7ag62agadjdc30cg7chag5867bhac3dh0cck10cco1ch820cgd0b1311agbi063bi8bgb0c072536dh0172ca1d",
+      "width": 31,
+      "height": 45,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-31x45-0006",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/31/45/a753b7c25853b7b67cgbdh86cgbg5c5bg5a2ag5bg5516868767dg778778525c1cg7b3aidicddh1cbgcgbg2abhb32d61c7dgag63dg756agagag575762agci8125672dcga3ca176dg1ba175b6bg875bg5bb5ch866bg7dg7562d5c770cagbg570bag52bgdg657576cg76d5665cgagbg5675736cgcg6cbbgbg6cc3bg2dbgb2ag0da8ag0c51c8agai3dg76768agcg68138737bi5b36dgcgag280dag68bgagag6dh6a26dhd8b2765dj7dgbkdg8aj8751b6ddh80c6dh5cgagag68bgb271cgagcg80d5di51851378agbg57788cg3cicg6d36c1cg7ca2bg0dbga2ag0ba8agagab8agag7386657bgbgcg5788c66cg575866cgdg38agc366bgaga266a7a2665cg7ag565dh6ab6bg576bg7b851bb1bg760dc3cagc3585236aiag268566dgdgdg856ag26bgbg6b16b12dchd1agdgdgc2dhacbidi1c8dg2a607878886dg8787668178bg5bg1d5bg6b6dgdg68dhddg75d6d16761c7d167bd",
+      "width": 31,
+      "height": 45,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-45x31-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/45/31/h33cg8dgbdgba6cddgadk30bk6djc21dgdddg328dk31di21ag7bgbcgcb8ddg6dg10ci32ck5bjd22dg23ddj8ck23di02bg8cgd7cddgdcg6cg22di13cjb02cgddbg22ccj8dk3388bgbdgcc6cadgcdg8cgck8dja32bgbddg22dcj01ai12dg6bgdcgcc6cb17bg13di11bk7cjc11bgahaj6dk12ai31cg8cgdchbagcdg6bg21ci31ck6aibcag22bdj7dk02bi10ddgcb7ccdgbag8bg13di8bjb22dgcdcg13dbj8ai20dg7dgcdgbd7bdcgd31ai21dk7djd22dgcddi6dk21ci21cg7cgccgdbhcdg8dg33di30ck7bjbhdg21bdj5ck21ci02ag81ca6bdcgcdg5cg23bi23djc12cgcdag22cbj8ckdg5dgccgdd7cdbgdcg8620bk7cjd21bgbddg22cbj20di23dg8cgcagdd7cag6cg21ci02ak8cjd11dg31ddj7dk12ai02ag8agd6ddagcdg6dg20ci31dk722dgcdag21cdj7dk30bkbagcd8bdagbcg8bg20b",
+      "width": 45,
+      "height": 31,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0017",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/g236713cibm82138dk6bg1377co31cg13cjdi128b32bhc",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-5x7-0001",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/5/7/aga2c23c22c23c2caga",
+      "width": 5,
+      "height": 7,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0018",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/g11b11b8266a8c6a7c7c8726a8726a7c7c8c6a8c6a22c22c",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0019",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/g6b6d8b8178b8bp22c21c20c20cp6d6826d6d6b6b",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0020",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/gbjc2312212dbjb63338d8c7b7b6b62117ccjd2132122bbjd",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0021",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/nb2222013c7dhc8b7a6067b5c7d72315ccjc362231ao",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0022",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/h18dcgbc711cb20d7dcj26832132cbicgdm722223132cgak",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0023",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/gcm701201c6cha5637b7ahc67da5b7bcjc10210210bn",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0024",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/31cg8722222227cl73c1c71111118cj16cgbb71116b2cb17218b182d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0025",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/gbgbi560122agdj177217bgdj25658ao620786bm5656a",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0026",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/dc7b283c812727ci16bh37273c272212727bbh372727127272chc8b",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0027",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/jbj80130cmdh01bo21a02do32aham11315djbh",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0028",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/bch5a607co3810820cx2083172ao635d8bhdb",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0029",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/gdk8dh2ah738cgd60djagbdgcj25bdg817ah0dh8dk5",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0030",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/q202108060clccgb62202118a5chd2ccib2075262agbd7d",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0031",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/gb7d23c31bd2bh2c721b32776787027a37cgbj1126cbj22333c332",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0032",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/g88b227637bg2067a7bj8c6a223c1adh1cb1bi32di1dc33783",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0033",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://pzv.jp/p.html?slither/10/10/0c36am323bajbdkbg2b3b2agbkcbjb330cm81a3c",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    },
+    {
+      "id": "slitherlink-10x10-0034",
+      "puzzleType": "slitherlink",
+      "sourceUrl": "https://puzz.link/p?slither/10/10/gdgdg6cd07ahaj03bibi35163aibi12cjah83bd7agbgb",
+      "width": 10,
+      "height": 10,
+      "tags": ["auto-imported"],
+      "source": "example.txt"
+    }
+  ]
+}

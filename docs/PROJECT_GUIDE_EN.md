@@ -37,6 +37,7 @@ In short: this project is a **logic reasoning engine with a UI**, not a UI-first
 src/
   app/              # page composition and top-level routing/layout
   domain/           # puzzle logic source of truth
+    benchmark/      # dataset manifest validation and solver benchmark runner
     ir/             # puzzle IR schemas, key utilities, normalize/clone
     parsers/        # puzz.link/penpa adapters
     rules/          # rule contracts, step engine, puzzle-specific rule sets
@@ -45,6 +46,11 @@ src/
     difficulty/     # difficulty snapshot and rule usage aggregation
   features/         # solver controls, board rendering, editor tools, explanation, stats
   test/             # test setup/runtime helpers
+dataset/
+  public/           # committed benchmark/dataset manifests
+  private/          # local-only manifests, ignored by git
+scripts/
+  benchmark-solve.ts # project-owned benchmark entrypoint
 ```
 
 Design rule:
@@ -69,18 +75,52 @@ This guarantees the same inference chain can be replayed and inspected later.
 
 ---
 
-## 5. Slitherlink Rule Architecture (Current)
+## 5. Benchmark and Dataset Flow
+
+Benchmarks evaluate solver behavior across JSON dataset manifests. They are for
+solver quality and rule-usage analysis, not for unit-test correctness.
+
+Data locations:
+
+- `dataset/public/**/*.json` is committed and should stay small/curated.
+- `dataset/private/**/*.json` is local-only and ignored by git.
+- `benchmark-results/` is generated output and ignored by git.
+
+Run:
+
+- `pnpm benchmark:solve`
+
+This command scans public/private manifests, runs each puzzle with the default
+plugin rule order, and writes one report per manifest to
+`benchmark-results/<dataset-id>.report.json`.
+
+Current defaults:
+
+- `maxSteps = 2000`
+- `timeoutMs = 60000`
+- `ruleProfile = "default"`
+
+Report intent:
+
+- Per puzzle: status, step count, duration, terminal completion report,
+  `ruleUsage`, and compact `ruleSteps`.
+- `steps` is intentionally an empty array for now to keep large reports small.
+- `ruleSteps[ruleId] = [stepNumbers...]` records where each rule fired.
+
+---
+
+## 6. Slitherlink Rule Architecture (Current)
 
 The Slitherlink rules are now modularized under `src/domain/rules/slither/rules/`.
 
-### 5.1 Aggregation entrypoint
+### 6.1 Aggregation entrypoint
 
 - `src/domain/rules/slither/rules.ts`
   - Exports `deterministicSlitherRules` in a fixed order
   - Exports `slitherRules = deterministic + strong-inference`
   - Serves as the single place for execution-order control
 
-### 5.2 Rule modules
+### 6.2 Rule modules
 
 - `patterns.ts`
   - pattern-style clue rules (e.g. contiguous 3-run, diagonal adjacent 3)
@@ -92,23 +132,28 @@ The Slitherlink rules are now modularized under `src/domain/rules/slither/rules/
   - corner-sector inference from local edge/vertex/cell evidence
 - `sectorPropagation.ts`
   - sector-to-sector and sector-to-edge propagation family
+- `colorAssumptionInference.ts`
+  - conservative color-branch contradiction inference
+- `sectorParityInference.ts`
+  - conservative sector-parity contradiction inference
 - `strongInference.ts`
   - conservative branch-based contradiction inference
 - `shared.ts`
   - reusable helpers (geometry adjacency, clue/color utilities, mask helpers)
 
-### 5.3 Strong inference decoupling
+### 6.3 Branch inference decoupling
 
-`strongInference` no longer self-references the exported `slitherRules` array.
-Instead, it receives deterministic rules via dependency injection:
+Branch-based inference rules should not self-reference the exported
+`slitherRules` array. They receive deterministic rules via dependency
+injection, for example:
 
 - `createStrongInferenceRule(() => deterministicSlitherRules)`
 
-This prevents circular coupling and keeps strong-inference reusable/testable.
+This prevents circular coupling and keeps branch inference reusable/testable.
 
 ---
 
-## 6. Sector Constraint Model (Critical)
+## 7. Sector Constraint Model (Critical)
 
 Sector state is represented as a bitmask of allowed corner line counts `{0,1,2}`.
 
@@ -121,7 +166,7 @@ Do not revert to old single-label sector semantics.
 
 ---
 
-## 7. Replay and Determinism Contract
+## 8. Replay and Determinism Contract
 
 Two files must stay behaviorally aligned:
 
@@ -136,7 +181,7 @@ If these two paths diverge, timeline replay and solver state will drift.
 
 ---
 
-## 8. Current Capability Snapshot
+## 9. Current Capability Snapshot
 
 Implemented:
 
@@ -150,11 +195,14 @@ Implemented:
 - Explanation-oriented deduction trace
 - Sector mask inference/propagation pipeline
 - Strong-inference fallback for harder states
+- Public/private benchmark manifest workflow
+- Compact benchmark reports with solve status, timing, rule usage, and rule step indices
 
 Partially implemented / planned:
 
 - More puzzle families (e.g. Masyu/Nonogram)
 - Puzzle-specific editor support for each puzzle family
+- Dataset browsing as a product surface
 - Canvas interaction and rendering optimization for larger boards and richer editor states
 - Penpa adapter/export completeness
 - Better calibrated difficulty modeling
@@ -163,7 +211,7 @@ Important expectation: difficult puzzles may stop at a stable but incomplete sta
 
 ---
 
-## 9. AI Agent Quick Start
+## 10. AI Agent Quick Start
 
 If you are an AI agent onboarding this repository, do this first:
 
@@ -171,7 +219,8 @@ If you are an AI agent onboarding this repository, do this first:
 2. Read `src/domain/rules/slither/rules.ts` to understand execution order.
 3. Read `src/domain/rules/slither/rules/*.ts` by module category.
 4. Verify replay contract in `src/features/solver/solverStore.ts`.
-5. Use `src/domain/rules/slither/rules.test.ts` as behavior reference.
+5. For benchmark work, read `src/domain/benchmark/runner.ts` and `scripts/benchmark-solve.ts`.
+6. Use `src/domain/rules/slither/rules.test.ts` and `src/domain/benchmark/*.test.ts` as behavior references.
 
 When editing:
 
@@ -179,13 +228,27 @@ When editing:
 - Preserve diff/message explainability.
 - Preserve ordered deterministic behavior unless intentionally changed.
 - Add/adjust tests alongside rule changes.
+- Do not commit private datasets or generated benchmark reports.
 
 ---
 
-## 10. Development Commands
+## 11. Development Commands
 
-- `npm run dev` - local development
-- `npm run lint` - linting
-- `npm run test:run` - unit/component tests
-- `npm run build` - production build
-- `npm run test:e2e` - Playwright end-to-end tests
+- `pnpm install` - install dependencies using the locked pnpm dependency graph
+- `pnpm dev` - local development
+- `pnpm benchmark:solve` - run all public/private benchmark manifests
+- `pnpm lint` - linting
+- `pnpm test:run` - unit/component tests
+- `pnpm build` - production build
+- `pnpm test:e2e` - Playwright end-to-end tests
+
+## 12. Deployment and Release Flow
+
+- Package management is standardized on pnpm 10.33.0 via the `packageManager`
+  field in `package.json`. GitHub Actions installs that pnpm version before
+  enabling `actions/setup-node` pnpm caching.
+- CI runs on pushes and pull requests targeting `main`; it installs with
+  `pnpm install --frozen-lockfile`, then runs linting, unit tests, and build.
+- GitHub Pages deployment is triggered by pushing a `v*` tag. The deployment
+  workflow runs the same checks and build, copies `dist/index.html` to
+  `dist/404.html` for SPA fallback, then publishes `dist/`.

@@ -40,28 +40,34 @@ Execution order is centrally managed in `src/domain/rules/slither/rules.ts`: det
 
 ### 2.1 Requirements
 
-- Node.js 18+ (latest LTS recommended)
-- npm 9+
+- Node.js 20 (see `.nvmrc`)
+- Corepack with pnpm 10.33.0
 
 ### 2.2 Install and Start
 
 ```bash
-npm install
-npm run dev
+corepack enable
+pnpm install
+pnpm dev
 ```
 
 This starts the local Vite development server.
 
-![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260427202121944.png)
+![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260514010419047.png)
 
 ### 2.3 Common Commands
 
 ```bash
-npm run lint       # ESLint
-npm run test:run   # Vitest unit tests
-npm run build      # TypeScript + Vite production build
-npm run test:e2e   # Playwright end-to-end tests
+pnpm lint       # ESLint
+pnpm test:run   # Vitest unit tests
+pnpm build      # TypeScript + Vite production build
+pnpm test:e2e   # Playwright end-to-end tests
 ```
+
+### 2.4 Release and Deployment
+
+GitHub Pages deployment is handled by GitHub Actions. Push a `v*` tag to run
+linting, unit tests, and the production build, then publish `dist/` to Pages.
 
 ---
 
@@ -138,4 +144,3 @@ The long-term direction is to build a puzzle reasoning tool that is:
 This repo is inspired by the browser plugin [Puzzlink_Assistance](https://github.com/LeavingLeaves/Puzzlink_Assistance), which helps with trivial inference for puzz.link-style puzzles.
 
 The detailed inference techniques can be found in [How slitherlink should be solved](https://jonathanolson.net/slitherlink/).
-

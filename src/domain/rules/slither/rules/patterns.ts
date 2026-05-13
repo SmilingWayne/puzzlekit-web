@@ -1,7 +1,7 @@
 import { cellKey, edgeKey } from '../../../ir/keys'
 import type { EdgeMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
-import { isClueThree } from './shared'
+import { formatCellRunLabel, isClueThree } from './shared'
 
 export const createContiguousThreeRunBoundariesRule = (): Rule => ({
   id: 'contiguous-three-run-boundaries',
@@ -59,7 +59,7 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
 
         if (runAddedAny) {
           for (let col = cStart; col <= cEnd; col += 1) allAffectedCells.add(cellKey(r, col))
-          if (firstExample === null) firstExample = `row ${r} cols ${cStart}-${cEnd}`
+          if (firstExample === null) firstExample = formatCellRunLabel('row', r, cStart, cEnd)
         }
       }
     }
@@ -99,7 +99,7 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
 
         if (runAddedAny) {
           for (let row = rStart; row <= rEnd; row += 1) allAffectedCells.add(cellKey(row, c))
-          if (firstExample === null) firstExample = `col ${c} rows ${rStart}-${rEnd}`
+          if (firstExample === null) firstExample = formatCellRunLabel('col', c, rStart, rEnd)
         }
       }
     }
@@ -109,8 +109,8 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Contiguous 3-run pattern forced boundary lines and same-direction extension blanks (e.g., ${firstExample}).`
-          : 'Contiguous 3-run pattern forced boundary lines and same-direction extension blanks.',
+          ? `Contiguous 3-run at ${firstExample}: the 3-clues need the run boundary lines, so straight extensions outside the run are blank.`
+          : 'Contiguous 3-run: the 3-clues need the run boundary lines, so straight extensions outside the run are blank.',
       diffs: [...decidedEdges.entries()].map(([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,
@@ -177,7 +177,7 @@ export const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
     if (decidedEdges.size === 0) return null
 
     return {
-      message: 'Diagonal adjacent 3s force outer-corner boundary edges to be lines.',
+      message: 'Diagonal adjacent 3s force their outside corner edges to be lines; otherwise one of the 3-clues cannot reach three lines.',
       diffs: [...decidedEdges.entries()].map(([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,
@@ -185,6 +185,136 @@ export const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
         to,
       })),
       affectedCells: [...allAffectedCells],
+    }
+  },
+})
+
+const getNumberClueValue = (puzzle: PuzzleIR, row: number, col: number): number | null => {
+  const clue = puzzle.cells[cellKey(row, col)]?.clue
+  return clue?.kind === 'number' && clue.value !== '?' ? Number(clue.value) : null
+}
+
+export const createAdjacentTwoThreeOppositeCrossRule = (): Rule => ({
+  id: 'adjacent-two-three-opposite-cross',
+  name: 'Adjacent 2-3 Opposite Cross',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedEdges = new Map<string, EdgeMark>()
+    const affectedCells = new Set<string>()
+    let firstExample: string | null = null
+
+    const decideUnknownEdge = (key: string, to: EdgeMark): boolean => {
+      if (!puzzle.edges[key]) {
+        return false
+      }
+      if ((puzzle.edges[key]?.mark ?? 'unknown') !== 'unknown') {
+        return false
+      }
+      if (decidedEdges.has(key)) {
+        return false
+      }
+      decidedEdges.set(key, to)
+      return true
+    }
+
+    const verticalEdge = (row: number, col: number): string => edgeKey([row, col], [row + 1, col])
+    const horizontalEdge = (row: number, col: number): string => edgeKey([row, col], [row, col + 1])
+
+    const applyPair = (
+      twoRow: number,
+      twoCol: number,
+      threeRow: number,
+      threeCol: number,
+      rowDelta: number,
+      colDelta: number,
+    ): void => {
+      let twoOpposite: string
+      let threeOpposite: string
+      const extensionEdges: string[] = []
+
+      if (rowDelta === 0) {
+        const sharedCol = colDelta === 1 ? twoCol + 1 : twoCol
+        twoOpposite = verticalEdge(twoRow, colDelta === 1 ? twoCol : twoCol + 1)
+        threeOpposite = verticalEdge(threeRow, colDelta === 1 ? threeCol + 1 : threeCol)
+        if (twoRow > 0) {
+          extensionEdges.push(verticalEdge(twoRow - 1, sharedCol))
+        }
+        if (twoRow + 2 <= puzzle.rows) {
+          extensionEdges.push(verticalEdge(twoRow + 1, sharedCol))
+        }
+      } else {
+        const sharedRow = rowDelta === 1 ? twoRow + 1 : twoRow
+        twoOpposite = horizontalEdge(rowDelta === 1 ? twoRow : twoRow + 1, twoCol)
+        threeOpposite = horizontalEdge(rowDelta === 1 ? threeRow + 1 : threeRow, threeCol)
+        if (twoCol > 0) {
+          extensionEdges.push(horizontalEdge(sharedRow, twoCol - 1))
+        }
+        if (twoCol + 2 <= puzzle.cols) {
+          extensionEdges.push(horizontalEdge(sharedRow, twoCol + 1))
+        }
+      }
+
+      if ((puzzle.edges[twoOpposite]?.mark ?? 'unknown') !== 'blank') {
+        return
+      }
+
+      let addedAny = false
+      addedAny = decideUnknownEdge(threeOpposite, 'line') || addedAny
+      for (const extensionEdge of extensionEdges) {
+        addedAny = decideUnknownEdge(extensionEdge, 'blank') || addedAny
+      }
+
+      if (addedAny) {
+        affectedCells.add(cellKey(twoRow, twoCol))
+        affectedCells.add(cellKey(threeRow, threeCol))
+        if (firstExample === null) {
+          firstExample = `${cellKey(twoRow, twoCol)} and ${cellKey(threeRow, threeCol)}`
+        }
+      }
+    }
+
+    const inspectAdjacentCells = (
+      row: number,
+      col: number,
+      neighborRow: number,
+      neighborCol: number,
+      rowDelta: number,
+      colDelta: number,
+    ): void => {
+      const currentClue = getNumberClueValue(puzzle, row, col)
+      const neighborClue = getNumberClueValue(puzzle, neighborRow, neighborCol)
+      if (currentClue === 2 && neighborClue === 3) {
+        applyPair(row, col, neighborRow, neighborCol, rowDelta, colDelta)
+      }
+      if (currentClue === 3 && neighborClue === 2) {
+        applyPair(neighborRow, neighborCol, row, col, -rowDelta, -colDelta)
+      }
+    }
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        if (col + 1 < puzzle.cols) {
+          inspectAdjacentCells(row, col, row, col + 1, 0, 1)
+        }
+        if (row + 1 < puzzle.rows) {
+          inspectAdjacentCells(row, col, row + 1, col, 1, 0)
+        }
+      }
+    }
+
+    if (decidedEdges.size === 0) return null
+
+    return {
+      message:
+        firstExample !== null
+          ? `Adjacent 2-3 at ${firstExample}: the crossed edge opposite the shared side of the 2 forces the 3's opposite edge to be a line and the shared-side extensions to be blank.`
+          : "Adjacent 2-3: a crossed opposite edge on the 2 forces the 3's opposite edge and shared-side extensions.",
+      diffs: [...decidedEdges.entries()].map(([k, to]) => ({
+        kind: 'edge' as const,
+        edgeKey: k,
+        from: 'unknown' as const,
+        to,
+      })),
+      affectedCells: [...affectedCells],
     }
   },
 })
