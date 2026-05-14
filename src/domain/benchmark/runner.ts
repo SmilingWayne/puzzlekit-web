@@ -2,7 +2,7 @@ import type { PuzzleIR } from '../ir/types'
 import { puzzleRegistry } from '../plugins/registry'
 import { runNextRule } from '../rules/engine'
 import { analyzeSlitherCompletion } from '../rules/slither/completion'
-import type { RuleStep } from '../rules/types'
+import { addRuleUsage } from '../difficulty/traceStats'
 import type {
   BenchmarkDatasetItem,
   BenchmarkDatasetManifest,
@@ -24,16 +24,6 @@ const normalizeLimit = (
     return fallback
   }
   return Math.max(1, Math.floor(value))
-}
-
-const addRuleUsage = (
-  ruleUsage: Record<string, number>,
-  ruleSteps: Record<string, number[]>,
-  step: RuleStep,
-  stepNumber: number,
-): void => {
-  ruleUsage[step.ruleId] = (ruleUsage[step.ruleId] ?? 0) + 1
-  ruleSteps[step.ruleId] = [...(ruleSteps[step.ruleId] ?? []), stepNumber]
 }
 
 const getSlitherTerminal = (puzzleType: string, puzzle: PuzzleIR) =>

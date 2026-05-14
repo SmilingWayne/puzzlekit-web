@@ -1,0 +1,151 @@
+import { describe, expect, it } from 'vitest'
+import { cellKey, edgeKey, vertexKey } from '../ir/keys'
+import { createSlitherPuzzle } from '../ir/slither'
+import type { RuleStep } from '../rules/types'
+import { buildRuleTraceStats, buildTraceChartStats } from './traceStats'
+
+const makeStep = (
+  index: number,
+  ruleId: string,
+  ruleName: string,
+  durationMs: number,
+  diffs: RuleStep['diffs'],
+): RuleStep => ({
+  id: `step-${index}`,
+  ruleId,
+  ruleName,
+  message: `step ${index}`,
+  diffs,
+  affectedCells: [],
+  affectedEdges: diffs.flatMap((diff) => (diff.kind === 'edge' ? [diff.edgeKey] : [])),
+  affectedSectors: diffs.flatMap((diff) => (diff.kind === 'sector' ? [diff.sectorKey] : [])),
+  timestamp: index,
+  durationMs,
+})
+
+describe('buildRuleTraceStats', () => {
+  it('builds rule usage and rule step indices for the active prefix', () => {
+    const steps: RuleStep[] = [
+      makeStep(1, 'rule-a', 'Rule A', 2, [
+        { kind: 'edge', edgeKey: '0,0-0,1', from: 'unknown', to: 'line' },
+      ]),
+      makeStep(2, 'rule-b', 'Rule B', 3, [
+        { kind: 'cell', cellKey: '0,0', fromFill: null, toFill: 'green' },
+      ]),
+      makeStep(3, 'rule-a', 'Rule A', 5, [
+        { kind: 'sector', sectorKey: '0,0,nw', fromMask: 7, toMask: 2 },
+      ]),
+    ]
+
+    const stats = buildRuleTraceStats(steps, 3)
+
+    expect(stats.ruleUsage).toEqual({ 'rule-a': 2, 'rule-b': 1 })
+    expect(stats.ruleSteps).toEqual({ 'rule-a': [1, 3], 'rule-b': [2] })
+    expect(stats.totalDurationMs).toBe(10)
+    expect(stats.diffCounts).toEqual({ edge: 1, sector: 1, cell: 1, vertex: 0 })
+  })
+
+  it('keeps all full-trace rules visible when the active prefix has not used them yet', () => {
+    const steps: RuleStep[] = [
+      makeStep(1, 'rule-a', 'Rule A', 1, []),
+      makeStep(2, 'rule-b', 'Rule B', 1, []),
+    ]
+
+    const stats = buildRuleTraceStats(steps, 1)
+
+    expect(stats.rules.map((rule) => rule.ruleId)).toEqual(['rule-a', 'rule-b'])
+    expect(stats.rules[0]).toMatchObject({ count: 1, steps: [1] })
+    expect(stats.rules[1]).toMatchObject({ count: 0, steps: [] })
+    expect(stats.uniqueRulesUsed).toBe(1)
+  })
+
+  it('clamps pointer and reports trace progress as generated-trace progress', () => {
+    const steps: RuleStep[] = [
+      makeStep(1, 'rule-a', 'Rule A', 1, []),
+      makeStep(2, 'rule-b', 'Rule B', 1, []),
+    ]
+
+    expect(buildRuleTraceStats(steps, -10).pointer).toBe(0)
+    expect(buildRuleTraceStats(steps, 99).pointer).toBe(2)
+    expect(buildRuleTraceStats(steps, 1).traceProgressRatio).toBe(0.5)
+  })
+})
+
+describe('buildTraceChartStats', () => {
+  it('starts with a step zero chart point from the initial puzzle', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const stats = buildTraceChartStats(puzzle, [], 0)
+
+    expect(stats.points).toHaveLength(1)
+    expect(stats.current.step).toBe(0)
+    expect(stats.current.boardProgressRatio).toBe(0)
+    expect(stats.totalEdges).toBe(4)
+    expect(stats.totalCells).toBe(1)
+    expect(stats.totalVertices).toBe(4)
+  })
+
+  it('tracks edge board progress and edge coverage as edge diffs are applied', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const topEdge = edgeKey([0, 0], [0, 1])
+    const bottomEdge = edgeKey([1, 0], [1, 1])
+    const steps: RuleStep[] = [
+      makeStep(1, 'edge-rule', 'Edge Rule', 1, [
+        { kind: 'edge', edgeKey: topEdge, from: 'unknown', to: 'line' },
+      ]),
+      makeStep(2, 'edge-rule', 'Edge Rule', 1, [
+        { kind: 'edge', edgeKey: bottomEdge, from: 'unknown', to: 'blank' },
+      ]),
+    ]
+
+    const stats = buildTraceChartStats(puzzle, steps, 2)
+
+    expect(stats.points.map((point) => point.edgeCoverageRatio)).toEqual([0, 0.25, 0.5])
+    expect(stats.current.boardProgressRatio).toBe(0.5)
+  })
+
+  it('tracks cell coverage from filled cells', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const steps: RuleStep[] = [
+      makeStep(1, 'cell-rule', 'Cell Rule', 1, [
+        { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+      ]),
+    ]
+
+    const stats = buildTraceChartStats(puzzle, steps, 1)
+
+    expect(stats.current.cellCoverageRatio).toBe(0.25)
+  })
+
+  it('tracks vertex coverage from narrowed vertex candidates', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const targetVertex = vertexKey(0, 0)
+    const initialCandidates = puzzle.vertices[targetVertex].candidateEdgeSets
+    const steps: RuleStep[] = [
+      makeStep(1, 'vertex-rule', 'Vertex Rule', 1, [
+        {
+          kind: 'vertex',
+          vertexKey: targetVertex,
+          fromCandidates: initialCandidates,
+          toCandidates: [initialCandidates[0]],
+        },
+      ]),
+    ]
+
+    const stats = buildTraceChartStats(puzzle, steps, 1)
+
+    expect(stats.current.vertexCoverageRatio).toBe(0.25)
+  })
+
+  it('clamps pointer when selecting the current chart point', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const topEdge = edgeKey([0, 0], [0, 1])
+    const steps: RuleStep[] = [
+      makeStep(1, 'edge-rule', 'Edge Rule', 1, [
+        { kind: 'edge', edgeKey: topEdge, from: 'unknown', to: 'line' },
+      ]),
+    ]
+
+    expect(buildTraceChartStats(puzzle, steps, 99).current.step).toBe(1)
+    expect(buildTraceChartStats(puzzle, steps, -10).current.step).toBe(0)
+  })
+})

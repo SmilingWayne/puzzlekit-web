@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { CanvasBoard } from '../features/board/CanvasBoard'
 import { ExplanationPanel } from '../features/explanation/ExplanationPanel'
 import { ControlPanel } from '../features/solver/ControlPanel'
-import { buildDifficultySnapshot, useSolverStore } from '../features/solver/solverStore'
+import { useSolverStore } from '../features/solver/solverStore'
 import { StatsPanel } from '../features/stats/StatsPanel'
 import './workspace.css'
 
 export const WorkspacePage = () => {
   const {
     pluginId,
+    initialPuzzle,
     currentPuzzle,
     steps,
     pointer,
@@ -18,9 +19,10 @@ export const WorkspacePage = () => {
     highlightedEdges,
     includeVertexNumbers,
     solveProgress,
+    goToStep,
+    isRunning,
   } = useSolverStore()
   const activeSteps = useMemo(() => steps.slice(0, pointer), [steps, pointer])
-  const difficulty = useMemo(() => buildDifficultySnapshot(activeSteps), [activeSteps])
 
   return (
     <main className="workspace">
@@ -47,7 +49,13 @@ export const WorkspacePage = () => {
             highlightedEdges={highlightedEdges}
             showVertexNumbers={includeVertexNumbers}
           />
-          <StatsPanel steps={activeSteps} difficulty={difficulty} />
+          <StatsPanel
+            initialPuzzle={initialPuzzle}
+            steps={steps}
+            pointer={pointer}
+            isRunning={isRunning}
+            onGoToStep={goToStep}
+          />
         </div>
         <div className="right-column">
           <ControlPanel />

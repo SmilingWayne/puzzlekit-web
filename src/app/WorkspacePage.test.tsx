@@ -283,6 +283,109 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/step 1 \/ 2/i)).toBeInTheDocument()
   })
 
+  it('uses the live stats timeline to jump through the generated trace', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+
+    const statsTimeline = screen.getByLabelText(/trace timeline/i)
+    const liveStats = screen.getByLabelText(/live stats/i)
+    expect(statsTimeline).toHaveValue('2')
+    expect(within(liveStats).getByText(/board progress/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/inference coverage/i)).toBeInTheDocument()
+
+    fireEvent.change(statsTimeline, { target: { value: '1' } })
+
+    expect(statsTimeline).toHaveValue('1')
+    expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('1')
+    expect(screen.getByText(/showing 1 \/ 1/i)).toBeInTheDocument()
+  })
+
+  it('shows the optimized live stats summary and charts', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+
+    const liveStats = screen.getByLabelText(/live stats/i)
+    expect(within(liveStats).getByText(/current step/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/unique rules applied/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/total rule time/i)).toBeInTheDocument()
+    expect(within(liveStats).queryByText(/total diffs/i)).not.toBeInTheDocument()
+    expect(within(liveStats).queryByText(/rule applications/i)).not.toBeInTheDocument()
+    expect(within(liveStats).queryByText(/trace progress/i)).not.toBeInTheDocument()
+
+    expect(within(liveStats).getByLabelText(/^board progress$/i)).toBeInTheDocument()
+    const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
+    expect(within(coverageChart).getByText(/edge/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/vertex/i)).toBeInTheDocument()
+    expect(within(coverageChart).queryByText(/sector/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps future trace rules visible in live stats while browsing an earlier prefix', () => {
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'rule-a',
+        ruleName: 'Rule A',
+        message: 'first',
+        diffs: [{ kind: 'edge', edgeKey: edgeKey([0, 0], [0, 1]), from: 'unknown', to: 'line' }],
+        affectedCells: [],
+        affectedEdges: [edgeKey([0, 0], [0, 1])],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 2,
+      },
+      {
+        id: 'step-2',
+        ruleId: 'rule-b',
+        ruleName: 'Rule B',
+        message: 'second',
+        diffs: [{ kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' }],
+        affectedCells: [cellKey(0, 0)],
+        affectedEdges: [],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 3,
+      },
+    ]
+    const puzzle = createSlitherPuzzle(1, 1)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      pointer: 1,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      solveProgress: null,
+      terminalReport: null,
+      isRunning: false,
+    }))
+
+    renderWorkspace()
+
+    const liveStats = screen.getByLabelText(/live stats/i)
+    expect(within(liveStats).getByText('Rule A')).toBeInTheDocument()
+    expect(within(liveStats).getByText('Rule B')).toBeInTheDocument()
+
+    const ruleBRow = within(liveStats).getByText('Rule B').closest('tr')
+    expect(ruleBRow).not.toBeNull()
+    expect(within(ruleBRow as HTMLElement).getAllByText('0')).toHaveLength(1)
+    expect(within(ruleBRow as HTMLElement).getByText('-')).toBeInTheDocument()
+  })
+
+  it('shows a disabled live stats timeline before steps are generated', () => {
+    renderWorkspace()
+
+    const statsTimeline = screen.getByLabelText(/trace timeline/i)
+    expect(statsTimeline).toBeDisabled()
+    expect(screen.getByText(/no generated steps yet/i)).toBeInTheDocument()
+  })
+
   it('rewinds by the configured step chunk and clamps at the start', () => {
     renderWorkspace()
 
