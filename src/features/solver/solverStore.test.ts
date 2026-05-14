@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { cellKey, edgeKey } from '../../domain/ir/keys'
+import { buildTraceStatsView, rebuildTraceStatsCache } from '../../domain/difficulty/traceStats'
 import { semanticEquals } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../../domain/ir/types'
@@ -53,6 +54,7 @@ describe('solver timeline behavior', () => {
     const store = useSolverStore.getState()
     store.nextStep()
     expect(useSolverStore.getState().steps.length).toBe(1)
+    expect(useSolverStore.getState().traceStatsCache.points).toHaveLength(2)
     expect(useSolverStore.getState().pointer).toBe(1)
 
     store.prevStep()
@@ -62,6 +64,7 @@ describe('solver timeline behavior', () => {
     store.nextStep()
     expect(useSolverStore.getState().pointer).toBe(1)
     expect(useSolverStore.getState().steps.length).toBe(1)
+    expect(useSolverStore.getState().traceStatsCache.points).toHaveLength(2)
   })
 
   it('keeps prevStep state consistent with replayed prefix state', () => {
@@ -113,6 +116,7 @@ describe('solver timeline behavior', () => {
       initialPuzzle,
       currentPuzzle: buildPuzzleFromSteps(initialPuzzle, steps, 2),
       steps,
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, steps),
       pointer: 2,
       highlightedCells: steps[1].affectedCells,
       highlightedColorCells: [],
@@ -153,6 +157,7 @@ describe('solver timeline behavior', () => {
       initialPuzzle,
       currentPuzzle: buildPuzzleFromSteps(initialPuzzle, steps, 1),
       steps,
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, steps),
       pointer: 1,
       highlightedCells: steps[0].affectedCells,
       highlightedColorCells: [],
@@ -183,6 +188,41 @@ describe('solver timeline behavior', () => {
 
     expect(useSolverStore.getState().pointer).toBe(0)
     useSolverStore.setState((state) => ({ ...state, isRunning: false }))
+  })
+
+  it('keeps trace stats cache when moving through existing replay states', () => {
+    const initialPuzzle = createSlitherPuzzle(1, 1)
+    const topEdge = edgeKey([0, 0], [0, 1])
+    const step: RuleStep = {
+      id: 'step-1',
+      ruleId: 'test-rule',
+      ruleName: 'Test Rule',
+      message: 'test',
+      diffs: [{ kind: 'edge', edgeKey: topEdge, from: 'unknown', to: 'line' }],
+      affectedCells: [cellKey(0, 0)],
+      affectedEdges: [topEdge],
+      affectedSectors: [],
+      timestamp: Date.now(),
+      durationMs: 2,
+    }
+    useSolverStore.setState((state) => ({
+      ...state,
+      initialPuzzle,
+      currentPuzzle: buildPuzzleFromSteps(initialPuzzle, [step], 1),
+      steps: [step],
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, [step]),
+      pointer: 1,
+      isRunning: false,
+    }))
+
+    useSolverStore.getState().goToStep(0)
+
+    expect(useSolverStore.getState().traceStatsCache.points).toHaveLength(2)
+    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 0).current.edgeCoverageRatio).toBe(0)
+
+    useSolverStore.getState().goToStep(1)
+
+    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 1).current.edgeCoverageRatio).toBe(0.25)
   })
 })
 
@@ -253,6 +293,7 @@ describe('solver puzzle loading', () => {
     useSolverStore.getState().loadPuzzle(puzzle, { pluginId: 'slitherlink' })
     const after = useSolverStore.getState()
     expect(after.steps.length).toBe(0)
+    expect(after.traceStatsCache.points).toHaveLength(1)
     expect(after.pointer).toBe(0)
     expect(after.sourceUrl).toBe('')
     expect(after.currentPuzzle.rows).toBe(5)
@@ -273,6 +314,7 @@ describe('solver puzzle loading', () => {
     const after = useSolverStore.getState()
     expect(after.pointer).toBe(0)
     expect(after.steps.length).toBe(0)
+    expect(after.traceStatsCache.points).toHaveLength(1)
     expect(after.terminalReport).toBeNull()
     expect(after.sourceUrl).toBe('editor')
     expect(after.currentPuzzle.cells[cellKey(0, 0)]?.clue).toEqual({
@@ -290,6 +332,7 @@ describe('solver puzzle loading', () => {
     expect(after.currentPuzzle.rows).toBe(3)
     expect(after.currentPuzzle.cols).toBe(3)
     expect(after.steps.length).toBe(0)
+    expect(after.traceStatsCache.points).toHaveLength(1)
     expect(after.sourceUrl).toBe(SAMPLE_URL)
   })
 })

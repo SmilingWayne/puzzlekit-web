@@ -10,9 +10,9 @@ import './workspace.css'
 export const WorkspacePage = () => {
   const {
     pluginId,
-    initialPuzzle,
     currentPuzzle,
     steps,
+    traceStatsCache,
     pointer,
     highlightedCells,
     highlightedColorCells,
@@ -50,8 +50,7 @@ export const WorkspacePage = () => {
             showVertexNumbers={includeVertexNumbers}
           />
           <StatsPanel
-            initialPuzzle={initialPuzzle}
-            steps={steps}
+            traceStatsCache={traceStatsCache}
             pointer={pointer}
             isRunning={isRunning}
             onGoToStep={goToStep}

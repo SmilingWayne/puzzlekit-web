@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { cellKey, edgeKey } from '../domain/ir/keys'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
+import { rebuildTraceStatsCache } from '../domain/difficulty/traceStats'
 import { DEFAULT_SOLVE_CHUNK_SIZE, useSolverStore } from '../features/solver/solverStore'
 import { WorkspacePage } from './WorkspacePage'
 import type { RuleStep } from '../domain/rules/types'
@@ -357,6 +358,7 @@ describe('WorkspacePage', () => {
       initialPuzzle: puzzle,
       currentPuzzle: puzzle,
       steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
       pointer: 1,
       highlightedCells: [],
       highlightedColorCells: [],
@@ -509,6 +511,7 @@ describe('WorkspacePage', () => {
     useSolverStore.setState((state) => ({
       ...state,
       steps,
+      traceStatsCache: rebuildTraceStatsCache(state.initialPuzzle, steps),
       pointer: steps.length,
       terminalReport: null,
     }))

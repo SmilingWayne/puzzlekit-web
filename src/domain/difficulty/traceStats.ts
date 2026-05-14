@@ -44,6 +44,34 @@ export type TraceChartStats = {
   points: TraceChartPoint[]
 }
 
+export type RuleTraceOccurrence = {
+  ruleId: string
+  ruleName: string
+  steps: number[]
+  durationPrefixMs: number[]
+}
+
+export type TraceStatsCache = {
+  totalEdges: number
+  totalCells: number
+  totalVertices: number
+  points: TraceChartPoint[]
+  ruleOrder: string[]
+  ruleOccurrences: Record<string, RuleTraceOccurrence>
+  totalDurationPrefixMs: number[]
+  totalDiffPrefixCounts: number[]
+  diffPrefixCounts: Record<RuleDiff['kind'], number[]>
+  edgeMarks: Record<string, string>
+  cellFills: Record<string, string | null>
+  vertexCandidateSignatures: Record<string, string>
+  initialVertexCandidateCounts: Record<string, number>
+  initialVertexCandidateSignatures: Record<string, string>
+  narrowedVertexKeys: Record<string, boolean>
+  decidedEdgeCount: number
+  filledCellCount: number
+  narrowedVertexCount: number
+}
+
 export const emptyDiffCounts = (): RuleTraceDiffCounts => ({
   edge: 0,
   sector: 0,
@@ -135,6 +163,257 @@ const vertexSignature = (candidates: VertexCandidate[] | undefined): string =>
       .map((candidate) => [...candidate].sort())
       .sort((a, b) => a.length - b.length || a.join('|').localeCompare(b.join('|'))),
   )
+
+const makeChartPoint = (
+  step: number,
+  cache: Pick<
+    TraceStatsCache,
+    | 'decidedEdgeCount'
+    | 'filledCellCount'
+    | 'narrowedVertexCount'
+    | 'totalEdges'
+    | 'totalCells'
+    | 'totalVertices'
+  >,
+): TraceChartPoint => ({
+  step,
+  boardProgressRatio: ratio(cache.decidedEdgeCount, cache.totalEdges),
+  edgeCoverageRatio: ratio(cache.decidedEdgeCount, cache.totalEdges),
+  cellCoverageRatio: ratio(cache.filledCellCount, cache.totalCells),
+  vertexCoverageRatio: ratio(cache.narrowedVertexCount, cache.totalVertices),
+})
+
+const countInitialFilledCells = (puzzle: PuzzleIR): number =>
+  Object.values(puzzle.cells).filter((cell) => cell.fill !== undefined && cell.fill !== null).length
+
+const countInitialDecidedEdges = (puzzle: PuzzleIR): number =>
+  Object.values(puzzle.edges).filter((edge) => (edge?.mark ?? 'unknown') !== 'unknown').length
+
+const upperBound = (values: number[], target: number): number => {
+  let low = 0
+  let high = values.length
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2)
+    if (values[mid] <= target) {
+      low = mid + 1
+    } else {
+      high = mid
+    }
+  }
+  return low
+}
+
+export const createTraceStatsCache = (initialPuzzle: PuzzleIR): TraceStatsCache => {
+  const totalEdges = Object.keys(initialPuzzle.edges).length
+  const totalCells = initialPuzzle.rows * initialPuzzle.cols
+  const totalVertices = Object.keys(initialPuzzle.vertices).length
+  const edgeMarks: Record<string, string> = {}
+  const cellFills: Record<string, string | null> = {}
+  const vertexCandidateSignatures: Record<string, string> = {}
+  const initialVertexCandidateCounts: Record<string, number> = {}
+  const initialVertexCandidateSignatures: Record<string, string> = {}
+  const narrowedVertexKeys: Record<string, boolean> = {}
+
+  for (const [key, edge] of Object.entries(initialPuzzle.edges)) {
+    edgeMarks[key] = edge?.mark ?? 'unknown'
+  }
+  for (const [key, cell] of Object.entries(initialPuzzle.cells)) {
+    cellFills[key] = cell.fill ?? null
+  }
+  for (const [key, vertex] of Object.entries(initialPuzzle.vertices)) {
+    const candidates = vertex?.candidateEdgeSets ?? []
+    const signature = vertexSignature(candidates)
+    vertexCandidateSignatures[key] = signature
+    initialVertexCandidateCounts[key] = candidates.length
+    initialVertexCandidateSignatures[key] = signature
+    narrowedVertexKeys[key] = false
+  }
+
+  const cacheBase = {
+    totalEdges,
+    totalCells,
+    totalVertices,
+    edgeMarks,
+    cellFills,
+    vertexCandidateSignatures,
+    initialVertexCandidateCounts,
+    initialVertexCandidateSignatures,
+    narrowedVertexKeys,
+    decidedEdgeCount: countInitialDecidedEdges(initialPuzzle),
+    filledCellCount: countInitialFilledCells(initialPuzzle),
+    narrowedVertexCount: 0,
+  }
+
+  return {
+    ...cacheBase,
+    points: [makeChartPoint(0, cacheBase)],
+    ruleOrder: [],
+    ruleOccurrences: {},
+    totalDurationPrefixMs: [0],
+    totalDiffPrefixCounts: [0],
+    diffPrefixCounts: {
+      edge: [0],
+      sector: [0],
+      cell: [0],
+      vertex: [0],
+    },
+  }
+}
+
+export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): TraceStatsCache => {
+  const stepNumber = cache.points.length
+  const next: TraceStatsCache = {
+    ...cache,
+  }
+
+  let edgeDiffs = 0
+  let sectorDiffs = 0
+  let cellDiffs = 0
+  let vertexDiffs = 0
+
+  for (const diff of step.diffs) {
+    if (diff.kind === 'edge') {
+      edgeDiffs += 1
+      const previous = next.edgeMarks[diff.edgeKey] ?? diff.from ?? 'unknown'
+      const previousDecided = previous !== 'unknown'
+      const nextDecided = diff.to !== 'unknown'
+      if (!previousDecided && nextDecided) {
+        next.decidedEdgeCount += 1
+      } else if (previousDecided && !nextDecided) {
+        next.decidedEdgeCount -= 1
+      }
+      next.edgeMarks[diff.edgeKey] = diff.to
+    } else if (diff.kind === 'cell') {
+      cellDiffs += 1
+      const previous = next.cellFills[diff.cellKey] ?? null
+      const previousFilled = previous !== null
+      const nextFilled = diff.toFill !== null
+      if (!previousFilled && nextFilled) {
+        next.filledCellCount += 1
+      } else if (previousFilled && !nextFilled) {
+        next.filledCellCount -= 1
+      }
+      next.cellFills[diff.cellKey] = diff.toFill
+    } else if (diff.kind === 'vertex') {
+      vertexDiffs += 1
+      const signature = vertexSignature(diff.toCandidates)
+      const initialCount = next.initialVertexCandidateCounts[diff.vertexKey] ?? 0
+      const initialSignature = next.initialVertexCandidateSignatures[diff.vertexKey] ?? '[]'
+      const wasNarrowed = next.narrowedVertexKeys[diff.vertexKey] ?? false
+      const isNarrowed = diff.toCandidates.length < initialCount || signature !== initialSignature
+      if (!wasNarrowed && isNarrowed) {
+        next.narrowedVertexCount += 1
+      } else if (wasNarrowed && !isNarrowed) {
+        next.narrowedVertexCount -= 1
+      }
+      next.narrowedVertexKeys[diff.vertexKey] = isNarrowed
+      next.vertexCandidateSignatures[diff.vertexKey] = signature
+    } else {
+      sectorDiffs += 1
+    }
+  }
+
+  if (next.ruleOccurrences[step.ruleId] === undefined) {
+    next.ruleOrder.push(step.ruleId)
+    next.ruleOccurrences[step.ruleId] = {
+      ruleId: step.ruleId,
+      ruleName: step.ruleName,
+      steps: [],
+      durationPrefixMs: [0],
+    }
+  }
+  const occurrence = next.ruleOccurrences[step.ruleId]
+  occurrence.steps.push(stepNumber)
+  occurrence.durationPrefixMs.push(
+    occurrence.durationPrefixMs[occurrence.durationPrefixMs.length - 1] + (step.durationMs ?? 0),
+  )
+
+  next.totalDurationPrefixMs.push(
+    next.totalDurationPrefixMs[next.totalDurationPrefixMs.length - 1] + (step.durationMs ?? 0),
+  )
+  next.totalDiffPrefixCounts.push(
+    next.totalDiffPrefixCounts[next.totalDiffPrefixCounts.length - 1] + step.diffs.length,
+  )
+  next.diffPrefixCounts.edge.push(next.diffPrefixCounts.edge[next.diffPrefixCounts.edge.length - 1] + edgeDiffs)
+  next.diffPrefixCounts.sector.push(next.diffPrefixCounts.sector[next.diffPrefixCounts.sector.length - 1] + sectorDiffs)
+  next.diffPrefixCounts.cell.push(next.diffPrefixCounts.cell[next.diffPrefixCounts.cell.length - 1] + cellDiffs)
+  next.diffPrefixCounts.vertex.push(next.diffPrefixCounts.vertex[next.diffPrefixCounts.vertex.length - 1] + vertexDiffs)
+  next.points.push(makeChartPoint(stepNumber, next))
+
+  return { ...next }
+}
+
+export const rebuildTraceStatsCache = (
+  initialPuzzle: PuzzleIR,
+  steps: RuleStep[] = [],
+): TraceStatsCache => steps.reduce(appendTraceStatsStep, createTraceStatsCache(initialPuzzle))
+
+export const truncateTraceStatsCache = (
+  initialPuzzle: PuzzleIR,
+  cache: TraceStatsCache,
+  steps: RuleStep[],
+  pointer: number,
+): TraceStatsCache => {
+  const clampedPointer = clampPointer(pointer, steps.length)
+  if (clampedPointer === steps.length && cache.points.length === steps.length + 1) {
+    return cache
+  }
+  return rebuildTraceStatsCache(initialPuzzle, steps.slice(0, clampedPointer))
+}
+
+export const buildTraceStatsView = (
+  cache: TraceStatsCache,
+  pointer: number,
+): RuleTraceStats & TraceChartStats => {
+  const totalSteps = Math.max(0, cache.points.length - 1)
+  const currentPointer = clampPointer(pointer, totalSteps)
+  const ruleUsage: Record<string, number> = {}
+  const ruleSteps: Record<string, number[]> = {}
+  const rules = cache.ruleOrder.map((ruleId) => {
+    const occurrence = cache.ruleOccurrences[ruleId]
+    const count = upperBound(occurrence.steps, currentPointer)
+    const steps = occurrence.steps.slice(0, count)
+    const durationMs = occurrence.durationPrefixMs[count] ?? 0
+    ruleUsage[ruleId] = count
+    ruleSteps[ruleId] = steps
+    return {
+      ruleId,
+      ruleName: occurrence.ruleName,
+      count,
+      percent: currentPointer > 0 ? count / currentPointer : 0,
+      durationMs,
+      steps,
+    }
+  })
+
+  const activeRuleUsage = Object.fromEntries(
+    Object.entries(ruleUsage).filter(([, count]) => count > 0),
+  )
+
+  return {
+    pointer: currentPointer,
+    totalSteps,
+    traceProgressRatio: totalSteps > 0 ? currentPointer / totalSteps : 0,
+    totalRuleApplications: currentPointer,
+    totalDurationMs: cache.totalDurationPrefixMs[currentPointer] ?? 0,
+    totalDiffs: cache.totalDiffPrefixCounts[currentPointer] ?? 0,
+    uniqueRulesUsed: Object.keys(activeRuleUsage).length,
+    diffCounts: {
+      edge: cache.diffPrefixCounts.edge[currentPointer] ?? 0,
+      sector: cache.diffPrefixCounts.sector[currentPointer] ?? 0,
+      cell: cache.diffPrefixCounts.cell[currentPointer] ?? 0,
+      vertex: cache.diffPrefixCounts.vertex[currentPointer] ?? 0,
+    },
+    ruleUsage,
+    ruleSteps,
+    rules,
+    totalEdges: cache.totalEdges,
+    totalCells: cache.totalCells,
+    totalVertices: cache.totalVertices,
+    current: cache.points[currentPointer] ?? cache.points[0],
+    points: cache.points,
+  }
+}
 
 export const buildTraceChartStats = (
   initialPuzzle: PuzzleIR,

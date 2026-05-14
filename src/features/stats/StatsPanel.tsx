@@ -1,15 +1,12 @@
 import { useMemo } from 'react'
 import {
-  buildRuleTraceStats,
-  buildTraceChartStats,
+  buildTraceStatsView,
+  type TraceStatsCache,
   type TraceChartPoint,
 } from '../../domain/difficulty/traceStats'
-import type { PuzzleIR } from '../../domain/ir/types'
-import type { RuleStep } from '../../domain/rules/types'
 
 type Props = {
-  initialPuzzle: PuzzleIR
-  steps: RuleStep[]
+  traceStatsCache: TraceStatsCache
   pointer: number
   isRunning: boolean
   onGoToStep: (targetPointer: number) => void
@@ -42,6 +39,20 @@ const formatStepList = (stepNumbers: number[]): string => {
 
 const clampRatio = (value: number): number => Math.min(1, Math.max(0, value))
 
+const MAX_RENDERED_POINTS = 400
+
+const sampleChartValues = (values: number[]): Array<{ index: number; value: number }> => {
+  if (values.length <= MAX_RENDERED_POINTS) {
+    return values.map((value, index) => ({ index, value }))
+  }
+  const lastIndex = values.length - 1
+  const sampled = Array.from({ length: MAX_RENDERED_POINTS }, (_, index) => {
+    const sourceIndex = Math.round((index / (MAX_RENDERED_POINTS - 1)) * lastIndex)
+    return { index: sourceIndex, value: values[sourceIndex] }
+  })
+  return sampled.filter((item, index, arr) => index === 0 || item.index !== arr[index - 1].index)
+}
+
 const makePath = (
   values: number[],
   width: number,
@@ -51,12 +62,15 @@ const makePath = (
   if (values.length === 0) {
     return ''
   }
+  const sampled = sampleChartValues(values)
   const plotWidth = width - padding.left - padding.right
   const plotHeight = height - padding.top - padding.bottom
   const xFor = (index: number): number =>
     padding.left + (values.length <= 1 ? 0 : (index / (values.length - 1)) * plotWidth)
   const yFor = (value: number): number => padding.top + (1 - clampRatio(value)) * plotHeight
-  return values.map((value, index) => `${index === 0 ? 'M' : 'L'} ${xFor(index)} ${yFor(value)}`).join(' ')
+  return sampled
+    .map(({ index, value }, sampledIndex) => `${sampledIndex === 0 ? 'M' : 'L'} ${xFor(index)} ${yFor(value)}`)
+    .join(' ')
 }
 
 const TraceLineChart = ({
@@ -178,12 +192,8 @@ const getCoverageSeries = (points: TraceChartPoint[]): ChartSeries[] => [
   },
 ]
 
-export const StatsPanel = ({ initialPuzzle, steps, pointer, isRunning, onGoToStep }: Props) => {
-  const stats = useMemo(() => buildRuleTraceStats(steps, pointer), [pointer, steps])
-  const chartStats = useMemo(
-    () => buildTraceChartStats(initialPuzzle, steps, pointer),
-    [initialPuzzle, pointer, steps],
-  )
+export const StatsPanel = ({ traceStatsCache, pointer, isRunning, onGoToStep }: Props) => {
+  const stats = useMemo(() => buildTraceStatsView(traceStatsCache, pointer), [pointer, traceStatsCache])
 
   return (
     <section className="panel-card stats" aria-label="Live Stats">
@@ -210,17 +220,17 @@ export const StatsPanel = ({ initialPuzzle, steps, pointer, isRunning, onGoToSte
       <div className="stats-timeline-row">
         <div className="timeline-header">
           <label htmlFor="live-stats-timeline">Trace Timeline</label>
-          <span>Step {chartStats.pointer} of {chartStats.totalSteps}</span>
+          <span>Step {stats.pointer} of {stats.totalSteps}</span>
         </div>
         <input
           id="live-stats-timeline"
           className="timeline-slider stats-timeline-slider"
           type="range"
           min={0}
-          max={steps.length}
+          max={stats.totalSteps}
           value={stats.pointer}
-          disabled={isRunning || steps.length === 0}
-          aria-valuetext={`Step ${stats.pointer} of ${steps.length}`}
+          disabled={isRunning || stats.totalSteps === 0}
+          aria-valuetext={`Step ${stats.pointer} of ${stats.totalSteps}`}
           onChange={(event) => onGoToStep(Number(event.target.value))}
         />
       </div>
@@ -229,14 +239,14 @@ export const StatsPanel = ({ initialPuzzle, steps, pointer, isRunning, onGoToSte
         <TraceLineChart
           title="Board Progress"
           description="Decided edges over the whole board"
-          series={getBoardProgressSeries(chartStats.points)}
-          currentIndex={chartStats.pointer}
+          series={getBoardProgressSeries(stats.points)}
+          currentIndex={stats.pointer}
         />
         <TraceLineChart
           title="Inference Coverage"
           description="State coverage by inferred element type"
-          series={getCoverageSeries(chartStats.points)}
-          currentIndex={chartStats.pointer}
+          series={getCoverageSeries(stats.points)}
+          currentIndex={stats.pointer}
         />
       </div>
 

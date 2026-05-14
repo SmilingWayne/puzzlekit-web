@@ -1,4 +1,11 @@
 import { create } from 'zustand'
+import {
+  appendTraceStatsStep,
+  createTraceStatsCache,
+  rebuildTraceStatsCache,
+  truncateTraceStatsCache,
+  type TraceStatsCache,
+} from '../../domain/difficulty/traceStats'
 import type { DifficultySnapshot } from '../../domain/difficulty/types'
 import { clonePuzzle } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
@@ -32,6 +39,7 @@ type SolverStore = {
   initialPuzzle: PuzzleIR
   currentPuzzle: PuzzleIR
   steps: RuleStep[]
+  traceStatsCache: TraceStatsCache
   pointer: number
   highlightedCells: string[]
   highlightedColorCells: string[]
@@ -131,6 +139,7 @@ const getSamplePuzzle = (): PuzzleIR => {
 }
 
 const initialPuzzle = getSamplePuzzle()
+const initialTraceStatsCache = createTraceStatsCache(initialPuzzle)
 
 export const useSolverStore = create<SolverStore>((set, get) => ({
   pluginId: 'slitherlink',
@@ -138,6 +147,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   initialPuzzle,
   currentPuzzle: clonePuzzle(initialPuzzle),
   steps: [],
+  traceStatsCache: initialTraceStatsCache,
   pointer: 0,
   highlightedCells: [],
   highlightedColorCells: [],
@@ -159,6 +169,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       initialPuzzle: nextInitial,
       currentPuzzle: clonePuzzle(nextInitial),
       steps: [],
+      traceStatsCache: createTraceStatsCache(nextInitial),
       pointer: 0,
       highlightedCells: [],
       highlightedColorCells: [],
@@ -183,7 +194,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     }
   },
   nextStep: () => {
-    const { pluginId, currentPuzzle, steps, pointer, terminalReport } = get()
+    const { pluginId, currentPuzzle, steps, pointer, terminalReport, initialPuzzle, traceStatsCache } = get()
     if (terminalReport) {
       return
     }
@@ -209,10 +220,13 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       }
       return
     }
+    const baseCache = truncateTraceStatsCache(initialPuzzle, traceStatsCache, steps, pointer)
     const nextSteps = [...activeSteps, step]
+    const nextTraceStatsCache = appendTraceStatsStep(baseCache, step)
     set({
       currentPuzzle: nextPuzzle,
       steps: nextSteps,
+      traceStatsCache: nextTraceStatsCache,
       pointer: nextSteps.length,
       highlightedCells: step.affectedCells,
       highlightedColorCells: getStepColorCells(step),
@@ -289,6 +303,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     set({
       currentPuzzle: clonePuzzle(initialPuzzle),
       steps: [],
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle),
       pointer: 0,
       highlightedCells: [],
       highlightedColorCells: [],

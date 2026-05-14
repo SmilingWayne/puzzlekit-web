@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { cellKey, edgeKey, vertexKey } from '../ir/keys'
 import { createSlitherPuzzle } from '../ir/slither'
 import type { RuleStep } from '../rules/types'
-import { buildRuleTraceStats, buildTraceChartStats } from './traceStats'
+import {
+  appendTraceStatsStep,
+  buildRuleTraceStats,
+  buildTraceChartStats,
+  buildTraceStatsView,
+  createTraceStatsCache,
+  rebuildTraceStatsCache,
+  truncateTraceStatsCache,
+} from './traceStats'
 
 const makeStep = (
   index: number,
@@ -147,5 +155,94 @@ describe('buildTraceChartStats', () => {
 
     expect(buildTraceChartStats(puzzle, steps, 99).current.step).toBe(1)
     expect(buildTraceChartStats(puzzle, steps, -10).current.step).toBe(0)
+  })
+})
+
+describe('incremental trace stats cache', () => {
+  it('initializes cache with a step zero chart point', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const cache = createTraceStatsCache(puzzle)
+    const view = buildTraceStatsView(cache, 0)
+
+    expect(cache.points).toHaveLength(1)
+    expect(view.current.step).toBe(0)
+    expect(view.current.boardProgressRatio).toBe(0)
+    expect(view.totalEdges).toBe(4)
+  })
+
+  it('increments edge, cell, and vertex coverage from appended diffs', () => {
+    const puzzle = createSlitherPuzzle(2, 2)
+    const targetVertex = vertexKey(0, 0)
+    const initialCandidates = puzzle.vertices[targetVertex].candidateEdgeSets
+    const step = makeStep(1, 'mixed-rule', 'Mixed Rule', 4, [
+      { kind: 'edge', edgeKey: edgeKey([0, 0], [0, 1]), from: 'unknown', to: 'line' },
+      { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'yellow' },
+      {
+        kind: 'vertex',
+        vertexKey: targetVertex,
+        fromCandidates: initialCandidates,
+        toCandidates: [initialCandidates[0]],
+      },
+    ])
+
+    const cache = appendTraceStatsStep(createTraceStatsCache(puzzle), step)
+    const view = buildTraceStatsView(cache, 1)
+
+    expect(view.current.edgeCoverageRatio).toBe(1 / 12)
+    expect(view.current.cellCoverageRatio).toBe(0.25)
+    expect(view.current.vertexCoverageRatio).toBe(1 / 9)
+    expect(view.totalDurationMs).toBe(4)
+    expect(view.diffCounts).toMatchObject({ edge: 1, cell: 1, vertex: 1 })
+  })
+
+  it('does not count an unchanged vertex candidate set as narrowed', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const targetVertex = vertexKey(0, 0)
+    const initialCandidates = puzzle.vertices[targetVertex].candidateEdgeSets
+    const step = makeStep(1, 'vertex-rule', 'Vertex Rule', 1, [
+      {
+        kind: 'vertex',
+        vertexKey: targetVertex,
+        fromCandidates: initialCandidates,
+        toCandidates: initialCandidates,
+      },
+    ])
+
+    const cache = appendTraceStatsStep(createTraceStatsCache(puzzle), step)
+
+    expect(buildTraceStatsView(cache, 1).current.vertexCoverageRatio).toBe(0)
+  })
+
+  it('truncates a future branch and rebuilds prefix totals', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const first = makeStep(1, 'rule-a', 'Rule A', 2, [
+      { kind: 'edge', edgeKey: edgeKey([0, 0], [0, 1]), from: 'unknown', to: 'line' },
+    ])
+    const second = makeStep(2, 'rule-b', 'Rule B', 3, [
+      { kind: 'edge', edgeKey: edgeKey([1, 0], [1, 1]), from: 'unknown', to: 'blank' },
+    ])
+    const cache = rebuildTraceStatsCache(puzzle, [first, second])
+
+    const truncated = truncateTraceStatsCache(puzzle, cache, [first, second], 1)
+    const view = buildTraceStatsView(truncated, 1)
+
+    expect(truncated.points).toHaveLength(2)
+    expect(view.totalDurationMs).toBe(2)
+    expect(view.rules.map((rule) => rule.ruleId)).toEqual(['rule-a'])
+    expect(view.current.edgeCoverageRatio).toBe(0.25)
+  })
+
+  it('keeps full generated rule rows visible while building an earlier pointer view', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const first = makeStep(1, 'rule-a', 'Rule A', 1, [])
+    const second = makeStep(2, 'rule-b', 'Rule B', 1, [])
+    const cache = rebuildTraceStatsCache(puzzle, [first, second])
+
+    const view = buildTraceStatsView(cache, 1)
+
+    expect(view.rules.map((rule) => rule.ruleId)).toEqual(['rule-a', 'rule-b'])
+    expect(view.rules[0]).toMatchObject({ count: 1, steps: [1] })
+    expect(view.rules[1]).toMatchObject({ count: 0, steps: [] })
+    expect(buildTraceStatsView(cache, 99).pointer).toBe(2)
   })
 })
