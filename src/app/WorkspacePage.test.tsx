@@ -303,6 +303,71 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/showing 1 \/ 1/i)).toBeInTheDocument()
   })
 
+  it('updates live stats chart legends as steps are generated and replayed', () => {
+    const firstEdge = edgeKey([0, 0], [0, 1])
+    const secondEdge = edgeKey([0, 1], [0, 2])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'rule-a',
+        ruleName: 'Rule A',
+        message: 'first',
+        diffs: [{ kind: 'edge', edgeKey: firstEdge, from: 'unknown', to: 'line' }],
+        affectedCells: [],
+        affectedEdges: [firstEdge],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+      },
+      {
+        id: 'step-2',
+        ruleId: 'rule-b',
+        ruleName: 'Rule B',
+        message: 'second',
+        diffs: [
+          { kind: 'edge', edgeKey: secondEdge, from: 'unknown', to: 'blank' },
+          { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+        ],
+        affectedCells: [cellKey(0, 0)],
+        affectedEdges: [secondEdge],
+        affectedSectors: [],
+        timestamp: Date.now() + 1,
+        durationMs: 1,
+      },
+    ]
+    const puzzle = createSlitherPuzzle(1, 2)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 2,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      solveProgress: null,
+      terminalReport: null,
+      isRunning: false,
+    }))
+
+    renderWorkspace()
+
+    const liveStats = screen.getByLabelText(/live stats/i)
+    const progressChart = within(liveStats).getByLabelText(/^board progress$/i)
+    const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
+    expect(within(progressChart).getByText(/progress 28\.6%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge 28\.6%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell 50\.0%/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/trace timeline/i), { target: { value: '1' } })
+
+    expect(within(progressChart).getByText(/progress 14\.3%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge 14\.3%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell 0\.0%/i)).toBeInTheDocument()
+  })
+
   it('shows the optimized live stats summary and charts', () => {
     renderWorkspace()
 
@@ -372,8 +437,11 @@ describe('WorkspacePage', () => {
 
     const liveStats = screen.getByLabelText(/live stats/i)
     expect(within(liveStats).getByText('Rule A')).toBeInTheDocument()
-    expect(within(liveStats).getByText('Rule B')).toBeInTheDocument()
+    expect(within(liveStats).queryByText('Rule B')).not.toBeInTheDocument()
 
+    fireEvent.click(within(liveStats).getByRole('button', { name: /view details/i }))
+
+    expect(within(liveStats).getByText('Rule B')).toBeInTheDocument()
     const ruleBRow = within(liveStats).getByText('Rule B').closest('tr')
     expect(ruleBRow).not.toBeNull()
     expect(within(ruleBRow as HTMLElement).getAllByText('0')).toHaveLength(1)

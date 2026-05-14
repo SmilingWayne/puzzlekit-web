@@ -8,6 +8,7 @@ import { buildPuzzleFromSteps } from '../../domain/rules/engine'
 import {
   DEFAULT_SOLVE_CHUNK_SIZE,
   MAX_SOLVE_CHUNK_SIZE,
+  REPLAY_CHECKPOINT_INTERVAL,
   sumRuleStepDurationMs,
   useSolverStore,
   type TerminalSolveReport,
@@ -28,6 +29,29 @@ const createSolvedLoopPuzzle = (): PuzzleIR => {
   markEdge(puzzle, edgeKey([0, 1], [1, 1]), 'line')
   return puzzle
 }
+
+const makeEdgeSteps = (puzzle: PuzzleIR, count: number): RuleStep[] =>
+  Object.keys(puzzle.edges)
+    .slice(0, count)
+    .map((edge, index) => ({
+      id: `step-${index + 1}`,
+      ruleId: `test-rule-${index % 3}`,
+      ruleName: `Test Rule ${index % 3}`,
+      message: `step ${index + 1}`,
+      diffs: [
+        {
+          kind: 'edge' as const,
+          edgeKey: edge,
+          from: 'unknown' as const,
+          to: index % 2 === 0 ? ('line' as const) : ('blank' as const),
+        },
+      ],
+      affectedCells: [],
+      affectedEdges: [edge],
+      affectedSectors: [],
+      timestamp: Date.now() + index,
+      durationMs: 1,
+    }))
 
 const mockTerminalReport: TerminalSolveReport = {
   status: 'stalled',
@@ -224,6 +248,35 @@ describe('solver timeline behavior', () => {
 
     expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 1).current.edgeCoverageRatio).toBe(0.25)
   })
+
+  it('jumps across a large replay trace and matches a full rebuild', () => {
+    const initialPuzzle = createSlitherPuzzle(1, REPLAY_CHECKPOINT_INTERVAL * 3)
+    const steps = makeEdgeSteps(initialPuzzle, REPLAY_CHECKPOINT_INTERVAL * 2 + 7)
+    useSolverStore.setState((state) => ({
+      ...state,
+      initialPuzzle,
+      currentPuzzle: buildPuzzleFromSteps(initialPuzzle, steps, steps.length),
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, steps),
+      pointer: steps.length,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      terminalReport: mockTerminalReport,
+      isRunning: false,
+    }))
+
+    useSolverStore.getState().goToStep(REPLAY_CHECKPOINT_INTERVAL + 3)
+    const middle = useSolverStore.getState()
+    expect(semanticEquals(middle.currentPuzzle, buildPuzzleFromSteps(initialPuzzle, steps, middle.pointer))).toBe(true)
+    expect(middle.pointer).toBe(REPLAY_CHECKPOINT_INTERVAL + 3)
+    expect(middle.terminalReport).toBeNull()
+
+    useSolverStore.getState().goToStep(steps.length)
+    const end = useSolverStore.getState()
+    expect(semanticEquals(end.currentPuzzle, buildPuzzleFromSteps(initialPuzzle, steps, steps.length))).toBe(true)
+  })
+
 })
 
 describe('solve chunk sizing', () => {

@@ -11,7 +11,7 @@ import { clonePuzzle } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import type { PuzzleIR } from '../../domain/ir/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
-import { buildPuzzleFromSteps, rewindPuzzleByStep, runNextRule } from '../../domain/rules/engine'
+import { applyRuleDiffs, rewindPuzzleByStep, runNextRule } from '../../domain/rules/engine'
 import {
   analyzeSlitherCompletion,
   type SlitherCompletionReport,
@@ -21,6 +21,7 @@ import type { RuleStep } from '../../domain/rules/types'
 const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb'
 export const DEFAULT_SOLVE_CHUNK_SIZE = 50
 export const MAX_SOLVE_CHUNK_SIZE = 1000
+export const REPLAY_CHECKPOINT_INTERVAL = 50
 
 export type TerminalSolveReport = SlitherCompletionReport & {
   stepCount: number
@@ -32,6 +33,11 @@ export type SolveProgress = {
   total: number
 }
 
+type ReplayCheckpoint = {
+  pointer: number
+  puzzle: PuzzleIR
+}
+
 type SolverStore = {
   pluginId: string
   sourceUrl: string
@@ -39,6 +45,7 @@ type SolverStore = {
   initialPuzzle: PuzzleIR
   currentPuzzle: PuzzleIR
   steps: RuleStep[]
+  replayCheckpoints: ReplayCheckpoint[]
   traceStatsCache: TraceStatsCache
   pointer: number
   highlightedCells: string[]
@@ -67,8 +74,91 @@ export type LoadPuzzleOptions = {
   sourceUrl?: string
 }
 
-const buildStateFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer: number): PuzzleIR => {
-  return buildPuzzleFromSteps(initialPuzzle, steps, pointer)
+const createInitialReplayCheckpoints = (initialPuzzle: PuzzleIR): ReplayCheckpoint[] => [
+  { pointer: 0, puzzle: initialPuzzle },
+]
+
+const trimReplayCheckpoints = (checkpoints: ReplayCheckpoint[], pointer: number): ReplayCheckpoint[] =>
+  checkpoints.filter((checkpoint) => checkpoint.pointer <= pointer)
+
+const getValidReplayCheckpoints = (
+  initialPuzzle: PuzzleIR,
+  checkpoints: ReplayCheckpoint[] | undefined,
+): ReplayCheckpoint[] => {
+  if (!checkpoints?.length || checkpoints[0]?.puzzle !== initialPuzzle) {
+    return createInitialReplayCheckpoints(initialPuzzle)
+  }
+  return checkpoints
+}
+
+const addReplayCheckpoint = (
+  checkpoints: ReplayCheckpoint[],
+  pointer: number,
+  puzzle: PuzzleIR,
+): ReplayCheckpoint[] => {
+  if (pointer <= 0 || pointer % REPLAY_CHECKPOINT_INTERVAL !== 0) {
+    return checkpoints
+  }
+  if (checkpoints.some((checkpoint) => checkpoint.pointer === pointer)) {
+    return checkpoints
+  }
+  return [...checkpoints, { pointer, puzzle }]
+}
+
+const applyStepsForward = (
+  puzzle: PuzzleIR,
+  steps: RuleStep[],
+  fromPointer: number,
+  toPointer: number,
+): PuzzleIR => {
+  let next = puzzle
+  for (let index = fromPointer; index < toPointer; index += 1) {
+    next = applyRuleDiffs(next, steps[index].diffs)
+  }
+  return next
+}
+
+const rewindStepsBackward = (
+  puzzle: PuzzleIR,
+  steps: RuleStep[],
+  fromPointer: number,
+  toPointer: number,
+): PuzzleIR => {
+  let next = puzzle
+  for (let index = fromPointer - 1; index >= toPointer; index -= 1) {
+    next = rewindPuzzleByStep(next, steps[index])
+  }
+  return next
+}
+
+const buildStateFromReplayCache = (
+  initialPuzzle: PuzzleIR,
+  currentPuzzle: PuzzleIR,
+  steps: RuleStep[],
+  currentPointer: number,
+  targetPointer: number,
+  checkpoints: ReplayCheckpoint[] | undefined,
+): PuzzleIR => {
+  if (targetPointer === currentPointer) {
+    return currentPuzzle
+  }
+
+  const currentDistance = Math.abs(targetPointer - currentPointer)
+  if (currentDistance <= REPLAY_CHECKPOINT_INTERVAL) {
+    return targetPointer > currentPointer
+      ? applyStepsForward(currentPuzzle, steps, currentPointer, targetPointer)
+      : rewindStepsBackward(currentPuzzle, steps, currentPointer, targetPointer)
+  }
+
+  const availableCheckpoints = getValidReplayCheckpoints(initialPuzzle, checkpoints)
+  const checkpoint = availableCheckpoints
+    .filter((item) => item.pointer <= targetPointer)
+    .reduce<ReplayCheckpoint>(
+      (best, item) => (item.pointer > best.pointer ? item : best),
+      availableCheckpoints[0] ?? { pointer: 0, puzzle: initialPuzzle },
+    )
+
+  return applyStepsForward(checkpoint.puzzle, steps, checkpoint.pointer, targetPointer)
 }
 
 const getActiveSteps = (steps: RuleStep[], pointer: number): RuleStep[] => steps.slice(0, pointer)
@@ -140,6 +230,7 @@ const getSamplePuzzle = (): PuzzleIR => {
 
 const initialPuzzle = getSamplePuzzle()
 const initialTraceStatsCache = createTraceStatsCache(initialPuzzle)
+const initialReplayCheckpoints = createInitialReplayCheckpoints(initialPuzzle)
 
 export const useSolverStore = create<SolverStore>((set, get) => ({
   pluginId: 'slitherlink',
@@ -147,6 +238,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   initialPuzzle,
   currentPuzzle: clonePuzzle(initialPuzzle),
   steps: [],
+  replayCheckpoints: initialReplayCheckpoints,
   traceStatsCache: initialTraceStatsCache,
   pointer: 0,
   highlightedCells: [],
@@ -169,6 +261,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       initialPuzzle: nextInitial,
       currentPuzzle: clonePuzzle(nextInitial),
       steps: [],
+      replayCheckpoints: createInitialReplayCheckpoints(nextInitial),
       traceStatsCache: createTraceStatsCache(nextInitial),
       pointer: 0,
       highlightedCells: [],
@@ -194,7 +287,16 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     }
   },
   nextStep: () => {
-    const { pluginId, currentPuzzle, steps, pointer, terminalReport, initialPuzzle, traceStatsCache } = get()
+    const {
+      pluginId,
+      currentPuzzle,
+      steps,
+      pointer,
+      terminalReport,
+      initialPuzzle,
+      traceStatsCache,
+      replayCheckpoints,
+    } = get()
     if (terminalReport) {
       return
     }
@@ -221,11 +323,17 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       return
     }
     const baseCache = truncateTraceStatsCache(initialPuzzle, traceStatsCache, steps, pointer)
+    const validReplayCheckpoints = getValidReplayCheckpoints(initialPuzzle, replayCheckpoints)
     const nextSteps = [...activeSteps, step]
     const nextTraceStatsCache = appendTraceStatsStep(baseCache, step)
     set({
       currentPuzzle: nextPuzzle,
       steps: nextSteps,
+      replayCheckpoints: addReplayCheckpoint(
+        trimReplayCheckpoints(validReplayCheckpoints, pointer),
+        nextSteps.length,
+        nextPuzzle,
+      ),
       traceStatsCache: nextTraceStatsCache,
       pointer: nextSteps.length,
       highlightedCells: step.affectedCells,
@@ -235,15 +343,13 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     })
   },
   prevStep: () => {
-    const { initialPuzzle, currentPuzzle, steps, pointer } = get()
+    const { currentPuzzle, steps, pointer } = get()
     if (pointer === 0) {
       return
     }
     const stepToUndo = steps[pointer - 1]
     const nextPointer = pointer - 1
-    const currentPuzzleAfterUndo = stepToUndo
-      ? rewindPuzzleByStep(currentPuzzle, stepToUndo)
-      : buildStateFromSteps(initialPuzzle, steps, nextPointer)
+    const currentPuzzleAfterUndo = rewindPuzzleByStep(currentPuzzle, stepToUndo)
     const currentStep = steps[nextPointer - 1]
     set({
       currentPuzzle: currentPuzzleAfterUndo,
@@ -255,14 +361,21 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     })
   },
   goToStep: (targetPointer) => {
-    const { initialPuzzle, steps, isRunning } = get()
+    const { initialPuzzle, currentPuzzle, steps, pointer, isRunning, replayCheckpoints } = get()
     if (isRunning) {
       return
     }
     const nextPointer = clampPointer(targetPointer, steps.length)
     const currentStep = steps[nextPointer - 1]
     set({
-      currentPuzzle: buildStateFromSteps(initialPuzzle, steps, nextPointer),
+      currentPuzzle: buildStateFromReplayCache(
+        initialPuzzle,
+        currentPuzzle,
+        steps,
+        pointer,
+        nextPointer,
+        replayCheckpoints,
+      ),
       pointer: nextPointer,
       highlightedCells: currentStep?.affectedCells ?? [],
       highlightedColorCells: getStepColorCells(currentStep),
@@ -303,6 +416,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
     set({
       currentPuzzle: clonePuzzle(initialPuzzle),
       steps: [],
+      replayCheckpoints: createInitialReplayCheckpoints(initialPuzzle),
       traceStatsCache: rebuildTraceStatsCache(initialPuzzle),
       pointer: 0,
       highlightedCells: [],

@@ -17,15 +17,17 @@ Read these before writing code:
 - `src/domain/ir/types.ts` - shared `PuzzleIR`, cell/edge/sector/vertex state.
 - `src/domain/ir/keys.ts` - stable keys for cells, edges, sectors, and vertices.
 - `src/domain/rules/types.ts` - `Rule`, `RuleApplication`, `RuleStep`, and `RuleDiff`.
-- `src/domain/rules/engine.ts` - applies rule diffs and rebuilds replay states.
-- `src/features/solver/solverStore.ts` - loads puzzles, runs plugin rules, replays steps, and builds terminal reports.
+- `src/domain/rules/engine.ts` - applies and reverts rule diffs.
+- `src/features/solver/solverStore.ts` - loads puzzles, runs plugin rules, replays steps with checkpoints, and builds terminal reports.
 - `src/features/editor/editorStore.ts` - current editor state model and Slitherlink editing pattern.
 - `src/domain/plugins/types.ts` and `registry.ts` - plugin boundary for puzzle families.
 - `src/domain/benchmark/*` and `dataset/public/*` - dataset and benchmark flow.
 
 Replay safety is the central contract. A rule must return explicit diffs; the
 engine and solver store must be able to apply and undo those diffs without
-hidden mutation.
+hidden mutation. The solver now uses incremental replay plus periodic
+checkpoints, so every puzzle family must keep `RuleDiff` forward and reverse
+semantics deterministic.
 
 ---
 
@@ -74,7 +76,7 @@ Recommended order:
 
 4. **Solver integration**
    - Ensure `getRules()` returns the new ordered rules.
-   - Add replay tests proving `nextStep`, `prevStep`, and `goToStep` rebuild the same state.
+   - Add replay tests proving `nextStep`, `prevStep`, small `goToStep` moves, and large checkpoint-backed `goToStep` jumps rebuild the same state.
    - Add terminal/completion analysis when the puzzle has a meaningful solved/stalled report.
 
 5. **Editor and export**
@@ -94,6 +96,7 @@ Recommended order:
 For a puzzle family to feel first-class, decide which of these it owns:
 
 - Solver board rendering and highlights.
+- Live Stats coverage semantics for its chosen IR fields.
 - Editor board rendering and input tools.
 - Puzzle type controls in Solver, Editor, and Dataset pages.
 - `PuzzleInfoButton` content via plugin `help`.
@@ -105,6 +108,12 @@ For a puzzle family to feel first-class, decide which of these it owns:
 Prefer plugin-aware shared components when the behavior is generic. Prefer
 puzzle-specific components when the interaction model is genuinely different
 from Slitherlink.
+
+Live Stats currently derives board progress and coverage from common IR fields
+such as decided edges, filled cells, and narrowed vertices. If a new puzzle uses
+different state primitives, either make those primitives fit the shared
+coverage model or add a small plugin-aware adapter before presenting the stats
+as meaningful.
 
 ---
 
@@ -120,7 +129,8 @@ from Slitherlink.
 
 - Add a small ordered rule set.
 - Each rule returns explainable messages and explicit diffs.
-- Replay tests prove forward/backward timeline behavior.
+- Replay tests prove forward/backward timeline behavior, including timeline jumps.
+- Live Stats shows sane active-prefix counts for the generated trace.
 
 **Milestone 3: Editor and export**
 
@@ -146,8 +156,9 @@ from Slitherlink.
 
 - Do not put puzzle-specific rules into shared solver orchestration.
 - Do not mutate puzzle state inside a rule; return `RuleDiff`s.
-- Do not change diff semantics without updating both engine and replay tests.
+- Do not change diff semantics without updating engine behavior, checkpoint replay, and replay tests.
 - Do not hide non-determinism behind rule ordering or object iteration.
+- Do not rely on object identity or hidden mutation for replay or stats; caches may be reused across timeline browsing.
 - Do not overfit UI to Slitherlink if the next puzzle needs different primitives.
 - Do not claim full support in docs, dropdowns, or datasets until parse/render/solve basics exist.
 

@@ -69,8 +69,8 @@ Design rule:
 3. The solver store loads the initial IR and resets replay state.
 4. Rule engine runs ordered rules and returns one step at a time.
 5. Each step stores rule metadata + explicit diffs.
-6. Timeline store replays diffs forward/backward.
-7. Board, stats, and explanation panels render current state + reasoning history.
+6. Solver replay uses diffs forward/backward, with checkpoints for large timeline jumps.
+7. Board, live stats, and explanation panels render current state + reasoning history.
 
 This guarantees the same inference chain can be replayed and inspected later.
 
@@ -202,6 +202,17 @@ Both apply the same `RuleDiff` semantics, especially sector mask writes:
 
 If these two paths diverge, timeline replay and solver state will drift.
 
+Recent replay updates:
+
+- `solverStore` keeps replay checkpoints so large `goToStep` jumps do not rebuild from step 0.
+- Adjacent timeline movement uses forward/reverse diffs instead of full prefix replay.
+- Live Stats uses the trace stats cache for step-prefix summaries, chart progress, and rule usage.
+- Default Rule Usage is lightweight; full rule step lists render only when details are opened.
+
+When editing replay, preserve checkpoint correctness after reset, import, and branch truncation.
+When editing Live Stats, keep chart series aligned with the trace cache object, not only nested
+array references that may be mutated during cache append.
+
 ---
 
 ## 10. Current Capability Snapshot
@@ -217,8 +228,9 @@ Implemented:
 - Plugin-powered rule help, board legend, and compact board-title puzzle stats
 - Slitherlink board stats for numeric clue count and 0/1/2/3 clue distribution
 - Ordered rule execution with step metadata
-- Step replay (`Next`, `Previous`, `Solve to End`)
+- Step replay (`Next`, `Previous`, timeline jumps, `Solve to End`) with checkpoint-assisted large jumps
 - Explanation-oriented deduction trace
+- Live Stats summary charts for board progress, coverage, and rule usage over the active replay prefix
 - Sector mask inference/propagation pipeline
 - Strong-inference fallback for harder states
 - Slitherlink completion analysis for solved/stalled terminal reports

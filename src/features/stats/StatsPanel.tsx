@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   buildTraceStatsView,
   type TraceStatsCache,
@@ -35,6 +35,17 @@ const formatStepList = (stepNumbers: number[]): string => {
     return stepNumbers.join(', ')
   }
   return `${stepNumbers.slice(0, 8).join(', ')} +${stepNumbers.length - 8}`
+}
+
+const formatStepSummary = (stepNumbers: number[]): string => {
+  if (stepNumbers.length === 0) {
+    return 'No active steps'
+  }
+  const first = stepNumbers[0]
+  const last = stepNumbers[stepNumbers.length - 1]
+  return first === last
+    ? `Step ${first}`
+    : `${stepNumbers.length} hits, steps ${first}-${last}`
 }
 
 const clampRatio = (value: number): number => Math.min(1, Math.max(0, value))
@@ -192,8 +203,56 @@ const getCoverageSeries = (points: TraceChartPoint[]): ChartSeries[] => [
   },
 ]
 
+const MAX_RULE_BARS = 8
+
+const RuleUsageBars = ({ rules }: { rules: ReturnType<typeof buildTraceStatsView>['rules'] }) => {
+  const activeRules = useMemo(
+    () =>
+      rules
+        .filter((rule) => rule.count > 0)
+        .sort((a, b) => b.count - a.count || b.durationMs - a.durationMs || a.ruleName.localeCompare(b.ruleName))
+        .slice(0, MAX_RULE_BARS),
+    [rules],
+  )
+  const maxCount = Math.max(1, ...activeRules.map((rule) => rule.count))
+
+  if (activeRules.length === 0) {
+    return <p className="rule-usage-empty">No rules have fired in the active prefix.</p>
+  }
+
+  return (
+    <div className="rule-usage-bars" role="list" aria-label="Top rule usage">
+      {activeRules.map((rule) => {
+        const width = `${Math.max(4, (rule.count / maxCount) * 100)}%`
+        return (
+          <div className="rule-usage-bar-row" role="listitem" key={rule.ruleId}>
+            <div className="rule-usage-bar-meta">
+              <span className="rule-name">{rule.ruleName}</span>
+              <span className="rule-step-summary">{formatStepSummary(rule.steps)}</span>
+            </div>
+            <div className="rule-usage-bar-track" aria-hidden="true">
+              <span style={{ width }} />
+            </div>
+            <div className="rule-usage-bar-values">
+              <strong>{rule.count}</strong>
+              <span>{formatPercent(rule.percent)}</span>
+              <span>{formatDuration(rule.durationMs)}</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export const StatsPanel = ({ traceStatsCache, pointer, isRunning, onGoToStep }: Props) => {
   const stats = useMemo(() => buildTraceStatsView(traceStatsCache, pointer), [pointer, traceStatsCache])
+  const [showRuleDetails, setShowRuleDetails] = useState(false)
+  const boardProgressSeries = useMemo(
+    () => getBoardProgressSeries(traceStatsCache.points),
+    [traceStatsCache],
+  )
+  const coverageSeries = useMemo(() => getCoverageSeries(traceStatsCache.points), [traceStatsCache])
 
   return (
     <section className="panel-card stats" aria-label="Live Stats">
@@ -239,13 +298,13 @@ export const StatsPanel = ({ traceStatsCache, pointer, isRunning, onGoToStep }: 
         <TraceLineChart
           title="Board Progress"
           description="Decided edges over the whole board"
-          series={getBoardProgressSeries(stats.points)}
+          series={boardProgressSeries}
           currentIndex={stats.pointer}
         />
         <TraceLineChart
           title="Inference Coverage"
           description="State coverage by inferred element type"
-          series={getCoverageSeries(stats.points)}
+          series={coverageSeries}
           currentIndex={stats.pointer}
         />
       </div>
@@ -253,38 +312,53 @@ export const StatsPanel = ({ traceStatsCache, pointer, isRunning, onGoToStep }: 
       <div className="rule-usage-panel">
         <div className="rule-usage-header">
           <h3>Rule Usage</h3>
-          <span>{stats.rules.length} rules in generated trace</span>
+          <div className="rule-usage-actions">
+            <span>{stats.rules.length} rules in generated trace</span>
+            <button
+              type="button"
+              className="button-compact"
+              aria-expanded={showRuleDetails}
+              onClick={() => setShowRuleDetails((value) => !value)}
+            >
+              {showRuleDetails ? 'Hide Details' : 'View Details'}
+            </button>
+          </div>
         </div>
         {stats.rules.length === 0 ? (
           <p className="rule-usage-empty">No generated steps yet.</p>
         ) : (
-          <div className="rule-usage-table-wrap">
-            <table className="rule-usage-table">
-              <thead>
-                <tr>
-                  <th scope="col">Rule</th>
-                  <th scope="col">Count</th>
-                  <th scope="col">Share</th>
-                  <th scope="col">Time</th>
-                  <th scope="col">Steps</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.rules.map((rule) => (
-                  <tr key={rule.ruleId}>
-                    <td>
-                      <span className="rule-name">{rule.ruleName}</span>
-                      <span className="rule-id">{rule.ruleId}</span>
-                    </td>
-                    <td>{rule.count}</td>
-                    <td>{formatPercent(rule.percent)}</td>
-                    <td>{formatDuration(rule.durationMs)}</td>
-                    <td className="rule-step-list">{formatStepList(rule.steps)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <RuleUsageBars rules={stats.rules} />
+            {showRuleDetails ? (
+              <div className="rule-usage-table-wrap">
+                <table className="rule-usage-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Rule</th>
+                      <th scope="col">Count</th>
+                      <th scope="col">Share</th>
+                      <th scope="col">Time</th>
+                      <th scope="col">Steps</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.rules.map((rule) => (
+                      <tr key={rule.ruleId}>
+                        <td>
+                          <span className="rule-name">{rule.ruleName}</span>
+                          <span className="rule-id">{rule.ruleId}</span>
+                        </td>
+                        <td>{rule.count}</td>
+                        <td>{formatPercent(rule.percent)}</td>
+                        <td>{formatDuration(rule.durationMs)}</td>
+                        <td className="rule-step-list">{formatStepList(rule.steps)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </section>
