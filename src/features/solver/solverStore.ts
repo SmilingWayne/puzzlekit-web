@@ -18,7 +18,8 @@ import {
 } from '../../domain/rules/slither/completion'
 import type { RuleStep } from '../../domain/rules/types'
 
-const SAMPLE_URL = 'https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb'
+export const DEFAULT_SLITHERLINK_SAMPLE_URL = 'https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb'
+export const DEFAULT_MASYU_SAMPLE_URL = 'https://puzz.link/p?mashu/5/5/001390360'
 export const DEFAULT_SOLVE_CHUNK_SIZE = 50
 export const MAX_SOLVE_CHUNK_SIZE = 1000
 export const REPLAY_CHECKPOINT_INTERVAL = 50
@@ -223,7 +224,7 @@ const getSamplePuzzle = (): PuzzleIR => {
     return createSlitherPuzzle(3, 3)
   }
   try {
-    return plugin.parse(SAMPLE_URL)
+    return plugin.parse(DEFAULT_SLITHERLINK_SAMPLE_URL)
   } catch {
     return createSlitherPuzzle(3, 3)
   }
@@ -235,7 +236,7 @@ const initialReplayCheckpoints = createInitialReplayCheckpoints(initialPuzzle)
 
 export const useSolverStore = create<SolverStore>((set, get) => ({
   pluginId: 'slitherlink',
-  sourceUrl: SAMPLE_URL,
+  sourceUrl: DEFAULT_SLITHERLINK_SAMPLE_URL,
   initialPuzzle,
   currentPuzzle: clonePuzzle(initialPuzzle),
   steps: [],

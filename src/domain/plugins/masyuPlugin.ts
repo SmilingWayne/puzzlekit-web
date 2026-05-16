@@ -1,4 +1,5 @@
 import { decodeMasyuFromPuzzlink, encodeMasyuToPuzzlink } from '../parsers/puzzlink'
+import { masyuRules } from '../rules/masyu/rules'
 import type { PuzzleIR } from '../ir/types'
 import type { PuzzlePlugin } from './types'
 import type { PuzzleHelpContent, PuzzleLegendContent, PuzzleStatsContent } from './types'
@@ -101,5 +102,5 @@ export const masyuPlugin: PuzzlePlugin = {
   getStats: getMasyuStats,
   parse: decodeMasyuFromPuzzlink,
   encode: encodeMasyuToPuzzlink,
-  getRules: () => [],
+  getRules: () => masyuRules,
 }

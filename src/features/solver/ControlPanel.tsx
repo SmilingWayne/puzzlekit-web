@@ -4,7 +4,12 @@ import type { ExportFormat } from '../../domain/exporters/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import { BoardLegendButton } from '../board/BoardLegendButton'
 import { PuzzleInfoButton } from '../puzzleInfo/PuzzleInfoButton'
-import { buildDifficultySnapshot, MAX_SOLVE_CHUNK_SIZE, useSolverStore } from './solverStore'
+import {
+  buildDifficultySnapshot,
+  DEFAULT_MASYU_SAMPLE_URL,
+  MAX_SOLVE_CHUNK_SIZE,
+  useSolverStore,
+} from './solverStore'
 
 export const ControlPanel = () => {
   const {
@@ -80,7 +85,13 @@ export const ControlPanel = () => {
           <select
             value={pluginId}
             onChange={(event) => {
-              setPluginId(event.target.value)
+              const nextPluginId = event.target.value
+              if (nextPluginId === 'masyu') {
+                setLocalUrl(DEFAULT_MASYU_SAMPLE_URL)
+                importFromUrl(DEFAULT_MASYU_SAMPLE_URL, nextPluginId)
+                return
+              }
+              setPluginId(nextPluginId)
             }}
           >
             {puzzleRegistry.all().map((plugin) => (

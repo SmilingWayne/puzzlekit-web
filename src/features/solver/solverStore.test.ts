@@ -7,6 +7,7 @@ import type { EdgeMark, PuzzleIR } from '../../domain/ir/types'
 import { buildPuzzleFromSteps } from '../../domain/rules/engine'
 import {
   DEFAULT_SOLVE_CHUNK_SIZE,
+  DEFAULT_MASYU_SAMPLE_URL,
   MAX_SOLVE_CHUNK_SIZE,
   REPLAY_CHECKPOINT_INTERVAL,
   sumRuleStepDurationMs,
@@ -387,6 +388,23 @@ describe('solver puzzle loading', () => {
     expect(after.steps.length).toBe(0)
     expect(after.traceStatsCache.points).toHaveLength(1)
     expect(after.sourceUrl).toBe(SAMPLE_URL)
+  })
+
+  it('imports the default Masyu sample and produces line decisions', () => {
+    useSolverStore.getState().importFromUrl(DEFAULT_MASYU_SAMPLE_URL, 'masyu')
+    const loaded = useSolverStore.getState()
+
+    expect(loaded.pluginId).toBe('masyu')
+    expect(loaded.sourceUrl).toBe(DEFAULT_MASYU_SAMPLE_URL)
+    expect(loaded.currentPuzzle.puzzleType).toBe('masyu')
+    expect(loaded.currentPuzzle.rows).toBe(5)
+    expect(loaded.currentPuzzle.cols).toBe(5)
+
+    useSolverStore.getState().nextStep()
+    const afterStep = useSolverStore.getState()
+    expect(afterStep.steps[0]?.ruleName).toBe('White Circle Rule')
+    expect(afterStep.highlightedLines.length).toBeGreaterThan(0)
+    expect(afterStep.steps[0]?.diffs.some((diff) => diff.kind === 'line')).toBe(true)
   })
 })
 

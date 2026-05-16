@@ -5,7 +5,11 @@ import { cellKey, edgeKey } from '../domain/ir/keys'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
 import { rebuildTraceStatsCache } from '../domain/difficulty/traceStats'
-import { DEFAULT_SOLVE_CHUNK_SIZE, useSolverStore } from '../features/solver/solverStore'
+import {
+  DEFAULT_MASYU_SAMPLE_URL,
+  DEFAULT_SOLVE_CHUNK_SIZE,
+  useSolverStore,
+} from '../features/solver/solverStore'
 import { WorkspacePage } from './WorkspacePage'
 import type { RuleStep } from '../domain/rules/types'
 
@@ -62,6 +66,22 @@ describe('WorkspacePage', () => {
     const typeControls = document.querySelector('.type-row-controls')
     expect(typeControls?.children[1]?.querySelector('[aria-label="Show Slitherlink rules"]')).not.toBeNull()
     expect(typeControls?.children[2]?.querySelector('[aria-label="Show Slitherlink legend"]')).not.toBeNull()
+  })
+
+  it('loads the default Masyu sample when selecting Masyu', async () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByDisplayValue('Slitherlink'), { target: { value: 'masyu' } })
+
+    await waitFor(() => {
+      const state = useSolverStore.getState()
+      expect(state.pluginId).toBe('masyu')
+      expect(state.sourceUrl).toBe(DEFAULT_MASYU_SAMPLE_URL)
+      expect(state.currentPuzzle.puzzleType).toBe('masyu')
+      expect(state.currentPuzzle.rows).toBe(5)
+      expect(state.currentPuzzle.cols).toBe(5)
+    })
+    expect(screen.getByDisplayValue(DEFAULT_MASYU_SAMPLE_URL)).toBeInTheDocument()
   })
 
   it('opens slitherlink board legend from the puzzle type row', () => {
