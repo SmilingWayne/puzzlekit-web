@@ -4,7 +4,9 @@ import { createMasyuPuzzle } from '../../ir/masyu'
 import type { LineMark, PuzzleIR } from '../../ir/types'
 import { runNextRule } from '../engine'
 import { masyuPlugin } from '../../plugins/masyuPlugin'
+import { createBlackPearlCandidatePruningRule } from './rules/candidates'
 import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
+import { createPreventPrematureLoopRule } from './rules/loop'
 import {
   createBlackDiagonalWhitePinchRule,
   createBlackFacingConsecutiveWhitesRule,
@@ -20,6 +22,14 @@ const markLine = (puzzle: PuzzleIR, key: string, mark: LineMark): void => {
 const addPearl = (puzzle: PuzzleIR, row: number, col: number, color: 'white' | 'black'): void => {
   puzzle.cells[cellKey(row, col)] = { clue: { kind: 'pearl', color } }
 }
+
+const getLineDegree = (puzzle: PuzzleIR, row: number, col: number): number =>
+  [
+    row > 0 ? lineKey([row - 1, col], [row, col]) : null,
+    row < puzzle.rows - 1 ? lineKey([row, col], [row + 1, col]) : null,
+    col > 0 ? lineKey([row, col - 1], [row, col]) : null,
+    col < puzzle.cols - 1 ? lineKey([row, col], [row, col + 1]) : null,
+  ].filter((key) => key !== null && puzzle.lines[key]?.mark === 'line').length
 
 const expectLineDiffs = (
   diffs: NonNullable<ReturnType<ReturnType<typeof createWhiteCircleRule>['apply']>>['diffs'] | undefined,
@@ -110,6 +120,38 @@ describe('Masyu pearl rules', () => {
     expect(createWhiteCircleRule().apply(puzzle)).toBeNull()
   })
 
+  it('White Circle Rule keeps an axis available when only one side can turn', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 3, 3, 'white')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'blank')
+    markLine(puzzle, lineKey([2, 3], [2, 4]), 'blank')
+
+    expect(createWhiteCircleRule().apply(puzzle)).toBeNull()
+  })
+
+  it('White Circle Rule does not force the second white pearl vertical when the shared gap can still turn', () => {
+    const puzzle = createMasyuPuzzle(9, 10)
+    addPearl(puzzle, 4, 5, 'white')
+    addPearl(puzzle, 4, 7, 'white')
+    markLine(puzzle, lineKey([4, 4], [4, 5]), 'line')
+    markLine(puzzle, lineKey([4, 5], [4, 6]), 'line')
+    markLine(puzzle, lineKey([4, 6], [5, 6]), 'blank')
+    const result = createWhiteCircleRule().apply(puzzle)
+
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'line',
+      lineKey: lineKey([3, 7], [4, 7]),
+      from: 'unknown',
+      to: 'line',
+    })
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'line',
+      lineKey: lineKey([4, 7], [5, 7]),
+      from: 'unknown',
+      to: 'line',
+    })
+  })
+
   it('White Circle Rule continues a known line straight and blanks turn candidates', () => {
     const puzzle = createMasyuPuzzle(5, 5)
     addPearl(puzzle, 2, 2, 'white')
@@ -121,6 +163,23 @@ describe('Masyu pearl rules', () => {
     const result = createWhiteCircleRule().apply(puzzle)
 
     expectLineDiffs(result?.diffs, { [east]: 'line', [north]: 'blank', [south]: 'blank' })
+  })
+
+  it('White Circle Rule does not force a straight line into a degree-2 neighbor', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    addPearl(puzzle, 1, 2, 'white')
+    markLine(puzzle, lineKey([1, 2], [1, 3]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 1], [2, 1]), 'line')
+
+    const result = createWhiteCircleRule().apply(puzzle)
+
+    expect(result?.diffs).not.toContainEqual({
+      kind: 'line',
+      lineKey: lineKey([1, 1], [1, 2]),
+      from: 'unknown',
+      to: 'line',
+    })
   })
 
   it('White Circle Rule blanks turn candidates when a white pearl already has a straight pair', () => {
@@ -290,6 +349,8 @@ describe('Masyu pearl rules', () => {
       'Black Diagonal White Pinch',
       'Consecutive White Pearls Straight',
       'Double Black Squeeze',
+      'Prevent Premature Loop',
+      'Black Pearl Candidate Pruning',
       'Pearl Completion',
       'Cell Completion',
     ])
@@ -301,6 +362,259 @@ describe('Masyu pearl rules', () => {
 
     expect(step?.ruleName).toBe('White Circle Rule')
     expect(step?.diffs.some((diff) => diff.kind === 'line')).toBe(true)
+  })
+})
+
+describe('Masyu loop rules', () => {
+  it('Prevent Premature Loop blanks a line that would close a smaller loop while other lines remain outside', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'line')
+    const closingLine = lineKey([0, 0], [1, 0])
+
+    const result = createPreventPrematureLoopRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [closingLine]: 'blank' })
+    expect(result?.affectedLines).toEqual([closingLine])
+    expect(result?.message).toContain('smaller loop')
+  })
+
+  it('Prevent Premature Loop does not blank a candidate whose endpoints are in different components', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'line')
+
+    expect(createPreventPrematureLoopRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Prevent Premature Loop allows a closing line when no other confirmed lines remain outside', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+
+    expect(createPreventPrematureLoopRule().apply(puzzle)).toBeNull()
+  })
+})
+
+describe('Masyu black pearl candidate pruning', () => {
+  it('forces common exit and extension lines from the remaining black pearl candidates', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'line')
+    const northExtension = lineKey([0, 2], [1, 2])
+    const south = lineKey([2, 2], [3, 2])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [northExtension]: 'line', [south]: 'blank' })
+    expect(result?.affectedCells).toEqual([cellKey(2, 2)])
+  })
+
+  it('removes a black pearl exit when every candidate using it leaves a nearby white pearl impossible', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 3, 3, 'black')
+    addPearl(puzzle, 2, 4, 'white')
+    markLine(puzzle, lineKey([3, 3], [4, 3]), 'blank')
+    const north = lineKey([2, 3], [3, 3])
+    const west = lineKey([3, 2], [3, 3])
+    const east = lineKey([3, 3], [3, 4])
+    const northExtension = lineKey([1, 3], [2, 3])
+    const westExtension = lineKey([3, 1], [3, 2])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [north]: 'line',
+      [west]: 'line',
+      [northExtension]: 'line',
+      [westExtension]: 'line',
+      [east]: 'blank',
+    })
+  })
+
+  it('removes an exit that would give an adjacent black pearl degree 3 through the extension line', () => {
+    const puzzle = createMasyuPuzzle(6, 7)
+    addPearl(puzzle, 3, 3, 'black')
+    addPearl(puzzle, 3, 4, 'black')
+    markLine(puzzle, lineKey([2, 3], [3, 3]), 'line')
+    markLine(puzzle, lineKey([2, 4], [3, 4]), 'line')
+    const east = lineKey([3, 3], [3, 4])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expect(result?.diffs).toContainEqual({ kind: 'line', lineKey: lineKey([1, 3], [2, 3]), from: 'unknown', to: 'line' })
+    expect(result?.diffs).toContainEqual({ kind: 'line', lineKey: east, from: 'unknown', to: 'blank' })
+  })
+
+  it('removes candidates whose required black pearl extension is already blank', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([0, 2], [1, 2]), 'blank')
+    const north = lineKey([1, 2], [2, 2])
+    const south = lineKey([2, 2], [3, 2])
+    const southExtension = lineKey([3, 2], [4, 2])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expect(result?.diffs).toContainEqual({ kind: 'line', lineKey: south, from: 'unknown', to: 'line' })
+    expect(result?.diffs).toContainEqual({ kind: 'line', lineKey: southExtension, from: 'unknown', to: 'line' })
+    expect(result?.diffs).toContainEqual({ kind: 'line', lineKey: north, from: 'unknown', to: 'blank' })
+  })
+
+  it('removes a black pearl candidate that would close a smaller loop', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'line')
+    markLine(puzzle, lineKey([0, 2], [0, 3]), 'line')
+    markLine(puzzle, lineKey([0, 3], [1, 3]), 'line')
+    markLine(puzzle, lineKey([1, 3], [1, 4]), 'line')
+    markLine(puzzle, lineKey([1, 4], [2, 4]), 'line')
+    markLine(puzzle, lineKey([4, 4], [4, 5]), 'line')
+    const northExtension = lineKey([0, 2], [1, 2])
+    const east = lineKey([2, 2], [2, 3])
+    const west = lineKey([2, 1], [2, 2])
+    const westExtension = lineKey([2, 0], [2, 1])
+    const south = lineKey([2, 2], [3, 2])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [northExtension]: 'line',
+      [west]: 'line',
+      [westExtension]: 'line',
+      [south]: 'blank',
+      [east]: 'blank',
+    })
+  })
+
+  it('allows a black pearl candidate that closes the only confirmed loop component', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'line')
+    markLine(puzzle, lineKey([0, 2], [0, 3]), 'line')
+    markLine(puzzle, lineKey([0, 3], [1, 3]), 'line')
+    markLine(puzzle, lineKey([1, 3], [1, 4]), 'line')
+    markLine(puzzle, lineKey([1, 4], [2, 4]), 'line')
+    const northExtension = lineKey([0, 2], [1, 2])
+    const south = lineKey([2, 2], [3, 2])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [northExtension]: 'line',
+      [south]: 'blank',
+    })
+  })
+
+  it('checks affected white pearl dependencies outside the candidate touched cells', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 3, 3, 'black')
+    addPearl(puzzle, 2, 4, 'white')
+    markLine(puzzle, lineKey([3, 3], [4, 3]), 'blank')
+    const north = lineKey([2, 3], [3, 3])
+    const west = lineKey([3, 2], [3, 3])
+    const east = lineKey([3, 3], [3, 4])
+    const northExtension = lineKey([1, 3], [2, 3])
+    const westExtension = lineKey([3, 1], [3, 2])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [north]: 'line',
+      [west]: 'line',
+      [northExtension]: 'line',
+      [westExtension]: 'line',
+      [east]: 'blank',
+    })
+  })
+
+  it('ignores unrelated impossible pearls inside the old fixed 5x5 scan area', () => {
+    const puzzle = createMasyuPuzzle(7, 7)
+    addPearl(puzzle, 3, 3, 'black')
+    addPearl(puzzle, 5, 1, 'white')
+    markLine(puzzle, lineKey([3, 2], [3, 3]), 'blank')
+    markLine(puzzle, lineKey([3, 3], [4, 3]), 'blank')
+    markLine(puzzle, lineKey([4, 1], [5, 1]), 'blank')
+    markLine(puzzle, lineKey([5, 0], [5, 1]), 'blank')
+    markLine(puzzle, lineKey([5, 1], [5, 2]), 'blank')
+    markLine(puzzle, lineKey([5, 1], [6, 1]), 'blank')
+    const north = lineKey([2, 3], [3, 3])
+    const northExtension = lineKey([1, 3], [2, 3])
+    const east = lineKey([3, 3], [3, 4])
+    const eastExtension = lineKey([3, 4], [3, 5])
+
+    const result = createBlackPearlCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [north]: 'line',
+      [northExtension]: 'line',
+      [east]: 'line',
+      [eastExtension]: 'line',
+    })
+  })
+
+  it('does not run on a fully determined black pearl', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'line')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'line')
+
+    expect(createBlackPearlCandidatePruningRule().apply(puzzle)).toBeNull()
+  })
+
+  it('does nothing when all black pearl candidates remain symmetric', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'black')
+
+    expect(createBlackPearlCandidatePruningRule().apply(puzzle)).toBeNull()
+  })
+
+  it('prunes only one black pearl per step on the reported 10x6 regression puzzle', () => {
+    let puzzle = masyuPlugin.parse('https://puzz.link/p?mashu/10/6/0000b6103260i0902216')
+    let pruningStep: NonNullable<ReturnType<typeof runNextRule>['step']> | null = null
+
+    for (let stepNumber = 1; stepNumber <= 8; stepNumber += 1) {
+      const result = runNextRule(puzzle, masyuPlugin.getRules(), stepNumber)
+      expect(result.step).not.toBeNull()
+      if (result.step?.ruleName === 'Black Pearl Candidate Pruning') {
+        pruningStep = result.step
+        break
+      }
+      puzzle = result.nextPuzzle
+    }
+
+    expect(pruningStep?.affectedCells).toEqual([cellKey(1, 4)])
+    expectLineDiffs(pruningStep?.diffs, {
+      [lineKey([1, 3], [1, 4])]: 'line',
+      [lineKey([1, 2], [1, 3])]: 'line',
+      [lineKey([1, 4], [1, 5])]: 'blank',
+    })
+  })
+
+  it('does not let White Circle Rule push the reported long puzzle into a degree-3 cell', () => {
+    const url =
+      'https://puzz.link/p?mashu/49/39/0000000000i000000c63k0cj04962g6a430910i06390300109i20609090i30106000300400j00i100940iib01303c0646306110306j0010900f0306409064270i30112300030900000006a000390062216j09903i606230126c93a600000114000093009j63603004000040090099l0c919j00j41000l0343902030000k10963023990i0cia390399c02069200300930613i10013j0199ib0c00000460090a000i3j6iii013i0i1232090900c06960b00i323020000209j0909900996b690006463003k090396430000219900b02091610390021300l00c61a420b039i310201003030399010210i53026b690030a061132031003262120210a0ia30i30009190i3600601990300c00i30c31k0a203c019a0000090613ii00c26b0j206i0900130300093030023i09ic3b33b10i39310ia00030090060930000000130k090'
+    let puzzle = masyuPlugin.parse(url)
+    const unsafeLine = lineKey([2, 6], [2, 7])
+
+    for (let stepNumber = 1; stepNumber <= 35; stepNumber += 1) {
+      const result = runNextRule(puzzle, masyuPlugin.getRules(), stepNumber)
+      if (!result.step) {
+        break
+      }
+      expect(result.step.diffs).not.toContainEqual({
+        kind: 'line',
+        lineKey: unsafeLine,
+        from: 'unknown',
+        to: 'line',
+      })
+      puzzle = result.nextPuzzle
+      expect(getLineDegree(puzzle, 2, 6)).toBeLessThanOrEqual(2)
+    }
   })
 })
 

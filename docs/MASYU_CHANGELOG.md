@@ -30,6 +30,17 @@ small fixtures before moving toward graph or coloring techniques.
   - Non-pearl cells with one known line and one remaining candidate force that
     candidate as a line.
   - Non-pearl dead-end candidates are blanked.
+- Added graph and candidate look-ahead rules:
+  - `Prevent Premature Loop`: center-line loop components reject unknown lines
+    that would close a smaller loop while other confirmed lines remain outside.
+  - `Black Pearl Candidate Pruning`: enumerates the four black-pearl turns,
+    applies a shallow non-recursive feasibility check, and keeps only compatible
+    candidates before forcing shared exits, shared extensions, and excluded
+    adjacent exits. This rule is intentionally single-target per step, and its
+    white-pearl look-ahead validates an actual adjacent-turn overlay before
+    rejecting a candidate.
+  - `White Circle Rule` line forcing now checks both endpoints before adding a
+    line, so it will not push a neighboring cell above degree 2.
 - Added local pattern rules in `src/domain/rules/masyu/rules/patterns.ts`:
   - `Black Facing Consecutive Whites`: a black pearl facing two consecutive
     white pearls two and three cells away is forced to leave the opposite way.
@@ -47,8 +58,10 @@ small fixtures before moving toward graph or coloring techniques.
   4. `Black Diagonal White Pinch`
   5. `Consecutive White Pearls Straight`
   6. `Double Black Squeeze`
-  7. `Pearl Completion`
-  8. `Cell Completion`
+  7. `Prevent Premature Loop`
+  8. `Black Pearl Candidate Pruning`
+  9. `Pearl Completion`
+  10. `Cell Completion`
 
 ## Validation
 
@@ -59,6 +72,12 @@ Focused tests live in `src/domain/rules/masyu/rules.test.ts` and cover:
 - Black-pearl local patterns.
 - Consecutive white-pearl run patterns.
 - Pearl-specific completion and double-black squeeze completion.
+- Premature-loop prevention and black-pearl candidate pruning.
+- Regression coverage for
+  `https://puzz.link/p?mashu/10/6/0000b6103260i0902216`, ensuring candidate
+  pruning does not batch multiple black pearls into one unsafe step.
+- Regression coverage for a larger `mashu/49/39` puzzle where white-pearl
+  straight forcing previously created a degree-3 neighbor.
 - Registration order and line-diff application on the sample Masyu puzzle.
 
 Commands run successfully:

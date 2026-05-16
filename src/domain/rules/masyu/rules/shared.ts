@@ -1,4 +1,4 @@
-import { cellKey, lineKey, parseCellKey, parseLineKey } from '../../../ir/keys'
+import { cellKey, getCellLineKeys, lineKey, parseCellKey, parseLineKey } from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
 import type { LineDiff } from '../../types'
 
@@ -171,6 +171,45 @@ export const collectMasyuLineDecision = (
   }
   decisions.set(key, to)
   return true
+}
+
+export const getMasyuCellLineDegree = (
+  puzzle: PuzzleIR,
+  key: string,
+  decisions: ReadonlyMap<string, LineMark> = new Map(),
+): number => {
+  const [row, col] = parseCellKey(key)
+  return getCellLineKeys(row, col, puzzle.rows, puzzle.cols).filter(
+    (lineKeyValue) => (decisions.get(lineKeyValue) ?? puzzle.lines[lineKeyValue]?.mark ?? 'unknown') === 'line',
+  ).length
+}
+
+export const canMasyuLineBeAddedWithoutDegreeOverflow = (
+  puzzle: PuzzleIR,
+  key: string,
+  decisions: ReadonlyMap<string, LineMark> = new Map(),
+): boolean => {
+  const current = decisions.get(key) ?? puzzle.lines[key]?.mark ?? 'unknown'
+  if (current === 'line') {
+    return true
+  }
+  if (current !== 'unknown') {
+    return false
+  }
+  const [left, right] = parseLineKey(key)
+  return [left, right].every(([row, col]) => getMasyuCellLineDegree(puzzle, cellKey(row, col), decisions) < 2)
+}
+
+export const collectMasyuLineDecisionWithoutDegreeOverflow = (
+  decisions: Map<string, LineMark>,
+  puzzle: PuzzleIR,
+  key: string,
+  to: LineMark,
+): boolean => {
+  if (to === 'line' && !canMasyuLineBeAddedWithoutDegreeOverflow(puzzle, key, decisions)) {
+    return false
+  }
+  return collectMasyuLineDecision(decisions, puzzle, key, to)
 }
 
 export const buildMasyuLineDiffs = (

@@ -5,7 +5,9 @@ import {
   areMasyuDirectionsOpposite,
   areMasyuDirectionsTurn,
   buildMasyuLineDiffs,
+  canMasyuLineBeAddedWithoutDegreeOverflow,
   collectMasyuLineDecision,
+  collectMasyuLineDecisionWithoutDegreeOverflow,
   formatMasyuCellKeyLabel,
   formatMasyuLineLabel,
   getMasyuDirectionalLine,
@@ -34,21 +36,30 @@ const getPearlCellKeys = (puzzle: PuzzleIR, color: 'white' | 'black'): string[] 
 const isWhiteAxisBlocked = (puzzle: PuzzleIR, pearlKey: string, axis: Axis): boolean =>
   axis
     .map((direction) => getMasyuDirectionalLine(puzzle, pearlKey, direction))
-    .some((item) => !isMasyuLineAvailable(item))
+    .some((item) => !item || !isMasyuLineAvailable(item) || !canMasyuLineBeAddedWithoutDegreeOverflow(puzzle, item.lineKey))
 
-const isWhiteAxisTurnBlocked = (puzzle: PuzzleIR, pearlKey: string, axis: Axis): boolean => {
-  for (const direction of axis) {
-    const line = getMasyuDirectionalLine(puzzle, pearlKey, direction)
-    if (!isMasyuLineAvailable(line) || !line) {
-      return true
-    }
-    const turnCandidates = getMasyuTurnCandidateLines(puzzle, line.neighborKey, direction)
-    if (!turnCandidates.some(isMasyuLineAvailable)) {
-      return true
-    }
+const canWhiteAxisSideTurn = (puzzle: PuzzleIR, pearlKey: string, direction: MasyuDirection): boolean => {
+  const { first, second } = getMasyuTwoStepLine(puzzle, pearlKey, direction)
+  if (!isMasyuLineAvailable(first) || !first || second?.mark === 'line') {
+    return false
   }
-  return false
+  return getMasyuTurnCandidateLines(puzzle, first.neighborKey, direction).some((candidate) => {
+    if (!isMasyuLineAvailable(candidate)) {
+      return false
+    }
+    const decisions = new Map<string, 'line' | 'blank'>()
+    if (!collectMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, first.lineKey, 'line')) {
+      return false
+    }
+    if (second && !collectMasyuLineDecision(decisions, puzzle, second.lineKey, 'blank')) {
+      return false
+    }
+    return collectMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, candidate.lineKey, 'line')
+  })
 }
+
+const isWhiteAxisTurnBlocked = (puzzle: PuzzleIR, pearlKey: string, axis: Axis): boolean =>
+  axis.every((direction) => !canWhiteAxisSideTurn(puzzle, pearlKey, direction))
 
 const isBlackExitAvailable = (puzzle: PuzzleIR, pearlKey: string, direction: MasyuDirection): boolean => {
   const { first, second } = getMasyuTwoStepLine(puzzle, pearlKey, direction)
@@ -109,7 +120,7 @@ export const createWhiteCircleRule = (): Rule => ({
             continue
           }
           const mark = direction === straightDirection ? 'line' : 'blank'
-          if (collectMasyuLineDecision(decisions, puzzle, item.lineKey, mark)) {
+          if (collectMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, item.lineKey, mark)) {
             addedAny = true
             if (firstLine === null) {
               firstLine = item.lineKey
@@ -175,7 +186,7 @@ export const createWhiteCircleRule = (): Rule => ({
       }
       for (const direction of straightAxis) {
         const item = getMasyuDirectionalLine(puzzle, pearlKey, direction)
-        if (item && collectMasyuLineDecision(decisions, puzzle, item.lineKey, 'line')) {
+        if (item && collectMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, item.lineKey, 'line')) {
           addedAny = true
           if (firstLine === null) {
             firstLine = item.lineKey
