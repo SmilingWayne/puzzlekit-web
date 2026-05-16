@@ -1,5 +1,90 @@
 # Masyu Implementation Changelog
 
+## 2026-05-17 Deterministic Rule Increment
+
+This update adds the first replay-safe Masyu solving rules. The goal is still
+incremental: keep each rule local, deterministic, explainable, and backed by
+small fixtures before moving toward graph or coloring techniques.
+
+## Implemented
+
+- Added Masyu rule helpers in `src/domain/rules/masyu/rules/shared.ts`:
+  - Cardinal directions, opposite/turn checks, and direction offsets.
+  - Directional center-line lookup from a cell.
+  - Two-step line lookup for pearl extension logic.
+  - Line-decision collection helpers that avoid overwriting decided marks.
+- Added pearl-local rules in `src/domain/rules/masyu/rules/pearls.ts`:
+  - `White Circle Rule`: white pearls go straight through the pearl, reject
+    blocked axes, blank perpendicular turn exits, and now enforce the adjacent
+    turn requirement when one side already runs straight for two segments.
+  - `Black Circle Rule`: black pearls turn, extend any known exit straight one
+    more cell, reject impossible exits, and blank the opposite side of a known
+    exit on the same axis.
+- Added generic center-line completion in
+  `src/domain/rules/masyu/rules/completion.ts`:
+  - `Pearl Completion`: pearl cells get their own completion pass, separate
+    from ordinary cells. White pearls only complete straight-through exits;
+    black pearls only complete turn exits and try to extend confirmed exits one
+    more cell.
+  - Non-pearl cells with degree 2 blank every other candidate.
+  - Non-pearl cells with one known line and one remaining candidate force that
+    candidate as a line.
+  - Non-pearl dead-end candidates are blanked.
+- Added local pattern rules in `src/domain/rules/masyu/rules/patterns.ts`:
+  - `Black Facing Consecutive Whites`: a black pearl facing two consecutive
+    white pearls two and three cells away is forced to leave the opposite way.
+  - `Black Diagonal White Pinch`: two diagonal white pearls on one side of a
+    black pearl force the black pearl away from that side.
+  - `Consecutive White Pearls Straight`: a run of three or more adjacent white
+    pearls is forced to pass perpendicular to the run.
+  - `Double Black Squeeze`: two black pearls with one middle cell between them
+    force the opposite perpendicular exit blank when the other perpendicular
+    exit is already blank.
+- Registered the current Masyu rule order:
+  1. `White Circle Rule`
+  2. `Black Circle Rule`
+  3. `Black Facing Consecutive Whites`
+  4. `Black Diagonal White Pinch`
+  5. `Consecutive White Pearls Straight`
+  6. `Double Black Squeeze`
+  7. `Pearl Completion`
+  8. `Cell Completion`
+
+## Validation
+
+Focused tests live in `src/domain/rules/masyu/rules.test.ts` and cover:
+
+- White pearl straight-through, blocked-axis, and adjacent-turn deductions.
+- Black pearl turn, extension, and impossible-exit deductions.
+- Black-pearl local patterns.
+- Consecutive white-pearl run patterns.
+- Pearl-specific completion and double-black squeeze completion.
+- Registration order and line-diff application on the sample Masyu puzzle.
+
+Commands run successfully:
+
+```bash
+pnpm test:run src/domain/rules/masyu/rules.test.ts
+pnpm lint
+```
+
+Focused result at implementation time:
+
+- 1 test file passed.
+- 56 Masyu rule tests passed.
+
+## Notes For Future Agents
+
+- Keep using `PuzzleIR.lines` as the canonical Masyu loop state.
+- New Masyu rules should continue to return explicit `LineDiff`s only unless a
+  future feature deliberately introduces replay support for another state field.
+- Avoid contradiction masking: if a target line is already decided as the
+  opposite mark, skip the inference and leave invalidity reporting to a later
+  completion/analysis layer.
+- The next useful rule families are graph-level single-loop constraints
+  (`premature loop prevention`, `candidate bridge`) and more white-pearl axis
+  elimination, before any Masyu coloring work.
+
 ## 2026-05-16 Initial Import And Display Increment
 
 This update adds the first real Masyu support path to PuzzleKit Web. The goal of
@@ -96,18 +181,15 @@ Focused tests added:
 
 ## Next Work Center
 
-The next development center should be deterministic Masyu solving rules. Use
-`docs/MASYU_ASSIST_STRATEGIES_CN.md` as the strategy reference. That document
-summarizes the Masyu assist framework and local rules from `Puzzlink_Assistance`
-in a form suitable for PuzzleKit's explainable rule engine.
+The next development center should be stronger deterministic Masyu solving
+rules. Use `docs/MASYU_RULE_ABSTRACTIONS.md` as the implementation-oriented
+taxonomy and `docs/MASYU_ASSIST_STRATEGIES_CN.md` as provenance for the original
+strategy source.
 
 Recommended next steps:
 
-- Add small Masyu rule helpers for directions, opposite directions, adjacent
-  cell-center lines, and pathable line checks.
-- Implement generic single-loop-in-cell basics for Masyu:
-  degree 2, no dead ends, forced two exits, and no premature small loop.
-- Then add pearl-specific rules:
-  black pearl turn-and-straight constraints.
-  white pearl straight-and-turn-nearby constraints.
+- Add premature-loop prevention over Masyu `lines`.
+- Add candidate-graph bridge inference over non-blank center-line candidates.
+- Continue expanding local white-pearl axis elimination and optional pattern
+  rules with focused fixtures.
 - Keep each rule small, named, deterministic, and backed by focused tests.

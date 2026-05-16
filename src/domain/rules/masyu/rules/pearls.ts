@@ -63,6 +63,7 @@ export const createWhiteCircleRule = (): Rule => ({
     const affectedCells = new Set<string>()
     let firstPearl: string | null = null
     let firstLine: string | null = null
+    let firstReason: string | null = null
 
     for (const pearlKey of getPearlCellKeys(puzzle, 'white')) {
       const incident = getMasyuIncidentDirectionalLines(puzzle, pearlKey)
@@ -71,6 +72,33 @@ export const createWhiteCircleRule = (): Rule => ({
         return item?.mark === 'line' ? [item] : []
       })
       const lineDirections = lineEntries.map((item) => item.direction)
+
+      for (const axis of PEARL_AXES) {
+        if (!axis.every((direction) => incident[direction]?.mark === 'line')) {
+          continue
+        }
+        for (const straightSide of axis) {
+          const turnSide = oppositeMasyuDirection(straightSide)
+          const straightExtension = getMasyuTwoStepLine(puzzle, pearlKey, straightSide).second
+          const turnExtension = getMasyuTwoStepLine(puzzle, pearlKey, turnSide).second
+          if (straightExtension?.mark !== 'line' || !turnExtension) {
+            continue
+          }
+          const beforeSize = decisions.size
+          if (
+            collectMasyuLineDecision(decisions, puzzle, turnExtension.lineKey, 'blank') &&
+            decisions.size > beforeSize
+          ) {
+            affectedCells.add(pearlKey)
+            if (firstPearl === null) {
+              firstPearl = pearlKey
+              firstLine = turnExtension.lineKey
+              firstReason =
+                'must turn in an adjacent cell; one side already goes straight for two segments, so the other side cannot continue straight'
+            }
+          }
+        }
+      }
 
       if (lineEntries.length === 1) {
         const straightDirection = oppositeMasyuDirection(lineEntries[0].direction)
@@ -92,6 +120,7 @@ export const createWhiteCircleRule = (): Rule => ({
           affectedCells.add(pearlKey)
           if (firstPearl === null) {
             firstPearl = pearlKey
+            firstReason = 'must go straight through the pearl'
           }
         }
         continue
@@ -118,6 +147,7 @@ export const createWhiteCircleRule = (): Rule => ({
           affectedCells.add(pearlKey)
           if (firstPearl === null) {
             firstPearl = pearlKey
+            firstReason = 'must go straight through the pearl, so turn candidates are blank'
           }
         }
         continue
@@ -156,6 +186,7 @@ export const createWhiteCircleRule = (): Rule => ({
         affectedCells.add(pearlKey)
         if (firstPearl === null) {
           firstPearl = pearlKey
+          firstReason = 'has a blocked axis and must use the other axis'
         }
       }
     }
@@ -168,7 +199,7 @@ export const createWhiteCircleRule = (): Rule => ({
     return {
       message:
         firstPearl && firstLine
-          ? `White pearl ${formatMasyuCellKeyLabel(firstPearl)} cannot go straight through a blocked axis, so the other axis is forced and ${formatMasyuLineLabel(firstLine)} is decided${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
+          ? `White pearl ${formatMasyuCellKeyLabel(firstPearl)} ${firstReason ?? 'forces a local decision'}, so ${formatMasyuLineLabel(firstLine)} is decided${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
           : 'White circle rule applied.',
       diffs,
       affectedCells: [...affectedCells],
