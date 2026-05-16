@@ -51,6 +51,7 @@ type SolverStore = {
   highlightedCells: string[]
   highlightedColorCells: string[]
   highlightedEdges: string[]
+  highlightedLines: string[]
   isRunning: boolean
   solveProgress: SolveProgress | null
   solveChunkSize: number
@@ -205,7 +206,7 @@ export const buildDifficultySnapshot = (steps: RuleStep[]): DifficultySnapshot =
   let totalEdgeChanges = 0
   for (const step of steps) {
     ruleUsage[step.ruleId] = (ruleUsage[step.ruleId] ?? 0) + 1
-    totalEdgeChanges += step.diffs.filter((diff) => diff.kind === 'edge').length
+    totalEdgeChanges += step.diffs.filter((diff) => diff.kind === 'edge' || diff.kind === 'line').length
   }
 
   return {
@@ -244,6 +245,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   highlightedCells: [],
   highlightedColorCells: [],
   highlightedEdges: [],
+  highlightedLines: [],
   isRunning: false,
   solveProgress: null,
   solveChunkSize: DEFAULT_SOLVE_CHUNK_SIZE,
@@ -267,6 +269,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: [],
       highlightedColorCells: [],
       highlightedEdges: [],
+      highlightedLines: [],
       solveProgress: null,
       terminalReport: null,
     })
@@ -316,6 +319,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
                 highlightedCells: [],
                 highlightedColorCells: [],
                 highlightedEdges: [],
+                highlightedLines: [],
               }
             : { terminalReport: report },
         )
@@ -339,6 +343,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: step.affectedCells,
       highlightedColorCells: getStepColorCells(step),
       highlightedEdges: step.affectedEdges,
+      highlightedLines: step.affectedLines ?? [],
       terminalReport: null,
     })
   },
@@ -357,6 +362,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: currentStep?.affectedCells ?? [],
       highlightedColorCells: getStepColorCells(currentStep),
       highlightedEdges: currentStep?.affectedEdges ?? [],
+      highlightedLines: currentStep?.affectedLines ?? [],
       terminalReport: null,
     })
   },
@@ -380,6 +386,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: currentStep?.affectedCells ?? [],
       highlightedColorCells: getStepColorCells(currentStep),
       highlightedEdges: currentStep?.affectedEdges ?? [],
+      highlightedLines: currentStep?.affectedLines ?? [],
       terminalReport: null,
     })
   },
@@ -422,6 +429,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedCells: [],
       highlightedColorCells: [],
       highlightedEdges: [],
+      highlightedLines: [],
       solveProgress: null,
       terminalReport: null,
     })

@@ -4,10 +4,14 @@ export const cellKey = (row: number, col: number): string => `${row},${col}`
 
 export const vertexKey = (row: number, col: number): string => `${row},${col}`
 
+export const tileKey = (row: number, col: number): string => `${row},${col}`
+
 export const parseCellKey = (key: string): CellCoord => {
   const [r, c] = key.split(',').map(Number)
   return [r, c]
 }
+
+export const parseTileKey = (key: string): CellCoord => parseCellKey(key)
 
 export const parseVertexKey = (key: string): Vertex => {
   const [r, c] = key.split(',').map(Number)
@@ -45,12 +49,41 @@ export const parseEdgeKey = (key: string): [Vertex, Vertex] => {
   return sortVertices(p1, p2)
 }
 
+export const lineKey = (a: CellCoord, b: CellCoord): string => {
+  const [p1, p2] = sortVertices(a, b)
+  return `${p1[0]},${p1[1]}-${p2[0]},${p2[1]}`
+}
+
+export const parseLineKey = (key: string): [CellCoord, CellCoord] => {
+  const [left, right] = key.split('-')
+  const p1 = left.split(',').map(Number) as CellCoord
+  const p2 = right.split(',').map(Number) as CellCoord
+  return sortVertices(p1, p2) as [CellCoord, CellCoord]
+}
+
 export const getCellEdgeKeys = (row: number, col: number): string[] => [
   edgeKey([row, col], [row, col + 1]),
   edgeKey([row + 1, col], [row + 1, col + 1]),
   edgeKey([row, col], [row + 1, col]),
   edgeKey([row, col + 1], [row + 1, col + 1]),
 ]
+
+export const getCellLineKeys = (row: number, col: number, rows: number, cols: number): string[] => {
+  const lines: string[] = []
+  if (row > 0) {
+    lines.push(lineKey([row, col], [row - 1, col]))
+  }
+  if (row < rows - 1) {
+    lines.push(lineKey([row, col], [row + 1, col]))
+  }
+  if (col > 0) {
+    lines.push(lineKey([row, col], [row, col - 1]))
+  }
+  if (col < cols - 1) {
+    lines.push(lineKey([row, col], [row, col + 1]))
+  }
+  return lines
+}
 
 export const getCornerVertex = (row: number, col: number, corner: SectorCorner): Vertex => {
   if (corner === 'nw') return [row, col] 

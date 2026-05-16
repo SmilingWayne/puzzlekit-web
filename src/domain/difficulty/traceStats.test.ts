@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cellKey, edgeKey, vertexKey } from '../ir/keys'
+import { createMasyuPuzzle } from '../ir/masyu'
 import { createSlitherPuzzle } from '../ir/slither'
 import type { RuleStep } from '../rules/types'
 import {
@@ -50,7 +51,7 @@ describe('buildRuleTraceStats', () => {
     expect(stats.ruleUsage).toEqual({ 'rule-a': 2, 'rule-b': 1 })
     expect(stats.ruleSteps).toEqual({ 'rule-a': [1, 3], 'rule-b': [2] })
     expect(stats.totalDurationMs).toBe(10)
-    expect(stats.diffCounts).toEqual({ edge: 1, sector: 1, cell: 1, vertex: 0 })
+    expect(stats.diffCounts).toEqual({ edge: 1, line: 0, sector: 1, cell: 1, vertex: 0 })
   })
 
   it('keeps all full-trace rules visible when the active prefix has not used them yet', () => {
@@ -109,6 +110,22 @@ describe('buildTraceChartStats', () => {
 
     expect(stats.points.map((point) => point.edgeCoverageRatio)).toEqual([0, 0.25, 0.5])
     expect(stats.current.boardProgressRatio).toBe(0.5)
+  })
+
+  it('tracks Masyu line decisions as board progress', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    const line = Object.keys(puzzle.lines)[0]
+    const steps: RuleStep[] = [
+      makeStep(1, 'line-rule', 'Line Rule', 1, [
+        { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
+      ]),
+    ]
+
+    const stats = buildTraceChartStats(puzzle, steps, 1)
+
+    expect(stats.totalEdges).toBe(1)
+    expect(stats.current.boardProgressRatio).toBe(1)
+    expect(stats.current.edgeCoverageRatio).toBe(1)
   })
 
   it('tracks cell coverage from filled cells', () => {

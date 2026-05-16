@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { decodeSlitherFromPuzzlink } from '../parsers/puzzlink'
 import { vertexKey } from '../ir/keys'
+import { createMasyuPuzzle } from '../ir/masyu'
 import { applyRuleDiffs, revertRuleDiffs, runNextRule } from './engine'
 import { slitherRules } from './slither/rules'
 import type { RuleDiff } from './types'
@@ -62,5 +63,25 @@ describe('rule engine', () => {
     expect(rewound.sectors[sectorKey].constraintsMask).toBe(puzzle.sectors[sectorKey].constraintsMask)
     expect(rewound.cells['0,0']?.fill).toBeUndefined()
     expect(rewound.vertices[centerVertexKey].candidateEdgeSets).toEqual(fromCandidates)
+  })
+
+  it('applies and reverts line diffs without mutating input puzzle', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const lineKey = Object.keys(puzzle.lines)[0]
+    const diffs: RuleDiff[] = [
+      {
+        kind: 'line',
+        lineKey,
+        from: 'unknown',
+        to: 'line',
+      },
+    ]
+
+    const next = applyRuleDiffs(puzzle, diffs)
+    expect(next.lines[lineKey].mark).toBe('line')
+    expect(puzzle.lines[lineKey].mark).toBe('unknown')
+
+    const rewound = revertRuleDiffs(next, diffs)
+    expect(rewound.lines[lineKey].mark).toBe('unknown')
   })
 })

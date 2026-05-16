@@ -17,6 +17,7 @@ export const WorkspacePage = () => {
     highlightedCells,
     highlightedColorCells,
     highlightedEdges,
+    highlightedLines,
     includeVertexNumbers,
     solveProgress,
     goToStep,
@@ -31,7 +32,7 @@ export const WorkspacePage = () => {
           <header className="workspace-title">
             <div>
               <h1>PuzzleKit Web</h1>
-              <p>A Step-wise and Explainable Inference Solver for Slitherlink.</p>
+              <p>A Step-wise and Explainable Inference Solver for Logic Puzzles.</p>
             </div>
             <nav className="workspace-nav" aria-label="Workspace navigation">
               <Link aria-current="page" to="/">
@@ -47,6 +48,7 @@ export const WorkspacePage = () => {
             highlightedCells={highlightedCells}
             highlightedColorCells={highlightedColorCells}
             highlightedEdges={highlightedEdges}
+            highlightedLines={highlightedLines}
             showVertexNumbers={includeVertexNumbers}
           />
           <StatsPanel

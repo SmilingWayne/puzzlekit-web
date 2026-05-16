@@ -4,6 +4,7 @@ import type { Rule, RuleDiff, RuleStep } from './types'
 type WritableBuckets = {
   cells: PuzzleIR['cells'] | null
   edges: PuzzleIR['edges'] | null
+  lines: PuzzleIR['lines'] | null
   sectors: PuzzleIR['sectors'] | null
   vertices: PuzzleIR['vertices'] | null
 }
@@ -22,6 +23,16 @@ const applyDiffEntry = (
     }
     const prev = writable.edges[diff.edgeKey]
     writable.edges[diff.edgeKey] = prev ? { ...prev, mark } : { mark }
+    return
+  }
+  if (diff.kind === 'line') {
+    const mark = mode === 'forward' ? diff.to : diff.from
+    if (!writable.lines) {
+      writable.lines = { ...(next.lines ?? {}) }
+      next.lines = writable.lines
+    }
+    const prev = writable.lines[diff.lineKey]
+    writable.lines[diff.lineKey] = prev ? { ...prev, mark } : { mark }
     return
   }
   if (diff.kind === 'sector') {
@@ -69,6 +80,7 @@ const applyRuleDiffsInternal = (
   const writable: WritableBuckets = {
     cells: null,
     edges: null,
+    lines: null,
     sectors: null,
     vertices: null,
   }
@@ -127,6 +139,8 @@ export const runNextRule = (
       diffs: result.diffs,
       affectedCells: result.affectedCells,
       affectedEdges: result.diffs.flatMap((d) => (d.kind === 'edge' ? [d.edgeKey] : [])),
+      affectedLines:
+        result.affectedLines ?? result.diffs.flatMap((d) => (d.kind === 'line' ? [d.lineKey] : [])),
       affectedSectors:
         result.affectedSectors ??
         result.diffs.flatMap((d) => (d.kind === 'sector' ? [d.sectorKey] : [])),

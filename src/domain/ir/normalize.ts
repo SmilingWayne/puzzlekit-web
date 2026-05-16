@@ -1,4 +1,4 @@
-import { cellKey, edgeKey, parseSectorKey, parseVertexKey } from './keys'
+import { cellKey, edgeKey, lineKey, parseLineKey, parseSectorKey, parseTileKey, parseVertexKey } from './keys'
 import type { PuzzleIR } from './types'
 
 const compareCoord = (a: string, b: string): number => {
@@ -39,6 +39,17 @@ export const normalizePuzzle = (puzzle: PuzzleIR): Record<string, unknown> => {
       return acc
     }, {})
 
+  const lines = Object.entries(puzzle.lines ?? {})
+    .map(([key, state]) => {
+      const [p1, p2] = parseLineKey(key)
+      return [lineKey(p1, p2), state] as const
+    })
+    .sort(([a], [b]) => a.localeCompare(b))
+    .reduce<Record<string, unknown>>((acc, [key, state]) => {
+      acc[key] = { mark: state.mark }
+      return acc
+    }, {})
+
   const sectors = Object.entries(puzzle.sectors)
     .sort(([a], [b]) => {
       const [ar, ac, aCorner] = parseSectorKey(a)
@@ -70,6 +81,17 @@ export const normalizePuzzle = (puzzle: PuzzleIR): Record<string, unknown> => {
       return acc
     }, {})
 
+  const tiles = Object.entries(puzzle.tiles ?? {})
+    .sort(([a], [b]) => {
+      const [ar, ac] = parseTileKey(a)
+      const [br, bc] = parseTileKey(b)
+      return ar === br ? ac - bc : ar - br
+    })
+    .reduce<Record<string, unknown>>((acc, [key, state]) => {
+      acc[key] = { fill: state.fill ?? null }
+      return acc
+    }, {})
+
   return {
     gridType: puzzle.gridType,
     puzzleType: puzzle.puzzleType,
@@ -79,7 +101,9 @@ export const normalizePuzzle = (puzzle: PuzzleIR): Record<string, unknown> => {
     boxes: [...puzzle.boxes],
     cells,
     edges,
+    lines,
     sectors,
+    tiles,
     vertices,
   }
 }

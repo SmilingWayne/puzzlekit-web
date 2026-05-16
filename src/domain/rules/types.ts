@@ -1,4 +1,4 @@
-import type { EdgeMark, PuzzleIR, SectorConstraintMask, VertexCandidate } from '../ir/types'
+import type { EdgeMark, LineMark, PuzzleIR, SectorConstraintMask, VertexCandidate } from '../ir/types'
 
 export type EdgeDiff = {
   kind: 'edge'
@@ -12,6 +12,13 @@ export type SectorDiff = {
   sectorKey: string
   fromMask: SectorConstraintMask
   toMask: SectorConstraintMask
+}
+
+export type LineDiff = {
+  kind: 'line'
+  lineKey: string
+  from: LineMark
+  to: LineMark
 }
 
 export type CellDiff = {
@@ -28,7 +35,7 @@ export type VertexDiff = {
   toCandidates: VertexCandidate[]
 }
 
-export type RuleDiff = EdgeDiff | SectorDiff | CellDiff | VertexDiff
+export type RuleDiff = EdgeDiff | LineDiff | SectorDiff | CellDiff | VertexDiff
 
 export type RuleStep = {
   id: string
@@ -38,6 +45,7 @@ export type RuleStep = {
   diffs: RuleDiff[]
   affectedCells: string[]
   affectedEdges: string[]
+  affectedLines?: string[]
   affectedSectors: string[]
   timestamp: number
   durationMs: number
@@ -47,6 +55,7 @@ export type RuleApplication = {
   message: string
   diffs: RuleDiff[]
   affectedCells: string[]
+  affectedLines?: string[]
   affectedSectors?: string[]
 }
 

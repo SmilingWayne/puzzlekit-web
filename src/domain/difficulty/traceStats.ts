@@ -74,6 +74,7 @@ export type TraceStatsCache = {
 
 export const emptyDiffCounts = (): RuleTraceDiffCounts => ({
   edge: 0,
+  line: 0,
   sector: 0,
   cell: 0,
   vertex: 0,
@@ -187,7 +188,9 @@ const countInitialFilledCells = (puzzle: PuzzleIR): number =>
   Object.values(puzzle.cells).filter((cell) => cell.fill !== undefined && cell.fill !== null).length
 
 const countInitialDecidedEdges = (puzzle: PuzzleIR): number =>
-  Object.values(puzzle.edges).filter((edge) => (edge?.mark ?? 'unknown') !== 'unknown').length
+  Object.values(puzzle.puzzleType === 'masyu' ? puzzle.lines ?? {} : puzzle.edges).filter(
+    (edge) => (edge?.mark ?? 'unknown') !== 'unknown',
+  ).length
 
 const upperBound = (values: number[], target: number): number => {
   let low = 0
@@ -204,7 +207,8 @@ const upperBound = (values: number[], target: number): number => {
 }
 
 export const createTraceStatsCache = (initialPuzzle: PuzzleIR): TraceStatsCache => {
-  const totalEdges = Object.keys(initialPuzzle.edges).length
+  const decisionMarks = initialPuzzle.puzzleType === 'masyu' ? initialPuzzle.lines ?? {} : initialPuzzle.edges
+  const totalEdges = Object.keys(decisionMarks).length
   const totalCells = initialPuzzle.rows * initialPuzzle.cols
   const totalVertices = Object.keys(initialPuzzle.vertices).length
   const edgeMarks: Record<string, string> = {}
@@ -214,7 +218,7 @@ export const createTraceStatsCache = (initialPuzzle: PuzzleIR): TraceStatsCache 
   const initialVertexCandidateSignatures: Record<string, string> = {}
   const narrowedVertexKeys: Record<string, boolean> = {}
 
-  for (const [key, edge] of Object.entries(initialPuzzle.edges)) {
+  for (const [key, edge] of Object.entries(decisionMarks)) {
     edgeMarks[key] = edge?.mark ?? 'unknown'
   }
   for (const [key, cell] of Object.entries(initialPuzzle.cells)) {
@@ -253,6 +257,7 @@ export const createTraceStatsCache = (initialPuzzle: PuzzleIR): TraceStatsCache 
     totalDiffPrefixCounts: [0],
     diffPrefixCounts: {
       edge: [0],
+      line: [0],
       sector: [0],
       cell: [0],
       vertex: [0],
@@ -267,14 +272,20 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
   }
 
   let edgeDiffs = 0
+  let lineDiffs = 0
   let sectorDiffs = 0
   let cellDiffs = 0
   let vertexDiffs = 0
 
   for (const diff of step.diffs) {
-    if (diff.kind === 'edge') {
-      edgeDiffs += 1
-      const previous = next.edgeMarks[diff.edgeKey] ?? diff.from ?? 'unknown'
+    if (diff.kind === 'edge' || diff.kind === 'line') {
+      const key = diff.kind === 'edge' ? diff.edgeKey : diff.lineKey
+      if (diff.kind === 'edge') {
+        edgeDiffs += 1
+      } else {
+        lineDiffs += 1
+      }
+      const previous = next.edgeMarks[key] ?? diff.from ?? 'unknown'
       const previousDecided = previous !== 'unknown'
       const nextDecided = diff.to !== 'unknown'
       if (!previousDecided && nextDecided) {
@@ -282,7 +293,7 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
       } else if (previousDecided && !nextDecided) {
         next.decidedEdgeCount -= 1
       }
-      next.edgeMarks[diff.edgeKey] = diff.to
+      next.edgeMarks[key] = diff.to
     } else if (diff.kind === 'cell') {
       cellDiffs += 1
       const previous = next.cellFills[diff.cellKey] ?? null
@@ -335,6 +346,7 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
     next.totalDiffPrefixCounts[next.totalDiffPrefixCounts.length - 1] + step.diffs.length,
   )
   next.diffPrefixCounts.edge.push(next.diffPrefixCounts.edge[next.diffPrefixCounts.edge.length - 1] + edgeDiffs)
+  next.diffPrefixCounts.line.push(next.diffPrefixCounts.line[next.diffPrefixCounts.line.length - 1] + lineDiffs)
   next.diffPrefixCounts.sector.push(next.diffPrefixCounts.sector[next.diffPrefixCounts.sector.length - 1] + sectorDiffs)
   next.diffPrefixCounts.cell.push(next.diffPrefixCounts.cell[next.diffPrefixCounts.cell.length - 1] + cellDiffs)
   next.diffPrefixCounts.vertex.push(next.diffPrefixCounts.vertex[next.diffPrefixCounts.vertex.length - 1] + vertexDiffs)
@@ -400,6 +412,7 @@ export const buildTraceStatsView = (
     uniqueRulesUsed: Object.keys(activeRuleUsage).length,
     diffCounts: {
       edge: cache.diffPrefixCounts.edge[currentPointer] ?? 0,
+      line: cache.diffPrefixCounts.line[currentPointer] ?? 0,
       sector: cache.diffPrefixCounts.sector[currentPointer] ?? 0,
       cell: cache.diffPrefixCounts.cell[currentPointer] ?? 0,
       vertex: cache.diffPrefixCounts.vertex[currentPointer] ?? 0,
@@ -421,7 +434,8 @@ export const buildTraceChartStats = (
   pointer: number,
 ): TraceChartStats => {
   const currentPointer = clampPointer(pointer, steps.length)
-  const totalEdges = Object.keys(initialPuzzle.edges).length
+  const decisionMarks = initialPuzzle.puzzleType === 'masyu' ? initialPuzzle.lines ?? {} : initialPuzzle.edges
+  const totalEdges = Object.keys(decisionMarks).length
   const totalCells = initialPuzzle.rows * initialPuzzle.cols
   const totalVertices = Object.keys(initialPuzzle.vertices).length
 
@@ -431,7 +445,7 @@ export const buildTraceChartStats = (
   const initialVertexSignatures: Record<string, string> = {}
   const vertexCandidates: Record<string, VertexCandidate[]> = {}
 
-  for (const [key, edge] of Object.entries(initialPuzzle.edges)) {
+  for (const [key, edge] of Object.entries(decisionMarks)) {
     edgeMarks[key] = edge?.mark ?? 'unknown'
   }
   for (const [key, cell] of Object.entries(initialPuzzle.cells)) {
@@ -464,8 +478,8 @@ export const buildTraceChartStats = (
   const points: TraceChartPoint[] = [makePoint(0)]
   steps.forEach((step, index) => {
     for (const diff of step.diffs) {
-      if (diff.kind === 'edge') {
-        edgeMarks[diff.edgeKey] = diff.to
+      if (diff.kind === 'edge' || diff.kind === 'line') {
+        edgeMarks[diff.kind === 'edge' ? diff.edgeKey : diff.lineKey] = diff.to
       } else if (diff.kind === 'cell') {
         cellFills[diff.cellKey] = diff.toFill
       } else if (diff.kind === 'vertex') {
