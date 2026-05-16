@@ -112,14 +112,12 @@ diverge from direct rule execution.
 Do not put puzzle-specific solving techniques in this project guide. Use the
 technique notes instead:
 
-- `docs/techniques/PUZZLE_TECHNIQUES_EN.md`
+- `docs/techniques/masyu.md`
+- `docs/techniques/slitherlink.md`
 
 That file points to the current Slitherlink rule modules, the Masyu changelog,
 the Masyu URL encoding reference, and the Masyu strategy research document:
 
-- `docs/MASYU_CHANGELOG.md`
-- `docs/MASYU_ENCODE_METHOD.md`
-- `docs/MASYU_ASSIST_STRATEGIES_CN.md`
 
 ## 7. Benchmark And Dataset Flow
 
