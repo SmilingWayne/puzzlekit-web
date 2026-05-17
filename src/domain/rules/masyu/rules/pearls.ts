@@ -66,6 +66,26 @@ const isBlackExitAvailable = (puzzle: PuzzleIR, pearlKey: string, direction: Mas
   return isMasyuLineAvailable(first) && isMasyuLineAvailable(second)
 }
 
+const collectNewMasyuLineDecision = (
+  decisions: Map<string, 'line' | 'blank'>,
+  puzzle: PuzzleIR,
+  key: string,
+  to: 'line' | 'blank',
+): boolean => {
+  const beforeSize = decisions.size
+  return collectMasyuLineDecision(decisions, puzzle, key, to) && decisions.size > beforeSize
+}
+
+const collectNewMasyuLineDecisionWithoutDegreeOverflow = (
+  decisions: Map<string, 'line' | 'blank'>,
+  puzzle: PuzzleIR,
+  key: string,
+  to: 'line' | 'blank',
+): boolean => {
+  const beforeSize = decisions.size
+  return collectMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, key, to) && decisions.size > beforeSize
+}
+
 export const createWhiteCircleRule = (): Rule => ({
   id: 'white-circle-rule',
   name: 'White Circle Rule',
@@ -95,11 +115,7 @@ export const createWhiteCircleRule = (): Rule => ({
           if (straightExtension?.mark !== 'line' || !turnExtension) {
             continue
           }
-          const beforeSize = decisions.size
-          if (
-            collectMasyuLineDecision(decisions, puzzle, turnExtension.lineKey, 'blank') &&
-            decisions.size > beforeSize
-          ) {
+          if (collectNewMasyuLineDecision(decisions, puzzle, turnExtension.lineKey, 'blank')) {
             affectedCells.add(pearlKey)
             if (firstPearl === null) {
               firstPearl = pearlKey
@@ -120,7 +136,7 @@ export const createWhiteCircleRule = (): Rule => ({
             continue
           }
           const mark = direction === straightDirection ? 'line' : 'blank'
-          if (collectMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, item.lineKey, mark)) {
+          if (collectNewMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, item.lineKey, mark)) {
             addedAny = true
             if (firstLine === null) {
               firstLine = item.lineKey
@@ -147,7 +163,7 @@ export const createWhiteCircleRule = (): Rule => ({
             continue
           }
           const item = incident[direction]
-          if (item && collectMasyuLineDecision(decisions, puzzle, item.lineKey, 'blank')) {
+          if (item && collectNewMasyuLineDecision(decisions, puzzle, item.lineKey, 'blank')) {
             addedAny = true
             if (firstLine === null) {
               firstLine = item.lineKey
@@ -177,7 +193,7 @@ export const createWhiteCircleRule = (): Rule => ({
 
       for (const direction of blockedAxis) {
         const item = getMasyuDirectionalLine(puzzle, pearlKey, direction)
-        if (item && collectMasyuLineDecision(decisions, puzzle, item.lineKey, 'blank')) {
+        if (item && collectNewMasyuLineDecision(decisions, puzzle, item.lineKey, 'blank')) {
           addedAny = true
           if (firstLine === null) {
             firstLine = item.lineKey
@@ -186,7 +202,7 @@ export const createWhiteCircleRule = (): Rule => ({
       }
       for (const direction of straightAxis) {
         const item = getMasyuDirectionalLine(puzzle, pearlKey, direction)
-        if (item && collectMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, item.lineKey, 'line')) {
+        if (item && collectNewMasyuLineDecisionWithoutDegreeOverflow(decisions, puzzle, item.lineKey, 'line')) {
           addedAny = true
           if (firstLine === null) {
             firstLine = item.lineKey
@@ -240,14 +256,14 @@ export const createBlackCircleRule = (): Rule => ({
         const lineDirection = lineEntries[0].direction
         const opposite = incident[oppositeMasyuDirection(lineDirection)]
         let addedAny = false
-        if (opposite && collectMasyuLineDecision(decisions, puzzle, opposite.lineKey, 'blank')) {
+        if (opposite && collectNewMasyuLineDecision(decisions, puzzle, opposite.lineKey, 'blank')) {
           addedAny = true
           if (firstLine === null) {
             firstLine = opposite.lineKey
           }
         }
         const extension = getMasyuTwoStepLine(puzzle, pearlKey, lineDirection).second
-        if (extension && collectMasyuLineDecision(decisions, puzzle, extension.lineKey, 'line')) {
+        if (extension && collectNewMasyuLineDecision(decisions, puzzle, extension.lineKey, 'line')) {
           addedAny = true
           if (firstLine === null) {
             firstLine = extension.lineKey
@@ -272,7 +288,7 @@ export const createBlackCircleRule = (): Rule => ({
             continue
           }
           const item = incident[direction]
-          if (item && collectMasyuLineDecision(decisions, puzzle, item.lineKey, 'blank')) {
+          if (item && collectNewMasyuLineDecision(decisions, puzzle, item.lineKey, 'blank')) {
             addedAny = true
             if (firstLine === null) {
               firstLine = item.lineKey
@@ -281,7 +297,7 @@ export const createBlackCircleRule = (): Rule => ({
         }
         for (const direction of lineDirections) {
           const extension = getMasyuTwoStepLine(puzzle, pearlKey, direction).second
-          if (extension && collectMasyuLineDecision(decisions, puzzle, extension.lineKey, 'line')) {
+          if (extension && collectNewMasyuLineDecision(decisions, puzzle, extension.lineKey, 'line')) {
             addedAny = true
             if (firstLine === null) {
               firstLine = extension.lineKey
@@ -308,7 +324,7 @@ export const createBlackCircleRule = (): Rule => ({
 
         let addedAny = false
         const blocked = getMasyuDirectionalLine(puzzle, pearlKey, direction)
-        if (blocked && collectMasyuLineDecision(decisions, puzzle, blocked.lineKey, 'blank')) {
+        if (blocked && collectNewMasyuLineDecision(decisions, puzzle, blocked.lineKey, 'blank')) {
           addedAny = true
           if (firstLine === null) {
             firstLine = blocked.lineKey
@@ -317,7 +333,7 @@ export const createBlackCircleRule = (): Rule => ({
 
         const opposite = getMasyuTwoStepLine(puzzle, pearlKey, oppositeDirection)
         for (const item of [opposite.first, opposite.second]) {
-          if (item && collectMasyuLineDecision(decisions, puzzle, item.lineKey, 'line')) {
+          if (item && collectNewMasyuLineDecision(decisions, puzzle, item.lineKey, 'line')) {
             addedAny = true
             if (firstLine === null) {
               firstLine = item.lineKey

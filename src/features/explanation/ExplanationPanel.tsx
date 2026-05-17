@@ -5,6 +5,20 @@ type Props = {
   steps: RuleStep[]
 }
 
+const buildStepMeta = (step: RuleStep): string => {
+  const edgeUpdates = step.diffs.filter((diff) => diff.kind === 'edge').length
+  const lineUpdates = step.diffs.filter((diff) => diff.kind === 'line' && diff.to === 'line').length
+  const lineCrosses = step.diffs.filter((diff) => diff.kind === 'line' && diff.to === 'blank').length
+  const sectorUpdates = step.affectedSectors.length
+  const parts = [
+    edgeUpdates > 0 ? `edge updates: ${edgeUpdates}` : null,
+    lineUpdates > 0 ? `line updates: ${lineUpdates}` : null,
+    lineCrosses > 0 ? `line crosses: ${lineCrosses}` : null,
+    sectorUpdates > 0 ? `sector updates: ${sectorUpdates}` : null,
+  ].filter((part): part is string => part !== null)
+  return parts.length > 0 ? parts.join(', ') : 'edge updates: 0'
+}
+
 export const ExplanationPanel = ({ steps }: Props) => {
   const [showAllSteps, setShowAllSteps] = useState(false)
   const visibleEntries = useMemo(
@@ -51,12 +65,7 @@ export const ExplanationPanel = ({ steps }: Props) => {
                 {sequence}. {step.ruleName}
               </p>
               <p className="step-message">{step.message}</p>
-              <p className="step-meta">
-                edge updates: {step.diffs.filter((diff) => diff.kind === 'edge').length}
-                {step.affectedSectors.length > 0
-                  ? `, sector updates: ${step.affectedSectors.length}`
-                  : ''}
-              </p>
+              <p className="step-meta">{buildStepMeta(step)}</p>
             </li>
           ))
         )}

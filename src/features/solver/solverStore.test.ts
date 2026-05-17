@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { cellKey, edgeKey } from '../../domain/ir/keys'
+import { cellKey, edgeKey, lineKey } from '../../domain/ir/keys'
+import { createMasyuPuzzle } from '../../domain/ir/masyu'
 import { buildTraceStatsView, rebuildTraceStatsCache } from '../../domain/difficulty/traceStats'
 import { semanticEquals } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
-import type { EdgeMark, PuzzleIR } from '../../domain/ir/types'
+import type { EdgeMark, LineMark, PuzzleIR } from '../../domain/ir/types'
 import { buildPuzzleFromSteps } from '../../domain/rules/engine'
 import {
   DEFAULT_SOLVE_CHUNK_SIZE,
@@ -22,12 +23,36 @@ const markEdge = (puzzle: PuzzleIR, edge: string, mark: EdgeMark): void => {
   puzzle.edges[edge] = { ...puzzle.edges[edge], mark }
 }
 
+const markLine = (puzzle: PuzzleIR, line: string, mark: LineMark): void => {
+  puzzle.lines[line] = { ...puzzle.lines[line], mark }
+}
+
 const createSolvedLoopPuzzle = (): PuzzleIR => {
   const puzzle = createSlitherPuzzle(1, 1)
   markEdge(puzzle, edgeKey([0, 0], [0, 1]), 'line')
   markEdge(puzzle, edgeKey([1, 0], [1, 1]), 'line')
   markEdge(puzzle, edgeKey([0, 0], [1, 0]), 'line')
   markEdge(puzzle, edgeKey([0, 1], [1, 1]), 'line')
+  return puzzle
+}
+
+const createSolvedMasyuLoopPuzzle = (): PuzzleIR => {
+  const puzzle = createMasyuPuzzle(4, 4)
+  for (let col = 0; col < 3; col += 1) {
+    markLine(puzzle, lineKey([0, col], [0, col + 1]), 'line')
+    markLine(puzzle, lineKey([3, col], [3, col + 1]), 'line')
+  }
+  for (let row = 0; row < 3; row += 1) {
+    markLine(puzzle, lineKey([row, 0], [row + 1, 0]), 'line')
+    markLine(puzzle, lineKey([row, 3], [row + 1, 3]), 'line')
+  }
+  for (const [key, line] of Object.entries(puzzle.lines)) {
+    if (line.mark === 'unknown') {
+      markLine(puzzle, key, 'blank')
+    }
+  }
+  puzzle.cells[cellKey(0, 0)] = { clue: { kind: 'pearl', color: 'black' } }
+  puzzle.cells[cellKey(0, 1)] = { clue: { kind: 'pearl', color: 'white' } }
   return puzzle
 }
 
@@ -60,6 +85,13 @@ const mockTerminalReport: TerminalSolveReport = {
   totalDurationMs: 0,
   reasons: ['No line edges have been drawn.'],
   stats: {
+    totalUnits: 4,
+    lineUnits: 0,
+    blankUnits: 0,
+    unknownUnits: 4,
+    decidedUnits: 0,
+    decidedRatio: 0,
+    unitLabel: 'Edges',
     totalEdges: 4,
     lineEdges: 0,
     blankEdges: 0,
@@ -519,6 +551,70 @@ describe('solver terminal reports', () => {
     expect(useSolverStore.getState().terminalReport?.totalDurationMs).toBeGreaterThanOrEqual(0)
     expect(useSolverStore.getState().isRunning).toBe(false)
     expect(useSolverStore.getState().solveProgress).toBeNull()
+  })
+
+  it('writes a Masyu terminal report when nextStep finds no available rule', () => {
+    const puzzle = createSolvedMasyuLoopPuzzle()
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedLines: [],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport).toMatchObject({
+      status: 'solved',
+      stepCount: 0,
+      stats: {
+        unitLabel: 'Lines',
+      },
+    })
+  })
+
+  it('clears affected line highlights when a Masyu terminal report is solved', () => {
+    const puzzle = createSolvedMasyuLoopPuzzle()
+    const highlightedLine = lineKey([0, 0], [0, 1])
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedLines: [highlightedLine],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('solved')
+    expect(useSolverStore.getState().highlightedLines).toEqual([])
+  })
+
+  it('keeps affected line highlights when a Masyu terminal report is stalled', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const highlightedLine = lineKey([0, 0], [0, 1])
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedLines: [highlightedLine],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('stalled')
+    expect(useSolverStore.getState().highlightedLines).toEqual([highlightedLine])
   })
 
   it('clears terminal report when moving back in the timeline', () => {

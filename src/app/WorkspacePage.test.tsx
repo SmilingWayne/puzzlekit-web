@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { cellKey, edgeKey } from '../domain/ir/keys'
+import { cellKey, edgeKey, lineKey } from '../domain/ir/keys'
+import { createMasyuPuzzle } from '../domain/ir/masyu'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
 import { rebuildTraceStatsCache } from '../domain/difficulty/traceStats'
@@ -618,6 +619,77 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/^1\. test rule$/i)).toBeInTheDocument()
   })
 
+  it('summarizes Slitherlink edge updates in reasoning steps', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const edge = edgeKey([0, 0], [0, 1])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'edge-rule',
+        ruleName: 'Edge Rule',
+        message: 'draw edge',
+        diffs: [{ kind: 'edge', edgeKey: edge, from: 'unknown', to: 'line' }],
+        affectedCells: [],
+        affectedEdges: [edge],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+      },
+    ]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText('edge updates: 1')).toBeInTheDocument()
+  })
+
+  it('summarizes Masyu line updates and line crosses in reasoning steps', () => {
+    const puzzle = createMasyuPuzzle(2, 3)
+    const line = lineKey([0, 0], [0, 1])
+    const cross = lineKey([0, 1], [0, 2])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'line-rule',
+        ruleName: 'Line Rule',
+        message: 'line and cross',
+        diffs: [
+          { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
+          { kind: 'line', lineKey: cross, from: 'unknown', to: 'blank' },
+        ],
+        affectedCells: [],
+        affectedEdges: [],
+        affectedLines: [line, cross],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+      },
+    ]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText('line updates: 1, line crosses: 1')).toBeInTheDocument()
+  })
+
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
     renderWorkspace()
 
@@ -659,6 +731,13 @@ describe('WorkspacePage', () => {
         totalDurationMs: 1234,
         reasons: ['No line edges have been drawn.'],
         stats: {
+          totalUnits: 4,
+          lineUnits: 1,
+          blankUnits: 1,
+          unknownUnits: 2,
+          decidedUnits: 2,
+          decidedRatio: 0.5,
+          unitLabel: 'Edges',
           totalEdges: 4,
           lineEdges: 1,
           blankEdges: 1,
@@ -675,5 +754,39 @@ describe('WorkspacePage', () => {
     expect(screen.getByText('2 / 4, 50.0%')).toBeInTheDocument()
     expect(screen.getByText('1.23 s')).toBeInTheDocument()
     expect(screen.queryByText(/^Coverage$/i)).not.toBeInTheDocument()
+  })
+
+  it('shows Masyu stalled decided line count and coverage in one stat', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      solveProgress: null,
+      terminalReport: {
+        status: 'stalled',
+        stepCount: 0,
+        totalDurationMs: 500,
+        reasons: ['No line segments have been drawn.'],
+        stats: {
+          totalUnits: 1,
+          lineUnits: 0,
+          blankUnits: 0,
+          unknownUnits: 1,
+          decidedUnits: 0,
+          decidedRatio: 0,
+          unitLabel: 'Lines',
+        },
+      },
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText(/^Decided Lines$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^Unknown Lines$/i)).toBeInTheDocument()
+    expect(screen.getByText('0 / 1, 0.0%')).toBeInTheDocument()
   })
 })

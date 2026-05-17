@@ -1,9 +1,10 @@
 import { getCellEdgeKeys, parseCellKey, parseEdgeKey } from '../../ir/keys'
 import type { PuzzleIR } from '../../ir/types'
+import type { CompletionReport, CompletionStats, CompletionStatus } from '../completion'
 
-export type SlitherCompletionStatus = 'solved' | 'stalled'
+export type SlitherCompletionStatus = CompletionStatus
 
-export type SlitherCompletionStats = {
+export type SlitherCompletionStats = CompletionStats & {
   totalEdges: number
   lineEdges: number
   blankEdges: number
@@ -12,11 +13,7 @@ export type SlitherCompletionStats = {
   decidedEdgeRatio: number
 }
 
-export type SlitherCompletionReport = {
-  status: SlitherCompletionStatus
-  stats: SlitherCompletionStats
-  reasons: string[]
-}
+export type SlitherCompletionReport = CompletionReport & { stats: SlitherCompletionStats }
 
 const buildEdgeStats = (puzzle: PuzzleIR): SlitherCompletionStats => {
   let lineEdges = 0
@@ -34,6 +31,13 @@ const buildEdgeStats = (puzzle: PuzzleIR): SlitherCompletionStats => {
   const decidedEdges = lineEdges + blankEdges
 
   return {
+    totalUnits: totalEdges,
+    lineUnits: lineEdges,
+    blankUnits: blankEdges,
+    unknownUnits: unknownEdges,
+    decidedUnits: decidedEdges,
+    decidedRatio: totalEdges === 0 ? 0 : decidedEdges / totalEdges,
+    unitLabel: 'Edges',
     totalEdges,
     lineEdges,
     blankEdges,

@@ -195,6 +195,28 @@ describe('Masyu pearl rules', () => {
     expectLineDiffs(result?.diffs, { [north]: 'blank', [south]: 'blank' })
   })
 
+  it('White Circle Rule only highlights pearls that create new line decisions', () => {
+    const puzzle = createMasyuPuzzle(3, 4)
+    const unchangedPearl = cellKey(1, 1)
+    const changedPearl = cellKey(1, 2)
+    addPearl(puzzle, 1, 1, 'white')
+    addPearl(puzzle, 1, 2, 'white')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 1], [2, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'blank')
+    markLine(puzzle, lineKey([1, 1], [1, 2]), 'blank')
+    markLine(puzzle, lineKey([0, 2], [1, 2]), 'line')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'line')
+    const changedLine = lineKey([1, 2], [1, 3])
+
+    const result = createWhiteCircleRule().apply(puzzle)
+
+    expect(result?.affectedCells).toEqual([changedPearl])
+    expect(result?.affectedCells).not.toContain(unchangedPearl)
+    expect(result?.affectedLines).toEqual([changedLine])
+    expectLineDiffs(result?.diffs, { [changedLine]: 'blank' })
+  })
+
   it('White Circle Rule blocks the short side from continuing when the other side already runs straight south', () => {
     const puzzle = createMasyuPuzzle(5, 5)
     addPearl(puzzle, 2, 2, 'white')
@@ -281,6 +303,26 @@ describe('Masyu pearl rules', () => {
     markLine(puzzle, lineKey([1, 1], [2, 1]), 'line')
 
     expect(createBlackCircleRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Black Circle Rule only highlights pearls that create new line decisions', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    const unchangedPearl = cellKey(2, 2)
+    const changedPearl = cellKey(0, 1)
+    addPearl(puzzle, 2, 2, 'black')
+    addPearl(puzzle, 0, 1, 'black')
+    markLine(puzzle, lineKey([2, 1], [2, 2]), 'line')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'blank')
+    markLine(puzzle, lineKey([2, 0], [2, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    const changedLine = lineKey([1, 1], [2, 1])
+
+    const result = createBlackCircleRule().apply(puzzle)
+
+    expect(result?.affectedCells).toEqual([changedPearl])
+    expect(result?.affectedCells).not.toContain(unchangedPearl)
+    expect(result?.affectedLines).toEqual([changedLine])
+    expectLineDiffs(result?.diffs, { [changedLine]: 'line' })
   })
 
   it('Black Circle Rule rejects an exit whose second step would leave the board', () => {

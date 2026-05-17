@@ -11,11 +11,8 @@ import { clonePuzzle } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import type { PuzzleIR } from '../../domain/ir/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
+import { analyzePuzzleCompletion, type CompletionReport } from '../../domain/rules/completion'
 import { applyRuleDiffs, rewindPuzzleByStep, runNextRule } from '../../domain/rules/engine'
-import {
-  analyzeSlitherCompletion,
-  type SlitherCompletionReport,
-} from '../../domain/rules/slither/completion'
 import type { RuleStep } from '../../domain/rules/types'
 
 export const DEFAULT_SLITHERLINK_SAMPLE_URL = 'https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb'
@@ -24,7 +21,7 @@ export const DEFAULT_SOLVE_CHUNK_SIZE = 50
 export const MAX_SOLVE_CHUNK_SIZE = 1000
 export const REPLAY_CHECKPOINT_INTERVAL = 50
 
-export type TerminalSolveReport = SlitherCompletionReport & {
+export type TerminalSolveReport = CompletionReport & {
   stepCount: number
   totalDurationMs: number
 }
@@ -192,11 +189,12 @@ const buildTerminalReport = (
   puzzle: PuzzleIR,
   activeSteps: RuleStep[],
 ): TerminalSolveReport | null => {
-  if (pluginId !== 'slitherlink') {
+  const completion = analyzePuzzleCompletion(pluginId, puzzle)
+  if (!completion) {
     return null
   }
   return {
-    ...analyzeSlitherCompletion(puzzle),
+    ...completion,
     stepCount: activeSteps.length,
     totalDurationMs: sumRuleStepDurationMs(activeSteps),
   }

@@ -50,7 +50,7 @@ export const ControlPanel = () => {
     [difficulty.ruleUsage],
   )
   const terminalCoverage = terminalReport
-    ? `${(terminalReport.stats.decidedEdgeRatio * 100).toFixed(1)}%`
+    ? `${(terminalReport.stats.decidedRatio * 100).toFixed(1)}%`
     : '0.0%'
   const terminalDurationSeconds = terminalReport
     ? `${(terminalReport.totalDurationMs / 1000).toFixed(2)} s`
@@ -276,15 +276,15 @@ export const ControlPanel = () => {
             {terminalReport.status === 'stalled' ? (
               <>
                 <div>
-                  <span>Decided Edges</span>
+                  <span>Decided {terminalReport.stats.unitLabel}</span>
                   <strong>
-                    {terminalReport.stats.decidedEdges} / {terminalReport.stats.totalEdges},{' '}
+                    {terminalReport.stats.decidedUnits} / {terminalReport.stats.totalUnits},{' '}
                     {terminalCoverage}
                   </strong>
                 </div>
                 <div>
-                  <span>Unknown Edges</span>
-                  <strong>{terminalReport.stats.unknownEdges}</strong>
+                  <span>Unknown {terminalReport.stats.unitLabel}</span>
+                  <strong>{terminalReport.stats.unknownUnits}</strong>
                 </div>
               </>
             ) : null}
