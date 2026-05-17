@@ -51,7 +51,7 @@ describe('buildRuleTraceStats', () => {
     expect(stats.ruleUsage).toEqual({ 'rule-a': 2, 'rule-b': 1 })
     expect(stats.ruleSteps).toEqual({ 'rule-a': [1, 3], 'rule-b': [2] })
     expect(stats.totalDurationMs).toBe(10)
-    expect(stats.diffCounts).toEqual({ edge: 1, line: 0, sector: 1, cell: 1, vertex: 0 })
+    expect(stats.diffCounts).toEqual({ edge: 1, line: 0, sector: 1, cell: 1, tile: 0, vertex: 0 })
   })
 
   it('keeps all full-trace rules visible when the active prefix has not used them yet', () => {

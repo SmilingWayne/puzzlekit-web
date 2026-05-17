@@ -7,6 +7,7 @@ import { PuzzleInfoButton } from '../puzzleInfo/PuzzleInfoButton'
 import {
   buildDifficultySnapshot,
   DEFAULT_MASYU_SAMPLE_URL,
+  DEFAULT_SLITHERLINK_SAMPLE_URL,
   MAX_SOLVE_CHUNK_SIZE,
   useSolverStore,
 } from './solverStore'
@@ -89,6 +90,11 @@ export const ControlPanel = () => {
               if (nextPluginId === 'masyu') {
                 setLocalUrl(DEFAULT_MASYU_SAMPLE_URL)
                 importFromUrl(DEFAULT_MASYU_SAMPLE_URL, nextPluginId)
+                return
+              }
+              if (nextPluginId === 'slitherlink') {
+                setLocalUrl(DEFAULT_SLITHERLINK_SAMPLE_URL)
+                importFromUrl(DEFAULT_SLITHERLINK_SAMPLE_URL, nextPluginId)
                 return
               }
               setPluginId(nextPluginId)

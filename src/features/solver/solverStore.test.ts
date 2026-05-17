@@ -608,6 +608,9 @@ describe('solver terminal reports', () => {
   it('keeps affected line highlights when a Masyu terminal report is stalled', () => {
     const puzzle = createMasyuPuzzle(2, 2)
     fillAllMasyuTiles(puzzle)
+    for (const key of Object.keys(puzzle.lines)) {
+      markLine(puzzle, key, 'blank')
+    }
     const highlightedLine = lineKey([0, 0], [0, 1])
     useSolverStore.setState((state) => ({
       ...state,

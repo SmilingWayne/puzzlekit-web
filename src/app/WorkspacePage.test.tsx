@@ -8,6 +8,7 @@ import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
 import { rebuildTraceStatsCache } from '../domain/difficulty/traceStats'
 import {
   DEFAULT_MASYU_SAMPLE_URL,
+  DEFAULT_SLITHERLINK_SAMPLE_URL,
   DEFAULT_SOLVE_CHUNK_SIZE,
   useSolverStore,
 } from '../features/solver/solverStore'
@@ -83,6 +84,25 @@ describe('WorkspacePage', () => {
       expect(state.currentPuzzle.cols).toBe(5)
     })
     expect(screen.getByDisplayValue(DEFAULT_MASYU_SAMPLE_URL)).toBeInTheDocument()
+  })
+
+  it('reloads the default Slitherlink sample when switching back from Masyu', async () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByDisplayValue('Slitherlink'), { target: { value: 'masyu' } })
+    await waitFor(() => expect(useSolverStore.getState().pluginId).toBe('masyu'))
+
+    fireEvent.change(screen.getByDisplayValue('Masyu'), { target: { value: 'slitherlink' } })
+
+    await waitFor(() => {
+      const state = useSolverStore.getState()
+      expect(state.pluginId).toBe('slitherlink')
+      expect(state.sourceUrl).toBe(DEFAULT_SLITHERLINK_SAMPLE_URL)
+      expect(state.currentPuzzle.puzzleType).toBe('slitherlink')
+      expect(state.currentPuzzle.rows).toBe(10)
+      expect(state.currentPuzzle.cols).toBe(18)
+    })
+    expect(screen.getByDisplayValue(DEFAULT_SLITHERLINK_SAMPLE_URL)).toBeInTheDocument()
   })
 
   it('opens slitherlink board legend from the puzzle type row', () => {
