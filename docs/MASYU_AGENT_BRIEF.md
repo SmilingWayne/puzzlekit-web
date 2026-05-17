@@ -39,10 +39,12 @@ Registered rule order:
 6. `Double Black Squeeze`
 7. `Masyu Tile Color Propagation`
 8. `Masyu Color-Line Propagation`
-9. `Prevent Premature Loop`
-10. `Black Pearl Candidate Pruning`
-11. `Pearl Completion`
-12. `Cell Completion`
+9. `Masyu Tile Connectivity Cut Coloring`
+10. `Masyu Candidate Bridge Line`
+11. `Prevent Premature Loop`
+12. `Black Pearl Candidate Pruning`
+13. `Pearl Completion`
+14. `Cell Completion`
 
 Implemented rule areas:
 
@@ -57,6 +59,8 @@ Implemented rule areas:
   - known `line` lines imply opposite-color adjacent tiles;
   - same-color adjacent tiles imply a `blank` Masyu line;
   - opposite-color adjacent tiles imply a `line` Masyu line;
+  - tile connectivity cuts color articulation regions needed to connect known inside/outside regions;
+  - regions unreachable from outside/yellow through non-line passages become inside/green;
   - tile fills are replay-safe via `TileDiff`;
   - Masyu tile colors render on the board as full-size vertex-centered tiles.
 
@@ -70,6 +74,8 @@ Use these files first:
 - Pattern rules: `src/domain/rules/masyu/rules/patterns.ts`
 - Loop rules: `src/domain/rules/masyu/rules/loop.ts`
 - Tile color rules: `src/domain/rules/masyu/rules/color.ts`
+- Tile connectivity rules: `src/domain/rules/masyu/rules/connectivity.ts`
+- Candidate bridge rules: `src/domain/rules/masyu/rules/bridges.ts`
 - Lookahead helpers: `src/domain/rules/masyu/rules/lookahead*.ts`
 - Tests: `src/domain/rules/masyu/rules.test.ts`
 
@@ -82,17 +88,12 @@ Replay and rendering plumbing:
 
 ## Current Development Direction
 
-Near-term Masyu work should focus on making tile color useful beyond local propagation:
+Near-term Masyu work should focus on making tile color useful beyond connectivity coloring:
 
-1. Add tile connectivity reasoning:
-   - outside/yellow should remain connected to boundary;
-   - inside/green should remain connected when known green sources exist;
-   - adapt Slither color cut/reachability ideas to the Masyu tile graph.
-
-2. Add pearl-local color implications:
+1. Add pearl-local color implications:
    - migrate selected Puzzlink in/out tricks only when they can be explained as small Masyu tile parity rules.
 
-3. Keep rule granularity small:
+2. Keep rule granularity small:
    - one reasoning idea per rule;
    - explicit diffs;
    - concise explanation message;

@@ -1,6 +1,8 @@
 import type { Rule } from '../types'
+import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
 import { createBlackPearlCandidatePruningRule } from './rules/candidates'
 import { createMasyuColorLinePropagationRule, createMasyuTileColorPropagationRule } from './rules/color'
+import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
 import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
 import {
@@ -20,6 +22,8 @@ export const masyuRules: Rule[] = [
   createDoubleBlackSqueezeRule(),
   createMasyuTileColorPropagationRule(),
   createMasyuColorLinePropagationRule(),
+  createMasyuTileConnectivityCutColoringRule(),
+  createMasyuCandidateBridgeLineRule(),
   createPreventPrematureLoopRule(),
   createBlackPearlCandidatePruningRule(),
   createPearlCompletionRule(),

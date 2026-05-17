@@ -4,8 +4,10 @@ import { createMasyuPuzzle } from '../../ir/masyu'
 import type { LineMark, PuzzleIR } from '../../ir/types'
 import { runNextRule } from '../engine'
 import { masyuPlugin } from '../../plugins/masyuPlugin'
+import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
 import { createBlackPearlCandidatePruningRule } from './rules/candidates'
 import { createMasyuColorLinePropagationRule, createMasyuTileColorPropagationRule } from './rules/color'
+import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
 import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
 import {
@@ -22,6 +24,14 @@ const markLine = (puzzle: PuzzleIR, key: string, mark: LineMark): void => {
 
 const addPearl = (puzzle: PuzzleIR, row: number, col: number, color: 'white' | 'black'): void => {
   puzzle.cells[cellKey(row, col)] = { clue: { kind: 'pearl', color } }
+}
+
+const fillAllTiles = (puzzle: PuzzleIR, fill: 'green' | 'yellow'): void => {
+  for (let row = 0; row <= puzzle.rows; row += 1) {
+    for (let col = 0; col <= puzzle.cols; col += 1) {
+      puzzle.tiles[tileKey(row, col)] = { fill }
+    }
+  }
 }
 
 const getLineDegree = (puzzle: PuzzleIR, row: number, col: number): number =>
@@ -394,6 +404,8 @@ describe('Masyu pearl rules', () => {
       'Double Black Squeeze',
       'Masyu Tile Color Propagation',
       'Masyu Color-Line Propagation',
+      'Masyu Tile Connectivity Cut Coloring',
+      'Masyu Candidate Bridge Line',
       'Prevent Premature Loop',
       'Black Pearl Candidate Pruning',
       'Pearl Completion',
@@ -523,15 +535,145 @@ describe('Masyu loop rules', () => {
     expect(createMasyuColorLinePropagationRule().apply(puzzle)).toBeNull()
   })
 
+  it('Masyu Tile Connectivity Cut Coloring colors an articulation tile green between green sources', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    fillAllTiles(puzzle, 'yellow')
+    puzzle.tiles[tileKey(2, 1)] = { fill: 'green' }
+    puzzle.tiles[tileKey(2, 2)] = {}
+    puzzle.tiles[tileKey(2, 3)] = { fill: 'green' }
+
+    const result = createMasyuTileConnectivityCutColoringRule().apply(puzzle)
+
+    expect(result?.diffs).toEqual([
+      { kind: 'tile', tileKey: tileKey(2, 2), fromFill: null, toFill: 'green' },
+    ])
+    expect(result?.affectedTiles).toEqual([tileKey(2, 2)])
+    expect(result?.message).toContain('inside cuts 1')
+  })
+
+  it('Masyu Tile Connectivity Cut Coloring colors every unknown tile in a blank-compressed bottleneck', () => {
+    const puzzle = createMasyuPuzzle(4, 5)
+    fillAllTiles(puzzle, 'yellow')
+    puzzle.tiles[tileKey(2, 1)] = { fill: 'green' }
+    puzzle.tiles[tileKey(2, 2)] = {}
+    puzzle.tiles[tileKey(2, 3)] = {}
+    puzzle.tiles[tileKey(2, 4)] = { fill: 'green' }
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'blank')
+
+    const result = createMasyuTileConnectivityCutColoringRule().apply(puzzle)
+
+    expect(result?.diffs).toEqual([
+      { kind: 'tile', tileKey: tileKey(2, 2), fromFill: null, toFill: 'green' },
+      { kind: 'tile', tileKey: tileKey(2, 3), fromFill: null, toFill: 'green' },
+    ])
+  })
+
+  it('Masyu Tile Connectivity Cut Coloring colors a line-enclosed tile green', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+    markLine(puzzle, lineKey([0, 0], [1, 0]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+
+    const result = createMasyuTileConnectivityCutColoringRule().apply(puzzle)
+
+    expect(result?.diffs).toEqual([
+      { kind: 'tile', tileKey: tileKey(1, 1), fromFill: null, toFill: 'green' },
+    ])
+    expect(result?.message).toContain('unreachable-from-outside 1')
+  })
+
+  it('Masyu Tile Connectivity Cut Coloring keeps unknown line separators passable', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+
+    expect(createMasyuTileConnectivityCutColoringRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Masyu Tile Connectivity Cut Coloring does not fire with only one green source component', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    fillAllTiles(puzzle, 'yellow')
+    puzzle.tiles[tileKey(2, 1)] = { fill: 'green' }
+    puzzle.tiles[tileKey(2, 2)] = {}
+
+    expect(createMasyuTileConnectivityCutColoringRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Masyu Candidate Bridge Line forces the only candidate bridge between two pearls', () => {
+    const puzzle = createMasyuPuzzle(1, 4)
+    addPearl(puzzle, 0, 0, 'white')
+    addPearl(puzzle, 0, 3, 'white')
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 2], [0, 3]), 'line')
+    const bridge = lineKey([0, 1], [0, 2])
+
+    const result = createMasyuCandidateBridgeLineRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [bridge]: 'line' })
+    expect(result?.affectedLines).toEqual([bridge])
+    expect(result?.affectedCells).toEqual([cellKey(0, 1), cellKey(0, 2)])
+    expect(result?.message).toContain('only remaining connection')
+  })
+
+  it('Masyu Candidate Bridge Line does not fire when two required groups have alternate routes', () => {
+    const puzzle = createMasyuPuzzle(2, 3)
+    addPearl(puzzle, 0, 0, 'white')
+    addPearl(puzzle, 0, 2, 'white')
+
+    expect(createMasyuCandidateBridgeLineRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Masyu Candidate Bridge Line ignores a bridge into an ordinary dead-end region', () => {
+    const puzzle = createMasyuPuzzle(1, 3)
+    addPearl(puzzle, 0, 0, 'white')
+    addPearl(puzzle, 0, 1, 'white')
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+
+    expect(createMasyuCandidateBridgeLineRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Masyu Candidate Bridge Line treats existing line endpoints as required sources', () => {
+    const puzzle = createMasyuPuzzle(1, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 2], [0, 3]), 'line')
+    addPearl(puzzle, 0, 3, 'black')
+    const bridge = lineKey([0, 1], [0, 2])
+
+    const result = createMasyuCandidateBridgeLineRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [bridge]: 'line' })
+  })
+
+  it('Masyu Candidate Bridge Line skips a forced bridge that would overflow endpoint degree', () => {
+    const puzzle = createMasyuPuzzle(3, 4)
+    addPearl(puzzle, 1, 0, 'white')
+    addPearl(puzzle, 1, 3, 'white')
+    for (const key of Object.keys(puzzle.lines)) {
+      markLine(puzzle, key, 'blank')
+    }
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'unknown')
+    markLine(puzzle, lineKey([1, 1], [1, 2]), 'unknown')
+    markLine(puzzle, lineKey([1, 2], [1, 3]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 1], [2, 1]), 'line')
+
+    expect(createMasyuCandidateBridgeLineRule().apply(puzzle)).toBeNull()
+  })
+
   it('registers Masyu color propagation before premature loop prevention', () => {
     const rules = masyuPlugin.getRules().map((rule) => rule.id)
 
     expect(rules).toContain('masyu-tile-color-propagation')
     expect(rules).toContain('masyu-color-line-propagation')
+    expect(rules).toContain('masyu-tile-connectivity-cut-coloring')
+    expect(rules).toContain('masyu-candidate-bridge-line')
     expect(rules.indexOf('masyu-color-line-propagation')).toBe(rules.indexOf('masyu-tile-color-propagation') + 1)
-    expect(rules.indexOf('masyu-color-line-propagation')).toBeLessThan(
-      rules.indexOf('masyu-prevent-premature-loop'),
+    expect(rules.indexOf('masyu-tile-connectivity-cut-coloring')).toBe(
+      rules.indexOf('masyu-color-line-propagation') + 1,
     )
+    expect(rules.indexOf('masyu-candidate-bridge-line')).toBe(
+      rules.indexOf('masyu-tile-connectivity-cut-coloring') + 1,
+    )
+    expect(rules.indexOf('masyu-candidate-bridge-line')).toBeLessThan(rules.indexOf('masyu-prevent-premature-loop'))
   })
 
   it('Prevent Premature Loop blanks a line that would close a smaller loop while other lines remain outside', () => {
