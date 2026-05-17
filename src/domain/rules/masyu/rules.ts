@@ -1,7 +1,12 @@
 import type { Rule } from '../types'
+import { createBlackPearlStrongInferenceRule } from './rules/blackPearlStrongInference'
 import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
 import { createBlackPearlCandidatePruningRule } from './rules/candidates'
-import { createMasyuColorLinePropagationRule, createMasyuTileColorPropagationRule } from './rules/color'
+import {
+  createMasyuColorLinePropagationRule,
+  createMasyuColorPearlPropagationRule,
+  createMasyuTileColorPropagationRule,
+} from './rules/color'
 import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
 import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
@@ -13,7 +18,7 @@ import {
 } from './rules/patterns'
 import { createBlackCircleRule, createWhiteCircleRule } from './rules/pearls'
 
-export const masyuRules: Rule[] = [
+export const deterministicMasyuRules: Rule[] = [
   createWhiteCircleRule(),
   createBlackCircleRule(),
   createBlackFacingConsecutiveWhitesRule(),
@@ -21,6 +26,7 @@ export const masyuRules: Rule[] = [
   createConsecutiveWhitePearlsStraightRule(),
   createDoubleBlackSqueezeRule(),
   createMasyuTileColorPropagationRule(),
+  createMasyuColorPearlPropagationRule(),
   createMasyuColorLinePropagationRule(),
   createMasyuTileConnectivityCutColoringRule(),
   createMasyuCandidateBridgeLineRule(),
@@ -28,4 +34,9 @@ export const masyuRules: Rule[] = [
   createBlackPearlCandidatePruningRule(),
   createPearlCompletionRule(),
   createCellCompletionRule(),
+]
+
+export const masyuRules: Rule[] = [
+  ...deterministicMasyuRules,
+  createBlackPearlStrongInferenceRule(() => deterministicMasyuRules),
 ]

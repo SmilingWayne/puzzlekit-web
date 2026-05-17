@@ -38,13 +38,15 @@ Registered rule order:
 5. `Consecutive White Pearls Straight`
 6. `Double Black Squeeze`
 7. `Masyu Tile Color Propagation`
-8. `Masyu Color-Line Propagation`
-9. `Masyu Tile Connectivity Cut Coloring`
-10. `Masyu Candidate Bridge Line`
-11. `Prevent Premature Loop`
-12. `Black Pearl Candidate Pruning`
-13. `Pearl Completion`
-14. `Cell Completion`
+8. `Masyu Color-Pearl Propagation`
+9. `Masyu Color-Line Propagation`
+10. `Masyu Tile Connectivity Cut Coloring`
+11. `Masyu Candidate Bridge Line`
+12. `Prevent Premature Loop`
+13. `Black Pearl Candidate Pruning`
+14. `Pearl Completion`
+15. `Cell Completion`
+16. `Black Pearl Strong Inference`
 
 Implemented rule areas:
 
@@ -52,11 +54,13 @@ Implemented rule areas:
 - Local pattern rules derived from common Masyu situations.
 - Premature loop prevention over `PuzzleIR.lines`.
 - Black pearl candidate pruning with shallow feasibility checks.
+- Black pearl strong inference with bounded trial propagation that crosses out an exit when that exit's two-step assumption leads to a hard contradiction.
 - Completion rules for pearl and non-pearl cells.
 - Tile color propagation:
   - boundary tiles are `yellow` / outside;
   - known `blank` lines imply same-color adjacent tiles;
   - known `line` lines imply opposite-color adjacent tiles;
+  - white pearl diagonal tiles imply opposite colors;
   - same-color adjacent tiles imply a `blank` Masyu line;
   - opposite-color adjacent tiles imply a `line` Masyu line;
   - tile connectivity cuts color articulation regions needed to connect known inside/outside regions;

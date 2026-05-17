@@ -1,7 +1,7 @@
-import { parseLineKey, parseTileKey, tileKey } from '../../../ir/keys'
+import { parseCellKey, parseLineKey, parseTileKey, tileKey } from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
-import { buildMasyuLineDiffs, formatMasyuLineLabel } from './shared'
+import { buildMasyuLineDiffs, formatMasyuCellKeyLabel, formatMasyuLineLabel } from './shared'
 
 export type MasyuTileColor = 'green' | 'yellow'
 
@@ -23,6 +23,24 @@ const applyParity = (color: MasyuTileColor, parity: Parity): MasyuTileColor =>
 
 const isBoundaryTile = (puzzle: PuzzleIR, row: number, col: number): boolean =>
   row === 0 || row === puzzle.rows || col === 0 || col === puzzle.cols
+
+const collectMasyuTileColorDecision = (
+  decisions: Map<string, MasyuTileColor>,
+  puzzle: PuzzleIR,
+  key: string,
+  toFill: MasyuTileColor,
+): boolean => {
+  const currentFill = puzzle.tiles[key]?.fill
+  if (isMasyuTileColor(currentFill)) {
+    return currentFill === toFill
+  }
+  const existing = decisions.get(key)
+  if (existing !== undefined) {
+    return existing === toFill
+  }
+  decisions.set(key, toFill)
+  return true
+}
 
 export const getMasyuLineTileRelation = (
   puzzle: PuzzleIR,
@@ -99,6 +117,73 @@ export const createMasyuColorLinePropagationRule = (): Rule => ({
       diffs: buildMasyuLineDiffs(decisions, puzzle),
       affectedCells: [],
       affectedLines: [...affectedLines],
+      affectedTiles: [...affectedTiles],
+    }
+  },
+})
+
+export const createMasyuColorPearlPropagationRule = (): Rule => ({
+  id: 'masyu-color-pearl-propagation',
+  name: 'Masyu Color-Pearl Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decidedTileFills = new Map<string, MasyuTileColor>()
+    const affectedCells = new Set<string>()
+    const affectedTiles = new Set<string>()
+    let firstReason: string | null = null
+
+    const inferOppositeDiagonal = (pearlKey: string, knownTile: string, oppositeTile: string): void => {
+      const knownFill = puzzle.tiles[knownTile]?.fill
+      if (!isMasyuTileColor(knownFill)) {
+        return
+      }
+      const oppositeFill = puzzle.tiles[oppositeTile]?.fill
+      if (isMasyuTileColor(oppositeFill)) {
+        return
+      }
+
+      const toFill = oppositeMasyuTileColor(knownFill)
+      if (!collectMasyuTileColorDecision(decidedTileFills, puzzle, oppositeTile, toFill)) {
+        return
+      }
+      affectedCells.add(pearlKey)
+      affectedTiles.add(knownTile)
+      affectedTiles.add(oppositeTile)
+      firstReason ??=
+        `White pearl ${formatMasyuCellKeyLabel(pearlKey)} is crossed straight, so diagonal tiles ` +
+        `${formatMasyuTileKeyLabel(knownTile)} and ${formatMasyuTileKeyLabel(oppositeTile)} must have opposite colors`
+    }
+
+    for (const [key, cell] of Object.entries(puzzle.cells ?? {})) {
+      if (cell.clue?.kind !== 'pearl' || cell.clue.color !== 'white') {
+        continue
+      }
+      const [row, col] = parseCellKey(key)
+      const nw = tileKey(row, col)
+      const ne = tileKey(row, col + 1)
+      const sw = tileKey(row + 1, col)
+      const se = tileKey(row + 1, col + 1)
+
+      inferOppositeDiagonal(key, nw, se)
+      inferOppositeDiagonal(key, se, nw)
+      inferOppositeDiagonal(key, ne, sw)
+      inferOppositeDiagonal(key, sw, ne)
+    }
+
+    if (decidedTileFills.size === 0) {
+      return null
+    }
+
+    const diffs: RuleApplication['diffs'] = [...decidedTileFills.entries()].map(([key, toFill]) => ({
+      kind: 'tile' as const,
+      tileKey: key,
+      fromFill: (puzzle.tiles[key]?.fill ?? null) as string | null,
+      toFill,
+    }))
+
+    return {
+      message: `${firstReason ?? 'White pearl diagonal tile colors force opposite colors'} (${diffs.length} tile update(s)).`,
+      diffs,
+      affectedCells: [...affectedCells],
       affectedTiles: [...affectedTiles],
     }
   },
