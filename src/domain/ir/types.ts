@@ -9,6 +9,7 @@ export type NumberClueValue = number | '?'
 
 export type Clue =
   | { kind: 'number'; value: NumberClueValue }
+  | { kind: 'pearl'; color: 'white' | 'black' }
   | { kind: 'text'; text: string }
   | { kind: 'arrow'; value?: number; direction: string }
   | { kind: 'tapa'; values: number[] }
@@ -75,6 +76,16 @@ export type EdgeState = {
   }
 }
 
+export type LineMark = EdgeMark
+
+export type LineState = {
+  mark: LineMark
+}
+
+export type TileState = {
+  fill?: string
+}
+
 export type SectorState = {
   constraintsMask: SectorConstraintMask
 }
@@ -95,7 +106,9 @@ export interface PuzzleIR {
   boxes: number[]
   cells: Record<string, CellState>
   edges: Record<string, EdgeState>
+  lines: Record<string, LineState>
   sectors: Record<string, SectorState>
+  tiles: Record<string, TileState>
   vertices: Record<string, VertexState>
   metadata: Record<string, unknown>
 }
@@ -112,7 +125,9 @@ export const defaultPuzzleIR = (): PuzzleIR => ({
   boxes: [],
   cells: {},
   edges: {},
+  lines: {},
   sectors: {},
+  tiles: {},
   vertices: {},
   metadata: {},
 })

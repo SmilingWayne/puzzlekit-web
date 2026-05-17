@@ -3,7 +3,9 @@ import type { Rule, RuleDiff, RuleStep } from './types'
 
 type WritableBuckets = {
   cells: PuzzleIR['cells'] | null
+  tiles: PuzzleIR['tiles'] | null
   edges: PuzzleIR['edges'] | null
+  lines: PuzzleIR['lines'] | null
   sectors: PuzzleIR['sectors'] | null
   vertices: PuzzleIR['vertices'] | null
 }
@@ -22,6 +24,16 @@ const applyDiffEntry = (
     }
     const prev = writable.edges[diff.edgeKey]
     writable.edges[diff.edgeKey] = prev ? { ...prev, mark } : { mark }
+    return
+  }
+  if (diff.kind === 'line') {
+    const mark = mode === 'forward' ? diff.to : diff.from
+    if (!writable.lines) {
+      writable.lines = { ...(next.lines ?? {}) }
+      next.lines = writable.lines
+    }
+    const prev = writable.lines[diff.lineKey]
+    writable.lines[diff.lineKey] = prev ? { ...prev, mark } : { mark }
     return
   }
   if (diff.kind === 'sector') {
@@ -43,6 +55,22 @@ const applyDiffEntry = (
     writable.vertices[diff.vertexKey] = {
       candidateEdgeSets: candidateEdgeSets.map((candidate) => [...candidate]),
     }
+    return
+  }
+  if (diff.kind === 'tile') {
+    const toFill = mode === 'forward' ? diff.toFill : diff.fromFill
+    if (!writable.tiles) {
+      writable.tiles = { ...(next.tiles ?? {}) }
+      next.tiles = writable.tiles
+    }
+    const prev = writable.tiles[diff.tileKey]
+    const tile = prev ? { ...prev } : {}
+    if (toFill === null) {
+      delete tile.fill
+    } else {
+      tile.fill = toFill
+    }
+    writable.tiles[diff.tileKey] = tile
     return
   }
   const toFill = mode === 'forward' ? diff.toFill : diff.fromFill
@@ -68,7 +96,9 @@ const applyRuleDiffsInternal = (
   const next: PuzzleIR = { ...puzzle }
   const writable: WritableBuckets = {
     cells: null,
+    tiles: null,
     edges: null,
+    lines: null,
     sectors: null,
     vertices: null,
   }
@@ -126,7 +156,11 @@ export const runNextRule = (
       message: result.message,
       diffs: result.diffs,
       affectedCells: result.affectedCells,
+      affectedTiles:
+        result.affectedTiles ?? result.diffs.flatMap((d) => (d.kind === 'tile' ? [d.tileKey] : [])),
       affectedEdges: result.diffs.flatMap((d) => (d.kind === 'edge' ? [d.edgeKey] : [])),
+      affectedLines:
+        result.affectedLines ?? result.diffs.flatMap((d) => (d.kind === 'line' ? [d.lineKey] : [])),
       affectedSectors:
         result.affectedSectors ??
         result.diffs.flatMap((d) => (d.kind === 'sector' ? [d.sectorKey] : [])),

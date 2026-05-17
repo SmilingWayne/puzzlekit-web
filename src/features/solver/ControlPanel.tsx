@@ -4,7 +4,13 @@ import type { ExportFormat } from '../../domain/exporters/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import { BoardLegendButton } from '../board/BoardLegendButton'
 import { PuzzleInfoButton } from '../puzzleInfo/PuzzleInfoButton'
-import { buildDifficultySnapshot, MAX_SOLVE_CHUNK_SIZE, useSolverStore } from './solverStore'
+import {
+  buildDifficultySnapshot,
+  DEFAULT_MASYU_SAMPLE_URL,
+  DEFAULT_SLITHERLINK_SAMPLE_URL,
+  MAX_SOLVE_CHUNK_SIZE,
+  useSolverStore,
+} from './solverStore'
 
 export const ControlPanel = () => {
   const {
@@ -45,7 +51,7 @@ export const ControlPanel = () => {
     [difficulty.ruleUsage],
   )
   const terminalCoverage = terminalReport
-    ? `${(terminalReport.stats.decidedEdgeRatio * 100).toFixed(1)}%`
+    ? `${(terminalReport.stats.decidedRatio * 100).toFixed(1)}%`
     : '0.0%'
   const terminalDurationSeconds = terminalReport
     ? `${(terminalReport.totalDurationMs / 1000).toFixed(2)} s`
@@ -63,8 +69,8 @@ export const ControlPanel = () => {
     setShowImportErrorDialog(Boolean(importError))
   }, [importError])
 
-  const solveChunkLabel = `Solve Next ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
-  const previousChunkLabel = `Previous ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
+  const solveChunkLabel = `Next ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
+  const previousChunkLabel = `Prev ${solveChunkSize} ${solveChunkSize === 1 ? 'Step' : 'Steps'}`
   const timelineStepForTooltip = timelinePreviewStep ?? pointer
   const timelineTooltipLeft =
     steps.length > 0 ? `${Math.min(100, Math.max(0, (timelineStepForTooltip / steps.length) * 100))}%` : '0%'
@@ -80,7 +86,18 @@ export const ControlPanel = () => {
           <select
             value={pluginId}
             onChange={(event) => {
-              setPluginId(event.target.value)
+              const nextPluginId = event.target.value
+              if (nextPluginId === 'masyu') {
+                setLocalUrl(DEFAULT_MASYU_SAMPLE_URL)
+                importFromUrl(DEFAULT_MASYU_SAMPLE_URL, nextPluginId)
+                return
+              }
+              if (nextPluginId === 'slitherlink') {
+                setLocalUrl(DEFAULT_SLITHERLINK_SAMPLE_URL)
+                importFromUrl(DEFAULT_SLITHERLINK_SAMPLE_URL, nextPluginId)
+                return
+              }
+              setPluginId(nextPluginId)
             }}
           >
             {puzzleRegistry.all().map((plugin) => (
@@ -94,7 +111,7 @@ export const ControlPanel = () => {
         </div>
       </div>
       <label className="label-row">
-        URL (puzz.link, pzplus, pzv, or Penpa+ Slitherlink)
+        URL (puzz.link, pzplus, pzv, or Penpa+ where supported)
         <textarea
           rows={2}
           value={localUrl}
@@ -140,7 +157,7 @@ export const ControlPanel = () => {
           <span className="control-group-title">Replay</span>
           <div className="button-row replay-step-row">
             <button disabled={isRunning || pointer === 0} onClick={prevStep}>
-              Previous Step
+              Prev Step
             </button>
             <button disabled={isRunning || terminalReport !== null} onClick={nextStep}>
               Next Step
@@ -265,15 +282,15 @@ export const ControlPanel = () => {
             {terminalReport.status === 'stalled' ? (
               <>
                 <div>
-                  <span>Decided Edges</span>
+                  <span>Decided {terminalReport.stats.unitLabel}</span>
                   <strong>
-                    {terminalReport.stats.decidedEdges} / {terminalReport.stats.totalEdges},{' '}
+                    {terminalReport.stats.decidedUnits} / {terminalReport.stats.totalUnits},{' '}
                     {terminalCoverage}
                   </strong>
                 </div>
                 <div>
-                  <span>Unknown Edges</span>
-                  <strong>{terminalReport.stats.unknownEdges}</strong>
+                  <span>Unknown {terminalReport.stats.unitLabel}</span>
+                  <strong>{terminalReport.stats.unknownUnits}</strong>
                 </div>
               </>
             ) : null}

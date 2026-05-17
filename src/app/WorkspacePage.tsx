@@ -3,23 +3,28 @@ import { Link } from 'react-router-dom'
 import { CanvasBoard } from '../features/board/CanvasBoard'
 import { ExplanationPanel } from '../features/explanation/ExplanationPanel'
 import { ControlPanel } from '../features/solver/ControlPanel'
-import { buildDifficultySnapshot, useSolverStore } from '../features/solver/solverStore'
+import { useSolverStore } from '../features/solver/solverStore'
 import { StatsPanel } from '../features/stats/StatsPanel'
 import './workspace.css'
 
 export const WorkspacePage = () => {
   const {
+    pluginId,
     currentPuzzle,
     steps,
+    traceStatsCache,
     pointer,
     highlightedCells,
     highlightedColorCells,
+    highlightedColorTiles,
     highlightedEdges,
+    highlightedLines,
     includeVertexNumbers,
     solveProgress,
+    goToStep,
+    isRunning,
   } = useSolverStore()
   const activeSteps = useMemo(() => steps.slice(0, pointer), [steps, pointer])
-  const difficulty = useMemo(() => buildDifficultySnapshot(activeSteps), [activeSteps])
 
   return (
     <main className="workspace">
@@ -28,23 +33,32 @@ export const WorkspacePage = () => {
           <header className="workspace-title">
             <div>
               <h1>PuzzleKit Web</h1>
-              <p>A Step-wise and Explainable Inference Solver for Slitherlink.</p>
+              <p>A Step-wise and Explainable Inference Solver for Logic Puzzles.</p>
             </div>
             <nav className="workspace-nav" aria-label="Workspace navigation">
               <Link aria-current="page" to="/">
                 Solver
               </Link>
+              <Link to="/dataset">Dataset</Link>
               <Link to="/editor">Editor</Link>
             </nav>
           </header>
           <CanvasBoard
             puzzle={currentPuzzle}
+            pluginId={pluginId}
             highlightedCells={highlightedCells}
             highlightedColorCells={highlightedColorCells}
+            highlightedColorTiles={highlightedColorTiles}
             highlightedEdges={highlightedEdges}
+            highlightedLines={highlightedLines}
             showVertexNumbers={includeVertexNumbers}
           />
-          <StatsPanel steps={activeSteps} difficulty={difficulty} />
+          <StatsPanel
+            traceStatsCache={traceStatsCache}
+            pointer={pointer}
+            isRunning={isRunning}
+            onGoToStep={goToStep}
+          />
         </div>
         <div className="right-column">
           <ControlPanel />

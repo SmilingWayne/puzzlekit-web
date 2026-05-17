@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { cellKey, edgeKey } from '../domain/ir/keys'
+import { cellKey, edgeKey, lineKey, tileKey } from '../domain/ir/keys'
+import { createMasyuPuzzle } from '../domain/ir/masyu'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
-import { DEFAULT_SOLVE_CHUNK_SIZE, useSolverStore } from '../features/solver/solverStore'
+import { rebuildTraceStatsCache } from '../domain/difficulty/traceStats'
+import {
+  DEFAULT_MASYU_SAMPLE_URL,
+  DEFAULT_SLITHERLINK_SAMPLE_URL,
+  DEFAULT_SOLVE_CHUNK_SIZE,
+  useSolverStore,
+} from '../features/solver/solverStore'
 import { WorkspacePage } from './WorkspacePage'
 import type { RuleStep } from '../domain/rules/types'
 
@@ -61,6 +68,41 @@ describe('WorkspacePage', () => {
     const typeControls = document.querySelector('.type-row-controls')
     expect(typeControls?.children[1]?.querySelector('[aria-label="Show Slitherlink rules"]')).not.toBeNull()
     expect(typeControls?.children[2]?.querySelector('[aria-label="Show Slitherlink legend"]')).not.toBeNull()
+  })
+
+  it('loads the default Masyu sample when selecting Masyu', async () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByDisplayValue('Slitherlink'), { target: { value: 'masyu' } })
+
+    await waitFor(() => {
+      const state = useSolverStore.getState()
+      expect(state.pluginId).toBe('masyu')
+      expect(state.sourceUrl).toBe(DEFAULT_MASYU_SAMPLE_URL)
+      expect(state.currentPuzzle.puzzleType).toBe('masyu')
+      expect(state.currentPuzzle.rows).toBe(5)
+      expect(state.currentPuzzle.cols).toBe(5)
+    })
+    expect(screen.getByDisplayValue(DEFAULT_MASYU_SAMPLE_URL)).toBeInTheDocument()
+  })
+
+  it('reloads the default Slitherlink sample when switching back from Masyu', async () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByDisplayValue('Slitherlink'), { target: { value: 'masyu' } })
+    await waitFor(() => expect(useSolverStore.getState().pluginId).toBe('masyu'))
+
+    fireEvent.change(screen.getByDisplayValue('Masyu'), { target: { value: 'slitherlink' } })
+
+    await waitFor(() => {
+      const state = useSolverStore.getState()
+      expect(state.pluginId).toBe('slitherlink')
+      expect(state.sourceUrl).toBe(DEFAULT_SLITHERLINK_SAMPLE_URL)
+      expect(state.currentPuzzle.puzzleType).toBe('slitherlink')
+      expect(state.currentPuzzle.rows).toBe(10)
+      expect(state.currentPuzzle.cols).toBe(18)
+    })
+    expect(screen.getByDisplayValue(DEFAULT_SLITHERLINK_SAMPLE_URL)).toBeInTheDocument()
   })
 
   it('opens slitherlink board legend from the puzzle type row', () => {
@@ -164,6 +206,32 @@ describe('WorkspacePage', () => {
     expect(screen.queryByRole('dialog', { name: /slitherlink rules/i })).not.toBeInTheDocument()
   })
 
+  it('shows slitherlink puzzle stats from the solver board title', () => {
+    const puzzle = createSlitherPuzzle(10, 10)
+    puzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 0 } }
+    puzzle.cells[cellKey(0, 1)] = { clue: { kind: 'number', value: 1 } }
+    puzzle.cells[cellKey(0, 2)] = { clue: { kind: 'number', value: 1 } }
+    puzzle.cells[cellKey(0, 3)] = { clue: { kind: 'number', value: 2 } }
+    puzzle.cells[cellKey(0, 4)] = { clue: { kind: 'number', value: 3 } }
+    puzzle.cells[cellKey(0, 5)] = { clue: { kind: 'number', value: '?' } }
+    useSolverStore.getState().loadPuzzle(puzzle, { pluginId: 'slitherlink' })
+
+    renderWorkspace()
+
+    const boardTools = document.querySelector('.board-header-tools')
+    expect(boardTools?.children[0]?.tagName).toBe('SMALL')
+    expect(boardTools?.children[1]).toHaveClass('board-zoom-control')
+
+    fireEvent.focus(screen.getByRole('button', { name: /show puzzle stats/i }))
+
+    const statsTooltip = screen.getByRole('tooltip')
+    expect(within(statsTooltip).getByText('Numbered Cells')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('Numbered cells 5 / 100 (5.0%)')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('Clue 0')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('Clue 1')).toBeInTheDocument()
+    expect(within(statsTooltip).getByText('40.0%')).toBeInTheDocument()
+  })
+
   it('shows solve progress, then terminal report, and keeps solve buttons disabled after close', async () => {
     const puzzle = createSolvedLoopPuzzle()
     useSolverStore.setState((state) => ({
@@ -179,7 +247,7 @@ describe('WorkspacePage', () => {
     useSolverStore.getState().setSolveChunkSize(100)
 
     renderWorkspace()
-    fireEvent.click(screen.getByRole('button', { name: /solve next 100 steps/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next 100 steps/i }))
 
     expect(screen.getByRole('dialog', { name: /solving to end/i })).toBeInTheDocument()
     expect(screen.getByText(/step 0 \/ 100/i)).toBeInTheDocument()
@@ -191,19 +259,19 @@ describe('WorkspacePage', () => {
     expect(screen.getByRole('dialog', { name: /solved/i })).toBeInTheDocument()
     expect(screen.getByText(/total time/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next step/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next step/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /reset replay/i }))
     expect(screen.getByRole('button', { name: /next step/i })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).not.toBeDisabled()
 
-    fireEvent.click(screen.getByRole('button', { name: /solve next 100 steps/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next 100 steps/i }))
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: /solving to end/i })).not.toBeInTheDocument()
     })
@@ -211,7 +279,7 @@ describe('WorkspacePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /reset replay/i }))
 
     expect(screen.getByRole('button', { name: /next step/i })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: /solve next 100 steps/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /next 100 steps/i })).not.toBeDisabled()
   })
 
   it('updates solve chunk controls and uses the chosen progress total', async () => {
@@ -229,11 +297,11 @@ describe('WorkspacePage', () => {
 
     renderWorkspace()
 
-    expect(screen.getByRole('button', { name: /solve next 50 steps/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next 50 steps/i })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText(/step chunk/i), { target: { value: '25' } })
-    expect(screen.getByRole('button', { name: /solve next 25 steps/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next 25 steps/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /solve next 25 steps/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next 25 steps/i }))
     expect(screen.getByRole('dialog', { name: /solving to end/i })).toBeInTheDocument()
     expect(screen.getByText(/step 0 \/ 25/i)).toBeInTheDocument()
 
@@ -257,6 +325,178 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/step 1 \/ 2/i)).toBeInTheDocument()
   })
 
+  it('uses the live stats timeline to jump through the generated trace', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+
+    const statsTimeline = screen.getByLabelText(/trace timeline/i)
+    const liveStats = screen.getByLabelText(/live stats/i)
+    expect(statsTimeline).toHaveValue('2')
+    expect(within(liveStats).getByText(/board progress/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/inference coverage/i)).toBeInTheDocument()
+
+    fireEvent.change(statsTimeline, { target: { value: '1' } })
+
+    expect(statsTimeline).toHaveValue('1')
+    expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('1')
+    expect(screen.getByText(/showing 1 \/ 1/i)).toBeInTheDocument()
+  })
+
+  it('updates live stats chart legends as steps are generated and replayed', () => {
+    const firstEdge = edgeKey([0, 0], [0, 1])
+    const secondEdge = edgeKey([0, 1], [0, 2])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'rule-a',
+        ruleName: 'Rule A',
+        message: 'first',
+        diffs: [{ kind: 'edge', edgeKey: firstEdge, from: 'unknown', to: 'line' }],
+        affectedCells: [],
+        affectedEdges: [firstEdge],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+      },
+      {
+        id: 'step-2',
+        ruleId: 'rule-b',
+        ruleName: 'Rule B',
+        message: 'second',
+        diffs: [
+          { kind: 'edge', edgeKey: secondEdge, from: 'unknown', to: 'blank' },
+          { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+        ],
+        affectedCells: [cellKey(0, 0)],
+        affectedEdges: [secondEdge],
+        affectedSectors: [],
+        timestamp: Date.now() + 1,
+        durationMs: 1,
+      },
+    ]
+    const puzzle = createSlitherPuzzle(1, 2)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 2,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      solveProgress: null,
+      terminalReport: null,
+      isRunning: false,
+    }))
+
+    renderWorkspace()
+
+    const liveStats = screen.getByLabelText(/live stats/i)
+    const progressChart = within(liveStats).getByLabelText(/^board progress$/i)
+    const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
+    expect(within(progressChart).getByText(/progress 28\.6%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge 28\.6%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell 50\.0%/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/trace timeline/i), { target: { value: '1' } })
+
+    expect(within(progressChart).getByText(/progress 14\.3%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge 14\.3%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell 0\.0%/i)).toBeInTheDocument()
+  })
+
+  it('shows the optimized live stats summary and charts', () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /next step/i }))
+
+    const liveStats = screen.getByLabelText(/live stats/i)
+    expect(within(liveStats).getByText(/current step/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/unique rules applied/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/total rule time/i)).toBeInTheDocument()
+    expect(within(liveStats).queryByText(/total diffs/i)).not.toBeInTheDocument()
+    expect(within(liveStats).queryByText(/rule applications/i)).not.toBeInTheDocument()
+    expect(within(liveStats).queryByText(/trace progress/i)).not.toBeInTheDocument()
+
+    expect(within(liveStats).getByLabelText(/^board progress$/i)).toBeInTheDocument()
+    const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
+    expect(within(coverageChart).getByText(/edge/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/vertex/i)).toBeInTheDocument()
+    expect(within(coverageChart).queryByText(/sector/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps future trace rules visible in live stats while browsing an earlier prefix', () => {
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'rule-a',
+        ruleName: 'Rule A',
+        message: 'first',
+        diffs: [{ kind: 'edge', edgeKey: edgeKey([0, 0], [0, 1]), from: 'unknown', to: 'line' }],
+        affectedCells: [],
+        affectedEdges: [edgeKey([0, 0], [0, 1])],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 2,
+      },
+      {
+        id: 'step-2',
+        ruleId: 'rule-b',
+        ruleName: 'Rule B',
+        message: 'second',
+        diffs: [{ kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' }],
+        affectedCells: [cellKey(0, 0)],
+        affectedEdges: [],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 3,
+      },
+    ]
+    const puzzle = createSlitherPuzzle(1, 1)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      solveProgress: null,
+      terminalReport: null,
+      isRunning: false,
+    }))
+
+    renderWorkspace()
+
+    const liveStats = screen.getByLabelText(/live stats/i)
+    expect(within(liveStats).getByText('Rule A')).toBeInTheDocument()
+    expect(within(liveStats).queryByText('Rule B')).not.toBeInTheDocument()
+
+    fireEvent.click(within(liveStats).getByRole('button', { name: /view details/i }))
+
+    expect(within(liveStats).getByText('Rule B')).toBeInTheDocument()
+    const ruleBRow = within(liveStats).getByText('Rule B').closest('tr')
+    expect(ruleBRow).not.toBeNull()
+    expect(within(ruleBRow as HTMLElement).getAllByText('0')).toHaveLength(1)
+    expect(within(ruleBRow as HTMLElement).getByText('-')).toBeInTheDocument()
+  })
+
+  it('shows a disabled live stats timeline before steps are generated', () => {
+    renderWorkspace()
+
+    const statsTimeline = screen.getByLabelText(/trace timeline/i)
+    expect(statsTimeline).toBeDisabled()
+    expect(screen.getByText(/no generated steps yet/i)).toBeInTheDocument()
+  })
+
   it('rewinds by the configured step chunk and clamps at the start', () => {
     renderWorkspace()
 
@@ -266,12 +506,12 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/showing 3 \/ 3/i)).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/step chunk/i), { target: { value: '2' } })
-    fireEvent.click(screen.getByRole('button', { name: /^previous 2 steps$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^prev 2 steps$/i }))
 
     expect(screen.getByText(/showing 1 \/ 1/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('1')
 
-    fireEvent.click(screen.getByRole('button', { name: /^previous 2 steps$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^prev 2 steps$/i }))
 
     expect(screen.getByText(/showing 0 \/ 0/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('0')
@@ -364,6 +604,48 @@ describe('WorkspacePage', () => {
     expect(labels).toContain('C4')
   })
 
+  it('draws Masyu tile colors on the solver board', () => {
+    const fillRect = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      {
+        clearRect: () => {},
+        save: () => {},
+        restore: () => {},
+        scale: () => {},
+        fillRect,
+        beginPath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        stroke: () => {},
+        strokeRect: () => {},
+        fillText: () => {},
+        arc: () => {},
+        fill: () => {},
+        setLineDash: () => {},
+      } as unknown as CanvasRenderingContext2D,
+    )
+    const puzzle = createMasyuPuzzle(2, 2)
+    puzzle.tiles[tileKey(1, 1)] = { fill: 'green' }
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedEdges: [],
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedColorTiles: [],
+      solveProgress: null,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(fillRect).toHaveBeenCalledWith(74, 74, 52, 52)
+  })
+
   it('toggles reasoning steps between recent 30 and all entries from the header', () => {
     const steps: RuleStep[] = Array.from({ length: 35 }, (_, index) => ({
       id: `step-${index + 1}`,
@@ -380,6 +662,7 @@ describe('WorkspacePage', () => {
     useSolverStore.setState((state) => ({
       ...state,
       steps,
+      traceStatsCache: rebuildTraceStatsCache(state.initialPuzzle, steps),
       pointer: steps.length,
       terminalReport: null,
     }))
@@ -398,16 +681,87 @@ describe('WorkspacePage', () => {
     expect(screen.getByText(/^1\. test rule$/i)).toBeInTheDocument()
   })
 
+  it('summarizes Slitherlink edge updates in reasoning steps', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const edge = edgeKey([0, 0], [0, 1])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'edge-rule',
+        ruleName: 'Edge Rule',
+        message: 'draw edge',
+        diffs: [{ kind: 'edge', edgeKey: edge, from: 'unknown', to: 'line' }],
+        affectedCells: [],
+        affectedEdges: [edge],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+      },
+    ]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'slitherlink',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText('edge updates: 1')).toBeInTheDocument()
+  })
+
+  it('summarizes Masyu line updates and line crosses in reasoning steps', () => {
+    const puzzle = createMasyuPuzzle(2, 3)
+    const line = lineKey([0, 0], [0, 1])
+    const cross = lineKey([0, 1], [0, 2])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'line-rule',
+        ruleName: 'Line Rule',
+        message: 'line and cross',
+        diffs: [
+          { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
+          { kind: 'line', lineKey: cross, from: 'unknown', to: 'blank' },
+        ],
+        affectedCells: [],
+        affectedEdges: [],
+        affectedLines: [line, cross],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+      },
+    ]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText('line updates: 1, line crosses: 1')).toBeInTheDocument()
+  })
+
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
     renderWorkspace()
 
-    const previousButton = screen.getByRole('button', { name: /previous step/i })
+    const previousButton = screen.getByRole('button', { name: /prev step/i })
     const nextButton = screen.getByRole('button', { name: /next step/i })
     expect(
       previousButton.compareDocumentPosition(nextButton) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
 
-    const previousChunkButton = screen.getByRole('button', { name: /previous 50 steps/i })
+    const previousChunkButton = screen.getByRole('button', { name: /prev 50 steps/i })
     const timeline = screen.getByLabelText(/replay timeline/i)
     expect(
       nextButton.compareDocumentPosition(previousChunkButton) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -439,6 +793,13 @@ describe('WorkspacePage', () => {
         totalDurationMs: 1234,
         reasons: ['No line edges have been drawn.'],
         stats: {
+          totalUnits: 4,
+          lineUnits: 1,
+          blankUnits: 1,
+          unknownUnits: 2,
+          decidedUnits: 2,
+          decidedRatio: 0.5,
+          unitLabel: 'Edges',
           totalEdges: 4,
           lineEdges: 1,
           blankEdges: 1,
@@ -455,5 +816,39 @@ describe('WorkspacePage', () => {
     expect(screen.getByText('2 / 4, 50.0%')).toBeInTheDocument()
     expect(screen.getByText('1.23 s')).toBeInTheDocument()
     expect(screen.queryByText(/^Coverage$/i)).not.toBeInTheDocument()
+  })
+
+  it('shows Masyu stalled decided line count and coverage in one stat', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      solveProgress: null,
+      terminalReport: {
+        status: 'stalled',
+        stepCount: 0,
+        totalDurationMs: 500,
+        reasons: ['No line segments have been drawn.'],
+        stats: {
+          totalUnits: 1,
+          lineUnits: 0,
+          blankUnits: 0,
+          unknownUnits: 1,
+          decidedUnits: 0,
+          decidedRatio: 0,
+          unitLabel: 'Lines',
+        },
+      },
+    }))
+
+    renderWorkspace()
+
+    expect(screen.getByText(/^Decided Lines$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^Unknown Lines$/i)).toBeInTheDocument()
+    expect(screen.getByText('0 / 1, 0.0%')).toBeInTheDocument()
   })
 })

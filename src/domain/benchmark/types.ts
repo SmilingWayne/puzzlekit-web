@@ -1,4 +1,4 @@
-import type { SlitherCompletionReport } from '../rules/slither/completion'
+import type { CompletionReport } from '../rules/completion'
 
 export type BenchmarkDatasetItem = {
   id: string
@@ -37,7 +37,7 @@ export type BenchmarkPuzzleResult = {
   durationMs: number
   ruleUsage: Record<string, number>
   ruleSteps: Record<string, number[]>
-  terminal: SlitherCompletionReport | null
+  terminal: CompletionReport | null
   steps: []
   error?: string
 }

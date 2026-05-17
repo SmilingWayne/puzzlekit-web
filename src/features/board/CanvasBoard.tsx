@@ -4,7 +4,9 @@ import {
   getCornerEdgeKeys,
   parseCellKey,
   parseEdgeKey,
+  parseLineKey,
   parseSectorKey,
+  parseTileKey,
 } from '../../domain/ir/keys'
 import {
   SECTOR_MASK_ALL,
@@ -13,12 +15,16 @@ import {
   type SectorCorner,
 } from '../../domain/ir/types'
 import type { PuzzleIR } from '../../domain/ir/types'
+import { PuzzleStatsInfoButton } from '../puzzleStats/PuzzleStatsInfoButton'
 
 type Props = {
   puzzle: PuzzleIR
+  pluginId: string
   highlightedEdges: string[]
+  highlightedLines?: string[]
   highlightedCells: string[]
   highlightedColorCells: string[]
+  highlightedColorTiles?: string[]
   showVertexNumbers: boolean
 }
 
@@ -46,11 +52,55 @@ const getSectorArcAngles = (corner: SectorCorner): [number, number] => {
   return [Math.PI, Math.PI * 1.5]
 }
 
+const drawDecisionMark = (
+  ctx: CanvasRenderingContext2D,
+  mark: 'unknown' | 'line' | 'blank',
+  highlighted: boolean,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): void => {
+  if (mark === 'line') {
+    ctx.strokeStyle = highlighted ? '#22d3ee' : '#38bdf8'
+    ctx.lineWidth = 4
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+    return
+  }
+  if (mark === 'blank') {
+    const [mx, my] = midpoint([x1, y1], [x2, y2])
+    ctx.strokeStyle = highlighted ? '#f472b6' : '#94a3b8'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(mx - 6, my - 6)
+    ctx.lineTo(mx + 6, my + 6)
+    ctx.moveTo(mx + 6, my - 6)
+    ctx.lineTo(mx - 6, my + 6)
+    ctx.stroke()
+  }
+}
+
+const getColorFillStyle = (fill: string | undefined, alpha: number): string | null => {
+  if (fill === 'green') {
+    return `rgba(34, 197, 94, ${alpha})`
+  }
+  if (fill === 'yellow') {
+    return `rgba(245, 158, 11, ${alpha})`
+  }
+  return null
+}
+
 export const CanvasBoard = ({
   puzzle,
+  pluginId,
   highlightedEdges,
+  highlightedLines = [],
   highlightedCells,
   highlightedColorCells,
+  highlightedColorTiles = [],
   showVertexNumbers,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -80,6 +130,7 @@ export const CanvasBoard = ({
 
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
+    const isMasyu = puzzle.puzzleType === 'masyu'
 
     ctx.fillStyle = '#64748b'
     ctx.font = '600 12px Inter, sans-serif'
@@ -94,14 +145,33 @@ export const CanvasBoard = ({
       ctx.fillText(`C${c + 1}`, PADDING + c * CELL_SIZE + CELL_SIZE / 2, PADDING - 14)
     }
 
-    for (const [key, cell] of Object.entries(puzzle.cells)) {
-      const fill = cell.fill
-      if (fill !== 'green' && fill !== 'yellow') {
-        continue
+    if (!isMasyu) {
+      for (const [key, cell] of Object.entries(puzzle.cells)) {
+        const fill = cell.fill
+        const fillStyle = getColorFillStyle(fill, 0.24)
+        if (!fillStyle) {
+          continue
+        }
+        const [r, c] = parseCellKey(key)
+        ctx.fillStyle = fillStyle
+        ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
       }
-      const [r, c] = parseCellKey(key)
-      ctx.fillStyle = fill === 'green' ? 'rgba(34, 197, 94, 0.24)' : 'rgba(245, 158, 11, 0.24)'
-      ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    } else {
+      const tileSize = CELL_SIZE
+      for (const [key, tile] of Object.entries(puzzle.tiles ?? {})) {
+        const fillStyle = getColorFillStyle(tile.fill, 0.24)
+        if (!fillStyle) {
+          continue
+        }
+        const [r, c] = parseTileKey(key)
+        ctx.fillStyle = fillStyle
+        ctx.fillRect(
+          PADDING + c * CELL_SIZE - tileSize / 2,
+          PADDING + r * CELL_SIZE - tileSize / 2,
+          tileSize,
+          tileSize,
+        )
+      }
     }
 
     for (const cell of highlightedCells) {
@@ -110,21 +180,31 @@ export const CanvasBoard = ({
       ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
     }
 
-    for (const cell of highlightedColorCells) {
-      const fill = puzzle.cells[cell]?.fill
-      const [r, c] = parseCellKey(cell)
-      if (fill === 'green') {
-        ctx.fillStyle = 'rgba(34, 197, 94, 0.44)'
-      } else if (fill === 'yellow') {
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.44)'
-      } else {
-        ctx.fillStyle = 'rgba(99, 102, 241, 0.2)'
+    if (!isMasyu) {
+      for (const cell of highlightedColorCells) {
+        const fill = puzzle.cells[cell]?.fill
+        const [r, c] = parseCellKey(cell)
+        ctx.fillStyle = getColorFillStyle(fill, 0.44) ?? 'rgba(99, 102, 241, 0.2)'
+        ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
       }
-      ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    } else {
+      const tileSize = CELL_SIZE
+      for (const tile of highlightedColorTiles) {
+        const fill = puzzle.tiles[tile]?.fill
+        const [r, c] = parseTileKey(tile)
+        ctx.fillStyle = getColorFillStyle(fill, 0.44) ?? 'rgba(99, 102, 241, 0.2)'
+        ctx.fillRect(
+          PADDING + c * CELL_SIZE - tileSize / 2,
+          PADDING + r * CELL_SIZE - tileSize / 2,
+          tileSize,
+          tileSize,
+        )
+      }
     }
 
-    ctx.strokeStyle = '#cbd5e1'
+    ctx.strokeStyle = isMasyu ? '#94a3b8' : '#cbd5e1'
     ctx.lineWidth = 1
+    ctx.setLineDash(isMasyu ? [4, 4] : [])
     for (let r = 0; r <= puzzle.rows; r += 1) {
       ctx.beginPath()
       ctx.moveTo(PADDING, PADDING + r * CELL_SIZE)
@@ -137,23 +217,43 @@ export const CanvasBoard = ({
       ctx.lineTo(PADDING + c * CELL_SIZE, PADDING + puzzle.rows * CELL_SIZE)
       ctx.stroke()
     }
+    ctx.setLineDash([])
+
+    if (isMasyu) {
+      ctx.strokeStyle = '#111827'
+      ctx.lineWidth = 3
+      ctx.strokeRect(PADDING, PADDING, puzzle.cols * CELL_SIZE, puzzle.rows * CELL_SIZE)
+    }
 
     for (const [key, cell] of Object.entries(puzzle.cells)) {
-      if (cell.clue?.kind !== 'number') {
+      if (isMasyu && cell.clue?.kind !== 'pearl') {
+        continue
+      }
+      if (!isMasyu && cell.clue?.kind !== 'number') {
         continue
       }
       const [r, c] = parseCellKey(key)
-      ctx.fillStyle = '#111827'
-      ctx.font = 'bold 26px Inter, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(
-        String(cell.clue.value),
-        PADDING + c * CELL_SIZE + CELL_SIZE / 2,
-        PADDING + r * CELL_SIZE + CELL_SIZE / 2,
-      )
+      const centerX = PADDING + c * CELL_SIZE + CELL_SIZE / 2
+      const centerY = PADDING + r * CELL_SIZE + CELL_SIZE / 2
+      if (cell.clue?.kind === 'pearl') {
+        const radius = CELL_SIZE * 0.28
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+        ctx.fillStyle = cell.clue.color === 'black' ? '#111827' : '#ffffff'
+        ctx.fill()
+        ctx.strokeStyle = '#111827'
+        ctx.lineWidth = 2.4
+        ctx.stroke()
+      } else if (cell.clue?.kind === 'number') {
+        ctx.fillStyle = '#111827'
+        ctx.font = 'bold 26px Inter, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(String(cell.clue.value), centerX, centerY)
+      }
     }
 
+    if (!isMasyu) {
     const sectorRadii = {
       notZero: CELL_SIZE * 0.19,
       notOne: CELL_SIZE * 0.24,
@@ -209,34 +309,29 @@ export const CanvasBoard = ({
       }
       ctx.restore()
     }
+    }
 
-    for (const [edge, state] of Object.entries(puzzle.edges)) {
-      const [v1, v2] = parseEdgeKey(edge)
-      const x1 = PADDING + v1[1] * CELL_SIZE
-      const y1 = PADDING + v1[0] * CELL_SIZE
-      const x2 = PADDING + v2[1] * CELL_SIZE
-      const y2 = PADDING + v2[0] * CELL_SIZE
-
-      if (state.mark === 'line') {
-        ctx.strokeStyle = highlightedEdges.includes(edge) ? '#22d3ee' : '#38bdf8'
-        ctx.lineWidth = 4
-        ctx.beginPath()
-        ctx.moveTo(x1, y1)
-        ctx.lineTo(x2, y2)
-        ctx.stroke()
-      } else if (state.mark === 'blank') {
-        const [mx, my] = midpoint([x1, y1], [x2, y2])
-        ctx.strokeStyle = highlightedEdges.includes(edge) ? '#f472b6' : '#94a3b8'
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.moveTo(mx - 6, my - 6)
-        ctx.lineTo(mx + 6, my + 6)
-        ctx.moveTo(mx + 6, my - 6)
-        ctx.lineTo(mx - 6, my + 6)
-        ctx.stroke()
+    if (isMasyu) {
+      for (const [line, state] of Object.entries(puzzle.lines ?? {})) {
+        const [v1, v2] = parseLineKey(line)
+        const x1 = PADDING + v1[1] * CELL_SIZE + CELL_SIZE / 2
+        const y1 = PADDING + v1[0] * CELL_SIZE + CELL_SIZE / 2
+        const x2 = PADDING + v2[1] * CELL_SIZE + CELL_SIZE / 2
+        const y2 = PADDING + v2[0] * CELL_SIZE + CELL_SIZE / 2
+        drawDecisionMark(ctx, state.mark, highlightedLines.includes(line), x1, y1, x2, y2)
+      }
+    } else {
+      for (const [edge, state] of Object.entries(puzzle.edges)) {
+        const [v1, v2] = parseEdgeKey(edge)
+        const x1 = PADDING + v1[1] * CELL_SIZE
+        const y1 = PADDING + v1[0] * CELL_SIZE
+        const x2 = PADDING + v2[1] * CELL_SIZE
+        const y2 = PADDING + v2[0] * CELL_SIZE
+        drawDecisionMark(ctx, state.mark, highlightedEdges.includes(edge), x1, y1, x2, y2)
       }
     }
 
+    if (!isMasyu) {
     ctx.fillStyle = '#111827'
     for (let r = 0; r <= puzzle.rows; r += 1) {
       for (let c = 0; c <= puzzle.cols; c += 1) {
@@ -247,8 +342,9 @@ export const CanvasBoard = ({
         ctx.fill()
       }
     }
+    }
 
-    if (showVertexNumbers) {
+    if (showVertexNumbers && !isMasyu) {
       ctx.fillStyle = '#64748b'
       ctx.font = '12px ui-monospace, monospace'
       ctx.textAlign = 'left'
@@ -271,7 +367,9 @@ export const CanvasBoard = ({
     height,
     highlightedCells,
     highlightedColorCells,
+    highlightedColorTiles,
     highlightedEdges,
+    highlightedLines,
     puzzle,
     showVertexNumbers,
     width,
@@ -282,13 +380,14 @@ export const CanvasBoard = ({
     let lineCount = 0
     let blankCount = 0
     let unknownCount = 0
-    Object.values(puzzle.edges).forEach((edge) => {
-      if (edge.mark === 'line') lineCount += 1
-      else if (edge.mark === 'blank') blankCount += 1
+    const decisions = puzzle.puzzleType === 'masyu' ? Object.values(puzzle.lines ?? {}) : Object.values(puzzle.edges)
+    decisions.forEach((decision) => {
+      if (decision.mark === 'line') lineCount += 1
+      else if (decision.mark === 'blank') blankCount += 1
       else unknownCount += 1
     })
     return { lineCount, blankCount, unknownCount }
-  }, [puzzle.edges])
+  }, [puzzle.edges, puzzle.lines, puzzle.puzzleType])
 
   return (
     <section className="board-card">
@@ -298,6 +397,7 @@ export const CanvasBoard = ({
           <span className="board-dimensions">
             {puzzle.rows} × {puzzle.cols}
           </span>
+          <PuzzleStatsInfoButton pluginId={pluginId} puzzle={puzzle} />
         </h2>
         <div className="board-header-tools">
           <small>
@@ -322,7 +422,7 @@ export const CanvasBoard = ({
         <canvas
           ref={canvasRef}
           className="board-canvas scroll-board-canvas"
-          aria-label="Slitherlink solver canvas"
+          aria-label={`${puzzle.puzzleType === 'masyu' ? 'Masyu' : 'Slitherlink'} solver canvas`}
           style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
         />
       </div>
@@ -330,18 +430,20 @@ export const CanvasBoard = ({
         Use the slider to zoom. Scroll to move around large grids. Highlight syncs with reasoning
         steps.
       </p>
-      <details>
-        <summary>Cell to edge mapping helper</summary>
-        <pre>
-          {Object.keys(puzzle.cells)
-            .slice(0, 5)
-            .map((key) => {
-              const [r, c] = parseCellKey(key)
-              return `${key} -> ${getCellEdgeKeys(r, c).join(' | ')}`
-            })
-            .join('\n')}
-        </pre>
-      </details>
+      {puzzle.puzzleType !== 'masyu' ? (
+        <details>
+          <summary>Cell to edge mapping helper</summary>
+          <pre>
+            {Object.keys(puzzle.cells)
+              .slice(0, 5)
+              .map((key) => {
+                const [r, c] = parseCellKey(key)
+                return `${key} -> ${getCellEdgeKeys(r, c).join(' | ')}`
+              })
+              .join('\n')}
+          </pre>
+        </details>
+      ) : null}
     </section>
   )
 }

@@ -57,11 +57,30 @@ const applyDiffsWithJsonClone = () => {
       }
       continue
     }
+    if (diff.kind === 'line') {
+      if (!next.lines[diff.lineKey]) {
+        next.lines[diff.lineKey] = { mark: diff.to }
+      } else {
+        next.lines[diff.lineKey].mark = diff.to
+      }
+      continue
+    }
     if (diff.kind === 'vertex') {
       if (!next.vertices[diff.vertexKey]) {
         next.vertices[diff.vertexKey] = { candidateEdgeSets: diff.toCandidates }
       } else {
         next.vertices[diff.vertexKey].candidateEdgeSets = diff.toCandidates
+      }
+      continue
+    }
+    if (diff.kind === 'tile') {
+      if (!next.tiles[diff.tileKey]) {
+        next.tiles[diff.tileKey] = {}
+      }
+      if (diff.toFill === null) {
+        delete next.tiles[diff.tileKey].fill
+      } else {
+        next.tiles[diff.tileKey].fill = diff.toFill
       }
       continue
     }

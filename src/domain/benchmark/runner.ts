@@ -1,8 +1,8 @@
 import type { PuzzleIR } from '../ir/types'
 import { puzzleRegistry } from '../plugins/registry'
+import { analyzePuzzleCompletion } from '../rules/completion'
 import { runNextRule } from '../rules/engine'
-import { analyzeSlitherCompletion } from '../rules/slither/completion'
-import type { RuleStep } from '../rules/types'
+import { addRuleUsage } from '../difficulty/traceStats'
 import type {
   BenchmarkDatasetItem,
   BenchmarkDatasetManifest,
@@ -26,18 +26,7 @@ const normalizeLimit = (
   return Math.max(1, Math.floor(value))
 }
 
-const addRuleUsage = (
-  ruleUsage: Record<string, number>,
-  ruleSteps: Record<string, number[]>,
-  step: RuleStep,
-  stepNumber: number,
-): void => {
-  ruleUsage[step.ruleId] = (ruleUsage[step.ruleId] ?? 0) + 1
-  ruleSteps[step.ruleId] = [...(ruleSteps[step.ruleId] ?? []), stepNumber]
-}
-
-const getSlitherTerminal = (puzzleType: string, puzzle: PuzzleIR) =>
-  puzzleType === 'slitherlink' ? analyzeSlitherCompletion(puzzle) : null
+const getTerminal = (puzzleType: string, puzzle: PuzzleIR) => analyzePuzzleCompletion(puzzleType, puzzle)
 
 const getStatusCountKey = (
   status: BenchmarkPuzzleStatus,
@@ -96,11 +85,11 @@ export const runBenchmarkItem = (
   const rules = plugin.getRules()
   while (true) {
     if (performance.now() - startedAt >= options.timeoutMs) {
-      return finish('time-capped', getSlitherTerminal(item.puzzleType, puzzle))
+      return finish('time-capped', getTerminal(item.puzzleType, puzzle))
     }
 
     if (stepCount >= options.maxSteps) {
-      const terminal = getSlitherTerminal(item.puzzleType, puzzle)
+      const terminal = getTerminal(item.puzzleType, puzzle)
       return finish(
         terminal?.status === 'solved' ? 'solved' : 'step-capped',
         terminal,
@@ -113,13 +102,13 @@ export const runBenchmarkItem = (
     } catch (error) {
       return finish(
         'runtime-error',
-        getSlitherTerminal(item.puzzleType, puzzle),
+        getTerminal(item.puzzleType, puzzle),
         error instanceof Error ? error.message : String(error),
       )
     }
 
     if (!result.step) {
-      const terminal = getSlitherTerminal(item.puzzleType, puzzle)
+      const terminal = getTerminal(item.puzzleType, puzzle)
       return finish(terminal?.status ?? 'stalled', terminal)
     }
 

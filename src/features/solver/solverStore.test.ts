@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { cellKey, edgeKey } from '../../domain/ir/keys'
+import { cellKey, edgeKey, lineKey, tileKey } from '../../domain/ir/keys'
+import { createMasyuPuzzle } from '../../domain/ir/masyu'
+import { buildTraceStatsView, rebuildTraceStatsCache } from '../../domain/difficulty/traceStats'
 import { semanticEquals } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
-import type { EdgeMark, PuzzleIR } from '../../domain/ir/types'
+import type { EdgeMark, LineMark, PuzzleIR } from '../../domain/ir/types'
 import { buildPuzzleFromSteps } from '../../domain/rules/engine'
 import {
   DEFAULT_SOLVE_CHUNK_SIZE,
+  DEFAULT_MASYU_SAMPLE_URL,
   MAX_SOLVE_CHUNK_SIZE,
+  REPLAY_CHECKPOINT_INTERVAL,
   sumRuleStepDurationMs,
   useSolverStore,
   type TerminalSolveReport,
@@ -19,6 +23,10 @@ const markEdge = (puzzle: PuzzleIR, edge: string, mark: EdgeMark): void => {
   puzzle.edges[edge] = { ...puzzle.edges[edge], mark }
 }
 
+const markLine = (puzzle: PuzzleIR, line: string, mark: LineMark): void => {
+  puzzle.lines[line] = { ...puzzle.lines[line], mark }
+}
+
 const createSolvedLoopPuzzle = (): PuzzleIR => {
   const puzzle = createSlitherPuzzle(1, 1)
   markEdge(puzzle, edgeKey([0, 0], [0, 1]), 'line')
@@ -28,12 +36,68 @@ const createSolvedLoopPuzzle = (): PuzzleIR => {
   return puzzle
 }
 
+const createSolvedMasyuLoopPuzzle = (): PuzzleIR => {
+  const puzzle = createMasyuPuzzle(4, 4)
+  for (let col = 0; col < 3; col += 1) {
+    markLine(puzzle, lineKey([0, col], [0, col + 1]), 'line')
+    markLine(puzzle, lineKey([3, col], [3, col + 1]), 'line')
+  }
+  for (let row = 0; row < 3; row += 1) {
+    markLine(puzzle, lineKey([row, 0], [row + 1, 0]), 'line')
+    markLine(puzzle, lineKey([row, 3], [row + 1, 3]), 'line')
+  }
+  for (const [key, line] of Object.entries(puzzle.lines)) {
+    if (line.mark === 'unknown') {
+      markLine(puzzle, key, 'blank')
+    }
+  }
+  puzzle.cells[cellKey(0, 0)] = { clue: { kind: 'pearl', color: 'black' } }
+  puzzle.cells[cellKey(0, 1)] = { clue: { kind: 'pearl', color: 'white' } }
+  return puzzle
+}
+
+const fillAllMasyuTiles = (puzzle: PuzzleIR, fill: 'green' | 'yellow' = 'yellow'): void => {
+  for (const key of Object.keys(puzzle.tiles)) {
+    puzzle.tiles[key] = { ...puzzle.tiles[key], fill }
+  }
+}
+
+const makeEdgeSteps = (puzzle: PuzzleIR, count: number): RuleStep[] =>
+  Object.keys(puzzle.edges)
+    .slice(0, count)
+    .map((edge, index) => ({
+      id: `step-${index + 1}`,
+      ruleId: `test-rule-${index % 3}`,
+      ruleName: `Test Rule ${index % 3}`,
+      message: `step ${index + 1}`,
+      diffs: [
+        {
+          kind: 'edge' as const,
+          edgeKey: edge,
+          from: 'unknown' as const,
+          to: index % 2 === 0 ? ('line' as const) : ('blank' as const),
+        },
+      ],
+      affectedCells: [],
+      affectedEdges: [edge],
+      affectedSectors: [],
+      timestamp: Date.now() + index,
+      durationMs: 1,
+    }))
+
 const mockTerminalReport: TerminalSolveReport = {
   status: 'stalled',
   stepCount: 0,
   totalDurationMs: 0,
   reasons: ['No line edges have been drawn.'],
   stats: {
+    totalUnits: 4,
+    lineUnits: 0,
+    blankUnits: 0,
+    unknownUnits: 4,
+    decidedUnits: 0,
+    decidedRatio: 0,
+    unitLabel: 'Edges',
     totalEdges: 4,
     lineEdges: 0,
     blankEdges: 0,
@@ -53,6 +117,7 @@ describe('solver timeline behavior', () => {
     const store = useSolverStore.getState()
     store.nextStep()
     expect(useSolverStore.getState().steps.length).toBe(1)
+    expect(useSolverStore.getState().traceStatsCache.points).toHaveLength(2)
     expect(useSolverStore.getState().pointer).toBe(1)
 
     store.prevStep()
@@ -62,6 +127,7 @@ describe('solver timeline behavior', () => {
     store.nextStep()
     expect(useSolverStore.getState().pointer).toBe(1)
     expect(useSolverStore.getState().steps.length).toBe(1)
+    expect(useSolverStore.getState().traceStatsCache.points).toHaveLength(2)
   })
 
   it('keeps prevStep state consistent with replayed prefix state', () => {
@@ -113,6 +179,7 @@ describe('solver timeline behavior', () => {
       initialPuzzle,
       currentPuzzle: buildPuzzleFromSteps(initialPuzzle, steps, 2),
       steps,
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, steps),
       pointer: 2,
       highlightedCells: steps[1].affectedCells,
       highlightedColorCells: [],
@@ -153,6 +220,7 @@ describe('solver timeline behavior', () => {
       initialPuzzle,
       currentPuzzle: buildPuzzleFromSteps(initialPuzzle, steps, 1),
       steps,
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, steps),
       pointer: 1,
       highlightedCells: steps[0].affectedCells,
       highlightedColorCells: [],
@@ -184,6 +252,70 @@ describe('solver timeline behavior', () => {
     expect(useSolverStore.getState().pointer).toBe(0)
     useSolverStore.setState((state) => ({ ...state, isRunning: false }))
   })
+
+  it('keeps trace stats cache when moving through existing replay states', () => {
+    const initialPuzzle = createSlitherPuzzle(1, 1)
+    const topEdge = edgeKey([0, 0], [0, 1])
+    const step: RuleStep = {
+      id: 'step-1',
+      ruleId: 'test-rule',
+      ruleName: 'Test Rule',
+      message: 'test',
+      diffs: [{ kind: 'edge', edgeKey: topEdge, from: 'unknown', to: 'line' }],
+      affectedCells: [cellKey(0, 0)],
+      affectedEdges: [topEdge],
+      affectedSectors: [],
+      timestamp: Date.now(),
+      durationMs: 2,
+    }
+    useSolverStore.setState((state) => ({
+      ...state,
+      initialPuzzle,
+      currentPuzzle: buildPuzzleFromSteps(initialPuzzle, [step], 1),
+      steps: [step],
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, [step]),
+      pointer: 1,
+      isRunning: false,
+    }))
+
+    useSolverStore.getState().goToStep(0)
+
+    expect(useSolverStore.getState().traceStatsCache.points).toHaveLength(2)
+    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 0).current.edgeCoverageRatio).toBe(0)
+
+    useSolverStore.getState().goToStep(1)
+
+    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 1).current.edgeCoverageRatio).toBe(0.25)
+  })
+
+  it('jumps across a large replay trace and matches a full rebuild', () => {
+    const initialPuzzle = createSlitherPuzzle(1, REPLAY_CHECKPOINT_INTERVAL * 3)
+    const steps = makeEdgeSteps(initialPuzzle, REPLAY_CHECKPOINT_INTERVAL * 2 + 7)
+    useSolverStore.setState((state) => ({
+      ...state,
+      initialPuzzle,
+      currentPuzzle: buildPuzzleFromSteps(initialPuzzle, steps, steps.length),
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(initialPuzzle, steps),
+      pointer: steps.length,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedEdges: [],
+      terminalReport: mockTerminalReport,
+      isRunning: false,
+    }))
+
+    useSolverStore.getState().goToStep(REPLAY_CHECKPOINT_INTERVAL + 3)
+    const middle = useSolverStore.getState()
+    expect(semanticEquals(middle.currentPuzzle, buildPuzzleFromSteps(initialPuzzle, steps, middle.pointer))).toBe(true)
+    expect(middle.pointer).toBe(REPLAY_CHECKPOINT_INTERVAL + 3)
+    expect(middle.terminalReport).toBeNull()
+
+    useSolverStore.getState().goToStep(steps.length)
+    const end = useSolverStore.getState()
+    expect(semanticEquals(end.currentPuzzle, buildPuzzleFromSteps(initialPuzzle, steps, steps.length))).toBe(true)
+  })
+
 })
 
 describe('solve chunk sizing', () => {
@@ -253,6 +385,7 @@ describe('solver puzzle loading', () => {
     useSolverStore.getState().loadPuzzle(puzzle, { pluginId: 'slitherlink' })
     const after = useSolverStore.getState()
     expect(after.steps.length).toBe(0)
+    expect(after.traceStatsCache.points).toHaveLength(1)
     expect(after.pointer).toBe(0)
     expect(after.sourceUrl).toBe('')
     expect(after.currentPuzzle.rows).toBe(5)
@@ -273,6 +406,7 @@ describe('solver puzzle loading', () => {
     const after = useSolverStore.getState()
     expect(after.pointer).toBe(0)
     expect(after.steps.length).toBe(0)
+    expect(after.traceStatsCache.points).toHaveLength(1)
     expect(after.terminalReport).toBeNull()
     expect(after.sourceUrl).toBe('editor')
     expect(after.currentPuzzle.cells[cellKey(0, 0)]?.clue).toEqual({
@@ -290,7 +424,25 @@ describe('solver puzzle loading', () => {
     expect(after.currentPuzzle.rows).toBe(3)
     expect(after.currentPuzzle.cols).toBe(3)
     expect(after.steps.length).toBe(0)
+    expect(after.traceStatsCache.points).toHaveLength(1)
     expect(after.sourceUrl).toBe(SAMPLE_URL)
+  })
+
+  it('imports the default Masyu sample and produces line decisions', () => {
+    useSolverStore.getState().importFromUrl(DEFAULT_MASYU_SAMPLE_URL, 'masyu')
+    const loaded = useSolverStore.getState()
+
+    expect(loaded.pluginId).toBe('masyu')
+    expect(loaded.sourceUrl).toBe(DEFAULT_MASYU_SAMPLE_URL)
+    expect(loaded.currentPuzzle.puzzleType).toBe('masyu')
+    expect(loaded.currentPuzzle.rows).toBe(5)
+    expect(loaded.currentPuzzle.cols).toBe(5)
+
+    useSolverStore.getState().nextStep()
+    const afterStep = useSolverStore.getState()
+    expect(afterStep.steps[0]?.ruleName).toBe('White Circle Rule')
+    expect(afterStep.highlightedLines.length).toBeGreaterThan(0)
+    expect(afterStep.steps[0]?.diffs.some((diff) => diff.kind === 'line')).toBe(true)
   })
 })
 
@@ -405,6 +557,76 @@ describe('solver terminal reports', () => {
     expect(useSolverStore.getState().terminalReport?.totalDurationMs).toBeGreaterThanOrEqual(0)
     expect(useSolverStore.getState().isRunning).toBe(false)
     expect(useSolverStore.getState().solveProgress).toBeNull()
+  })
+
+  it('writes a Masyu terminal report when nextStep finds no available rule', () => {
+    const puzzle = createSolvedMasyuLoopPuzzle()
+    fillAllMasyuTiles(puzzle)
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedLines: [],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport).toMatchObject({
+      status: 'solved',
+      stepCount: 0,
+      stats: {
+        unitLabel: 'Lines',
+      },
+    })
+  })
+
+  it('clears affected line highlights when a Masyu terminal report is solved', () => {
+    const puzzle = createSolvedMasyuLoopPuzzle()
+    fillAllMasyuTiles(puzzle)
+    const highlightedLine = lineKey([0, 0], [0, 1])
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedLines: [highlightedLine],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('solved')
+    expect(useSolverStore.getState().highlightedLines).toEqual([])
+  })
+
+  it('keeps affected line highlights when a Masyu terminal report is stalled', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    fillAllMasyuTiles(puzzle)
+    for (const key of Object.keys(puzzle.lines)) {
+      markLine(puzzle, key, 'blank')
+    }
+    const highlightedLine = lineKey([0, 0], [0, 1])
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedLines: [highlightedLine],
+      terminalReport: null,
+    }))
+
+    useSolverStore.getState().nextStep()
+
+    expect(useSolverStore.getState().terminalReport?.status).toBe('stalled')
+    expect(useSolverStore.getState().highlightedLines).toEqual([highlightedLine])
   })
 
   it('clears terminal report when moving back in the timeline', () => {
@@ -537,5 +759,52 @@ describe('solver store cell color replay', () => {
     expect(useSolverStore.getState().highlightedColorCells).toEqual([colorCell])
 
     useSolverStore.setState((prev) => ({ ...prev, nextStep: originalNextStep }))
+  })
+
+  it('replays tile fill diffs and tracks highlightedColorTiles', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const colorTile = tileKey(1, 1)
+    const mockStep: RuleStep = {
+      id: 'step-1',
+      ruleId: 'masyu-tile-color-propagation',
+      ruleName: 'Masyu Tile Color Propagation',
+      message: 'test',
+      diffs: [
+        {
+          kind: 'tile',
+          tileKey: colorTile,
+          fromFill: null,
+          toFill: 'green',
+        },
+      ],
+      affectedCells: [],
+      affectedTiles: [colorTile],
+      affectedEdges: [],
+      affectedSectors: [],
+      timestamp: Date.now(),
+      durationMs: 7,
+    }
+
+    useSolverStore.setState((state) => ({
+      ...state,
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [mockStep],
+      pointer: 0,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedColorTiles: [],
+      highlightedEdges: [],
+      highlightedLines: [],
+    }))
+
+    useSolverStore.getState().goToStep(1)
+
+    expect(useSolverStore.getState().currentPuzzle.tiles[colorTile]?.fill).toBe('green')
+    expect(useSolverStore.getState().highlightedColorTiles).toEqual([colorTile])
+
+    useSolverStore.getState().goToStep(0)
+    expect(useSolverStore.getState().currentPuzzle.tiles[colorTile]?.fill).toBeUndefined()
+    expect(useSolverStore.getState().highlightedColorTiles).toEqual([])
   })
 })

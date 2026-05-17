@@ -1,6 +1,6 @@
 # PuzzleKit Web
 
-[PuzzleKit Web](https://smilingwayne.github.io/puzzlekit-web/) provides step-wise and explainable inference flow for logical puzzles (only slitherlink for now). The core goal is not just to output a final answer, but to make each deduction step explicit: what changed, why it changed, and which rule produced this change.
+[PuzzleKit Web](https://smilingwayne.github.io/puzzlekit-web/) provides step-wise and explainable inference flow for logical puzzles, now supporting only slitherlink (with better perf)  and Masyu (with poor perf). The core goal is not just to output a final answer, but to make each deduction step explicit: what changed, why it changed, and which rule produced this change.
 
 Current focus:
 

@@ -12,6 +12,8 @@ dist
 dist-ssr
 benchmark-results
 playwright-report
+.husky
+.pnpm-store
 test-results
 dataset/private/
 *.local
