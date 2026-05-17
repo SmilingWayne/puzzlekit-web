@@ -6,6 +6,7 @@ import {
   parseEdgeKey,
   parseLineKey,
   parseSectorKey,
+  parseTileKey,
 } from '../../domain/ir/keys'
 import {
   SECTOR_MASK_ALL,
@@ -23,6 +24,7 @@ type Props = {
   highlightedLines?: string[]
   highlightedCells: string[]
   highlightedColorCells: string[]
+  highlightedColorTiles?: string[]
   showVertexNumbers: boolean
 }
 
@@ -81,6 +83,16 @@ const drawDecisionMark = (
   }
 }
 
+const getColorFillStyle = (fill: string | undefined, alpha: number): string | null => {
+  if (fill === 'green') {
+    return `rgba(34, 197, 94, ${alpha})`
+  }
+  if (fill === 'yellow') {
+    return `rgba(245, 158, 11, ${alpha})`
+  }
+  return null
+}
+
 export const CanvasBoard = ({
   puzzle,
   pluginId,
@@ -88,6 +100,7 @@ export const CanvasBoard = ({
   highlightedLines = [],
   highlightedCells,
   highlightedColorCells,
+  highlightedColorTiles = [],
   showVertexNumbers,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -135,12 +148,29 @@ export const CanvasBoard = ({
     if (!isMasyu) {
       for (const [key, cell] of Object.entries(puzzle.cells)) {
         const fill = cell.fill
-        if (fill !== 'green' && fill !== 'yellow') {
+        const fillStyle = getColorFillStyle(fill, 0.24)
+        if (!fillStyle) {
           continue
         }
         const [r, c] = parseCellKey(key)
-        ctx.fillStyle = fill === 'green' ? 'rgba(34, 197, 94, 0.24)' : 'rgba(245, 158, 11, 0.24)'
+        ctx.fillStyle = fillStyle
         ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+      }
+    } else {
+      const tileSize = CELL_SIZE
+      for (const [key, tile] of Object.entries(puzzle.tiles ?? {})) {
+        const fillStyle = getColorFillStyle(tile.fill, 0.24)
+        if (!fillStyle) {
+          continue
+        }
+        const [r, c] = parseTileKey(key)
+        ctx.fillStyle = fillStyle
+        ctx.fillRect(
+          PADDING + c * CELL_SIZE - tileSize / 2,
+          PADDING + r * CELL_SIZE - tileSize / 2,
+          tileSize,
+          tileSize,
+        )
       }
     }
 
@@ -154,14 +184,21 @@ export const CanvasBoard = ({
       for (const cell of highlightedColorCells) {
         const fill = puzzle.cells[cell]?.fill
         const [r, c] = parseCellKey(cell)
-        if (fill === 'green') {
-          ctx.fillStyle = 'rgba(34, 197, 94, 0.44)'
-        } else if (fill === 'yellow') {
-          ctx.fillStyle = 'rgba(245, 158, 11, 0.44)'
-        } else {
-          ctx.fillStyle = 'rgba(99, 102, 241, 0.2)'
-        }
+        ctx.fillStyle = getColorFillStyle(fill, 0.44) ?? 'rgba(99, 102, 241, 0.2)'
         ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+      }
+    } else {
+      const tileSize = CELL_SIZE
+      for (const tile of highlightedColorTiles) {
+        const fill = puzzle.tiles[tile]?.fill
+        const [r, c] = parseTileKey(tile)
+        ctx.fillStyle = getColorFillStyle(fill, 0.44) ?? 'rgba(99, 102, 241, 0.2)'
+        ctx.fillRect(
+          PADDING + c * CELL_SIZE - tileSize / 2,
+          PADDING + r * CELL_SIZE - tileSize / 2,
+          tileSize,
+          tileSize,
+        )
       }
     }
 
@@ -330,6 +367,7 @@ export const CanvasBoard = ({
     height,
     highlightedCells,
     highlightedColorCells,
+    highlightedColorTiles,
     highlightedEdges,
     highlightedLines,
     puzzle,

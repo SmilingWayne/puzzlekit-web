@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { cellKey, edgeKey, lineKey } from '../../domain/ir/keys'
+import { cellKey, edgeKey, lineKey, tileKey } from '../../domain/ir/keys'
 import { createMasyuPuzzle } from '../../domain/ir/masyu'
 import { buildTraceStatsView, rebuildTraceStatsCache } from '../../domain/difficulty/traceStats'
 import { semanticEquals } from '../../domain/ir/normalize'
@@ -54,6 +54,12 @@ const createSolvedMasyuLoopPuzzle = (): PuzzleIR => {
   puzzle.cells[cellKey(0, 0)] = { clue: { kind: 'pearl', color: 'black' } }
   puzzle.cells[cellKey(0, 1)] = { clue: { kind: 'pearl', color: 'white' } }
   return puzzle
+}
+
+const fillAllMasyuTiles = (puzzle: PuzzleIR, fill: 'green' | 'yellow' = 'yellow'): void => {
+  for (const key of Object.keys(puzzle.tiles)) {
+    puzzle.tiles[key] = { ...puzzle.tiles[key], fill }
+  }
 }
 
 const makeEdgeSteps = (puzzle: PuzzleIR, count: number): RuleStep[] =>
@@ -555,6 +561,7 @@ describe('solver terminal reports', () => {
 
   it('writes a Masyu terminal report when nextStep finds no available rule', () => {
     const puzzle = createSolvedMasyuLoopPuzzle()
+    fillAllMasyuTiles(puzzle)
     useSolverStore.setState((state) => ({
       ...state,
       pluginId: 'masyu',
@@ -579,6 +586,7 @@ describe('solver terminal reports', () => {
 
   it('clears affected line highlights when a Masyu terminal report is solved', () => {
     const puzzle = createSolvedMasyuLoopPuzzle()
+    fillAllMasyuTiles(puzzle)
     const highlightedLine = lineKey([0, 0], [0, 1])
     useSolverStore.setState((state) => ({
       ...state,
@@ -599,6 +607,7 @@ describe('solver terminal reports', () => {
 
   it('keeps affected line highlights when a Masyu terminal report is stalled', () => {
     const puzzle = createMasyuPuzzle(2, 2)
+    fillAllMasyuTiles(puzzle)
     const highlightedLine = lineKey([0, 0], [0, 1])
     useSolverStore.setState((state) => ({
       ...state,
@@ -747,5 +756,52 @@ describe('solver store cell color replay', () => {
     expect(useSolverStore.getState().highlightedColorCells).toEqual([colorCell])
 
     useSolverStore.setState((prev) => ({ ...prev, nextStep: originalNextStep }))
+  })
+
+  it('replays tile fill diffs and tracks highlightedColorTiles', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const colorTile = tileKey(1, 1)
+    const mockStep: RuleStep = {
+      id: 'step-1',
+      ruleId: 'masyu-tile-color-propagation',
+      ruleName: 'Masyu Tile Color Propagation',
+      message: 'test',
+      diffs: [
+        {
+          kind: 'tile',
+          tileKey: colorTile,
+          fromFill: null,
+          toFill: 'green',
+        },
+      ],
+      affectedCells: [],
+      affectedTiles: [colorTile],
+      affectedEdges: [],
+      affectedSectors: [],
+      timestamp: Date.now(),
+      durationMs: 7,
+    }
+
+    useSolverStore.setState((state) => ({
+      ...state,
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [mockStep],
+      pointer: 0,
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedColorTiles: [],
+      highlightedEdges: [],
+      highlightedLines: [],
+    }))
+
+    useSolverStore.getState().goToStep(1)
+
+    expect(useSolverStore.getState().currentPuzzle.tiles[colorTile]?.fill).toBe('green')
+    expect(useSolverStore.getState().highlightedColorTiles).toEqual([colorTile])
+
+    useSolverStore.getState().goToStep(0)
+    expect(useSolverStore.getState().currentPuzzle.tiles[colorTile]?.fill).toBeUndefined()
+    expect(useSolverStore.getState().highlightedColorTiles).toEqual([])
   })
 })

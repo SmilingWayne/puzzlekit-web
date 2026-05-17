@@ -1,5 +1,6 @@
 import type { Rule } from '../types'
 import { createBlackPearlCandidatePruningRule } from './rules/candidates'
+import { createMasyuTileColorPropagationRule } from './rules/color'
 import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
 import {
@@ -17,6 +18,7 @@ export const masyuRules: Rule[] = [
   createBlackDiagonalWhitePinchRule(),
   createConsecutiveWhitePearlsStraightRule(),
   createDoubleBlackSqueezeRule(),
+  createMasyuTileColorPropagationRule(),
   createPreventPrematureLoopRule(),
   createBlackPearlCandidatePruningRule(),
   createPearlCompletionRule(),

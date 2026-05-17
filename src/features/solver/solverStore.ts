@@ -48,6 +48,7 @@ type SolverStore = {
   pointer: number
   highlightedCells: string[]
   highlightedColorCells: string[]
+  highlightedColorTiles: string[]
   highlightedEdges: string[]
   highlightedLines: string[]
   isRunning: boolean
@@ -165,6 +166,9 @@ const getActiveSteps = (steps: RuleStep[], pointer: number): RuleStep[] => steps
 const getStepColorCells = (step?: RuleStep): string[] =>
   step?.diffs.flatMap((diff) => (diff.kind === 'cell' && diff.toFill !== null ? [diff.cellKey] : [])) ?? []
 
+const getStepColorTiles = (step?: RuleStep): string[] =>
+  step?.diffs.flatMap((diff) => (diff.kind === 'tile' && diff.toFill !== null ? [diff.tileKey] : [])) ?? []
+
 const yieldToBrowser = (): Promise<void> => new Promise((resolve) => globalThis.setTimeout(resolve, 0))
 
 const clampPointer = (pointer: number, stepsLength: number): number => {
@@ -243,6 +247,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   pointer: 0,
   highlightedCells: [],
   highlightedColorCells: [],
+  highlightedColorTiles: [],
   highlightedEdges: [],
   highlightedLines: [],
   isRunning: false,
@@ -267,6 +272,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       pointer: 0,
       highlightedCells: [],
       highlightedColorCells: [],
+      highlightedColorTiles: [],
       highlightedEdges: [],
       highlightedLines: [],
       solveProgress: null,
@@ -317,6 +323,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
                 terminalReport: report,
                 highlightedCells: [],
                 highlightedColorCells: [],
+                highlightedColorTiles: [],
                 highlightedEdges: [],
                 highlightedLines: [],
               }
@@ -341,6 +348,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       pointer: nextSteps.length,
       highlightedCells: step.affectedCells,
       highlightedColorCells: getStepColorCells(step),
+      highlightedColorTiles: getStepColorTiles(step),
       highlightedEdges: step.affectedEdges,
       highlightedLines: step.affectedLines ?? [],
       terminalReport: null,
@@ -360,6 +368,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       pointer: nextPointer,
       highlightedCells: currentStep?.affectedCells ?? [],
       highlightedColorCells: getStepColorCells(currentStep),
+      highlightedColorTiles: getStepColorTiles(currentStep),
       highlightedEdges: currentStep?.affectedEdges ?? [],
       highlightedLines: currentStep?.affectedLines ?? [],
       terminalReport: null,
@@ -384,6 +393,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       pointer: nextPointer,
       highlightedCells: currentStep?.affectedCells ?? [],
       highlightedColorCells: getStepColorCells(currentStep),
+      highlightedColorTiles: getStepColorTiles(currentStep),
       highlightedEdges: currentStep?.affectedEdges ?? [],
       highlightedLines: currentStep?.affectedLines ?? [],
       terminalReport: null,
@@ -427,6 +437,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       pointer: 0,
       highlightedCells: [],
       highlightedColorCells: [],
+      highlightedColorTiles: [],
       highlightedEdges: [],
       highlightedLines: [],
       solveProgress: null,

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { cellKey, lineKey } from '../../ir/keys'
+import { cellKey, lineKey, tileKey } from '../../ir/keys'
 import { createMasyuPuzzle } from '../../ir/masyu'
 import type { LineMark, PuzzleIR } from '../../ir/types'
 import { runNextRule } from '../engine'
 import { masyuPlugin } from '../../plugins/masyuPlugin'
 import { createBlackPearlCandidatePruningRule } from './rules/candidates'
+import { createMasyuTileColorPropagationRule } from './rules/color'
 import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
 import {
@@ -391,6 +392,7 @@ describe('Masyu pearl rules', () => {
       'Black Diagonal White Pinch',
       'Consecutive White Pearls Straight',
       'Double Black Squeeze',
+      'Masyu Tile Color Propagation',
       'Prevent Premature Loop',
       'Black Pearl Candidate Pruning',
       'Pearl Completion',
@@ -408,6 +410,78 @@ describe('Masyu pearl rules', () => {
 })
 
 describe('Masyu loop rules', () => {
+  it('Masyu Tile Color Propagation seeds boundary tiles yellow', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const result = createMasyuTileColorPropagationRule().apply(puzzle)
+    const fills = new Map(
+      (result?.diffs ?? []).flatMap((diff) =>
+        diff.kind === 'tile' ? [[diff.tileKey, diff.toFill] as const] : [],
+      ),
+    )
+
+    expect(fills.size).toBe(8)
+    for (let row = 0; row <= 2; row += 1) {
+      for (let col = 0; col <= 2; col += 1) {
+        const key = tileKey(row, col)
+        if (row === 1 && col === 1) {
+          expect(fills.has(key)).toBe(false)
+        } else {
+          expect(fills.get(key)).toBe('yellow')
+        }
+      }
+    }
+  })
+
+  it('Masyu Tile Color Propagation carries color through blank lines', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'blank')
+
+    const result = createMasyuTileColorPropagationRule().apply(puzzle)
+
+    expect(result?.diffs).toContainEqual({
+      kind: 'tile',
+      tileKey: tileKey(1, 1),
+      fromFill: null,
+      toFill: 'yellow',
+    })
+  })
+
+  it('Masyu Tile Color Propagation flips color across line segments', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+
+    const result = createMasyuTileColorPropagationRule().apply(puzzle)
+
+    expect(result?.diffs).toContainEqual({
+      kind: 'tile',
+      tileKey: tileKey(1, 1),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('Masyu Tile Color Propagation uses existing tile color anchors', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+    puzzle.tiles[tileKey(1, 1)] = { fill: 'green' }
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'blank')
+
+    const result = createMasyuTileColorPropagationRule().apply(puzzle)
+
+    expect(result?.diffs).toContainEqual({
+      kind: 'tile',
+      tileKey: tileKey(1, 2),
+      fromFill: null,
+      toFill: 'green',
+    })
+  })
+
+  it('registers Masyu tile color propagation before premature loop prevention', () => {
+    const rules = masyuPlugin.getRules().map((rule) => rule.id)
+
+    expect(rules).toContain('masyu-tile-color-propagation')
+    expect(rules.indexOf('masyu-tile-color-propagation')).toBeLessThan(rules.indexOf('masyu-prevent-premature-loop'))
+  })
+
   it('Prevent Premature Loop blanks a line that would close a smaller loop while other lines remain outside', () => {
     const puzzle = createMasyuPuzzle(4, 4)
     markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')

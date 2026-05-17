@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { cellKey, edgeKey, lineKey } from '../domain/ir/keys'
+import { cellKey, edgeKey, lineKey, tileKey } from '../domain/ir/keys'
 import { createMasyuPuzzle } from '../domain/ir/masyu'
 import { createSlitherPuzzle } from '../domain/ir/slither'
 import type { EdgeMark, PuzzleIR } from '../domain/ir/types'
@@ -582,6 +582,48 @@ describe('WorkspacePage', () => {
     expect(labels).toContain('R2')
     expect(labels).toContain('C1')
     expect(labels).toContain('C4')
+  })
+
+  it('draws Masyu tile colors on the solver board', () => {
+    const fillRect = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      {
+        clearRect: () => {},
+        save: () => {},
+        restore: () => {},
+        scale: () => {},
+        fillRect,
+        beginPath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        stroke: () => {},
+        strokeRect: () => {},
+        fillText: () => {},
+        arc: () => {},
+        fill: () => {},
+        setLineDash: () => {},
+      } as unknown as CanvasRenderingContext2D,
+    )
+    const puzzle = createMasyuPuzzle(2, 2)
+    puzzle.tiles[tileKey(1, 1)] = { fill: 'green' }
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps: [],
+      pointer: 0,
+      highlightedEdges: [],
+      highlightedCells: [],
+      highlightedColorCells: [],
+      highlightedColorTiles: [],
+      solveProgress: null,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+
+    expect(fillRect).toHaveBeenCalledWith(74, 74, 52, 52)
   })
 
   it('toggles reasoning steps between recent 30 and all entries from the header', () => {

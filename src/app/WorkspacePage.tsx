@@ -16,6 +16,7 @@ export const WorkspacePage = () => {
     pointer,
     highlightedCells,
     highlightedColorCells,
+    highlightedColorTiles,
     highlightedEdges,
     highlightedLines,
     includeVertexNumbers,
@@ -47,6 +48,7 @@ export const WorkspacePage = () => {
             pluginId={pluginId}
             highlightedCells={highlightedCells}
             highlightedColorCells={highlightedColorCells}
+            highlightedColorTiles={highlightedColorTiles}
             highlightedEdges={highlightedEdges}
             highlightedLines={highlightedLines}
             showVertexNumbers={includeVertexNumbers}

@@ -77,6 +77,7 @@ export const emptyDiffCounts = (): RuleTraceDiffCounts => ({
   line: 0,
   sector: 0,
   cell: 0,
+  tile: 0,
   vertex: 0,
 })
 
@@ -260,6 +261,7 @@ export const createTraceStatsCache = (initialPuzzle: PuzzleIR): TraceStatsCache 
       line: [0],
       sector: [0],
       cell: [0],
+      tile: [0],
       vertex: [0],
     },
   }
@@ -275,6 +277,7 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
   let lineDiffs = 0
   let sectorDiffs = 0
   let cellDiffs = 0
+  let tileDiffs = 0
   let vertexDiffs = 0
 
   for (const diff of step.diffs) {
@@ -305,6 +308,8 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
         next.filledCellCount -= 1
       }
       next.cellFills[diff.cellKey] = diff.toFill
+    } else if (diff.kind === 'tile') {
+      tileDiffs += 1
     } else if (diff.kind === 'vertex') {
       vertexDiffs += 1
       const signature = vertexSignature(diff.toCandidates)
@@ -349,6 +354,7 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
   next.diffPrefixCounts.line.push(next.diffPrefixCounts.line[next.diffPrefixCounts.line.length - 1] + lineDiffs)
   next.diffPrefixCounts.sector.push(next.diffPrefixCounts.sector[next.diffPrefixCounts.sector.length - 1] + sectorDiffs)
   next.diffPrefixCounts.cell.push(next.diffPrefixCounts.cell[next.diffPrefixCounts.cell.length - 1] + cellDiffs)
+  next.diffPrefixCounts.tile.push(next.diffPrefixCounts.tile[next.diffPrefixCounts.tile.length - 1] + tileDiffs)
   next.diffPrefixCounts.vertex.push(next.diffPrefixCounts.vertex[next.diffPrefixCounts.vertex.length - 1] + vertexDiffs)
   next.points.push(makeChartPoint(stepNumber, next))
 
@@ -415,6 +421,7 @@ export const buildTraceStatsView = (
       line: cache.diffPrefixCounts.line[currentPointer] ?? 0,
       sector: cache.diffPrefixCounts.sector[currentPointer] ?? 0,
       cell: cache.diffPrefixCounts.cell[currentPointer] ?? 0,
+      tile: cache.diffPrefixCounts.tile[currentPointer] ?? 0,
       vertex: cache.diffPrefixCounts.vertex[currentPointer] ?? 0,
     },
     ruleUsage,
@@ -482,6 +489,8 @@ export const buildTraceChartStats = (
         edgeMarks[diff.kind === 'edge' ? diff.edgeKey : diff.lineKey] = diff.to
       } else if (diff.kind === 'cell') {
         cellFills[diff.cellKey] = diff.toFill
+      } else if (diff.kind === 'tile') {
+        continue
       } else if (diff.kind === 'vertex') {
         vertexCandidates[diff.vertexKey] = diff.toCandidates.map((candidate) => [...candidate])
       }

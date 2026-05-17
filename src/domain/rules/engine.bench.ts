@@ -73,6 +73,17 @@ const applyDiffsWithJsonClone = () => {
       }
       continue
     }
+    if (diff.kind === 'tile') {
+      if (!next.tiles[diff.tileKey]) {
+        next.tiles[diff.tileKey] = {}
+      }
+      if (diff.toFill === null) {
+        delete next.tiles[diff.tileKey].fill
+      } else {
+        next.tiles[diff.tileKey].fill = diff.toFill
+      }
+      continue
+    }
     if (!next.cells[diff.cellKey]) {
       next.cells[diff.cellKey] = {}
     }
