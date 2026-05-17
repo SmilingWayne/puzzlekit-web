@@ -1,6 +1,7 @@
 import { parseLineKey, parseTileKey, tileKey } from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
+import { buildMasyuLineDiffs, formatMasyuLineLabel } from './shared'
 
 export type MasyuTileColor = 'green' | 'yellow'
 
@@ -23,7 +24,7 @@ const applyParity = (color: MasyuTileColor, parity: Parity): MasyuTileColor =>
 const isBoundaryTile = (puzzle: PuzzleIR, row: number, col: number): boolean =>
   row === 0 || row === puzzle.rows || col === 0 || col === puzzle.cols
 
-const getMasyuLineTileRelation = (
+export const getMasyuLineTileRelation = (
   puzzle: PuzzleIR,
   lineKeyValue: string,
 ): { leftTile: string; rightTile: string } | null => {
@@ -52,6 +53,56 @@ const getMasyuLineTileRelation = (
   }
   return null
 }
+
+export const createMasyuColorLinePropagationRule = (): Rule => ({
+  id: 'masyu-color-line-propagation',
+  name: 'Masyu Color-Line Propagation',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const decisions = new Map<string, LineMark>()
+    const affectedLines = new Set<string>()
+    const affectedTiles = new Set<string>()
+    let firstReason: string | null = null
+
+    for (const [lineKeyValue, lineState] of Object.entries(puzzle.lines ?? {})) {
+      if ((lineState?.mark ?? 'unknown') !== 'unknown') {
+        continue
+      }
+
+      const relation = getMasyuLineTileRelation(puzzle, lineKeyValue)
+      if (!relation) {
+        continue
+      }
+
+      const leftColor = puzzle.tiles[relation.leftTile]?.fill
+      const rightColor = puzzle.tiles[relation.rightTile]?.fill
+      if (!isMasyuTileColor(leftColor) || !isMasyuTileColor(rightColor)) {
+        continue
+      }
+
+      const to: LineMark = leftColor === rightColor ? 'blank' : 'line'
+      decisions.set(lineKeyValue, to)
+      affectedLines.add(lineKeyValue)
+      affectedTiles.add(relation.leftTile)
+      affectedTiles.add(relation.rightTile)
+      firstReason ??=
+        to === 'line'
+          ? `${formatMasyuTileKeyLabel(relation.leftTile)} and ${formatMasyuTileKeyLabel(relation.rightTile)} have different colors, so ${formatMasyuLineLabel(lineKeyValue)} must be a line`
+          : `${formatMasyuTileKeyLabel(relation.leftTile)} and ${formatMasyuTileKeyLabel(relation.rightTile)} have the same color, so ${formatMasyuLineLabel(lineKeyValue)} must be crossed out`
+    }
+
+    if (decisions.size === 0) {
+      return null
+    }
+
+    return {
+      message: `${firstReason ?? 'Known Masyu tile colors decide separating line marks'} (${decisions.size} line update(s)).`,
+      diffs: buildMasyuLineDiffs(decisions, puzzle),
+      affectedCells: [],
+      affectedLines: [...affectedLines],
+      affectedTiles: [...affectedTiles],
+    }
+  },
+})
 
 export const createMasyuTileColorPropagationRule = (): Rule => ({
   id: 'masyu-tile-color-propagation',

@@ -5,7 +5,7 @@ import type { LineMark, PuzzleIR } from '../../ir/types'
 import { runNextRule } from '../engine'
 import { masyuPlugin } from '../../plugins/masyuPlugin'
 import { createBlackPearlCandidatePruningRule } from './rules/candidates'
-import { createMasyuTileColorPropagationRule } from './rules/color'
+import { createMasyuColorLinePropagationRule, createMasyuTileColorPropagationRule } from './rules/color'
 import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
 import {
@@ -393,6 +393,7 @@ describe('Masyu pearl rules', () => {
       'Consecutive White Pearls Straight',
       'Double Black Squeeze',
       'Masyu Tile Color Propagation',
+      'Masyu Color-Line Propagation',
       'Prevent Premature Loop',
       'Black Pearl Candidate Pruning',
       'Pearl Completion',
@@ -475,11 +476,62 @@ describe('Masyu loop rules', () => {
     })
   })
 
-  it('registers Masyu tile color propagation before premature loop prevention', () => {
+  it('Masyu Color-Line Propagation forces a line between different adjacent tile colors', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+    const targetLine = lineKey([1, 1], [1, 2])
+    puzzle.tiles[tileKey(1, 2)] = { fill: 'green' }
+    puzzle.tiles[tileKey(2, 2)] = { fill: 'yellow' }
+
+    const result = createMasyuColorLinePropagationRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [targetLine]: 'line' })
+    expect(result?.affectedLines).toEqual([targetLine])
+    expect(result?.affectedTiles).toEqual([tileKey(1, 2), tileKey(2, 2)])
+    expect(result?.message).toContain('different colors')
+  })
+
+  it('Masyu Color-Line Propagation crosses a line between same adjacent tile colors', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+    const targetLine = lineKey([1, 1], [2, 1])
+    puzzle.tiles[tileKey(2, 1)] = { fill: 'yellow' }
+    puzzle.tiles[tileKey(2, 2)] = { fill: 'yellow' }
+
+    const result = createMasyuColorLinePropagationRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [targetLine]: 'blank' })
+    expect(result?.message).toContain('same color')
+  })
+
+  it('Masyu Color-Line Propagation uses boundary tile colors beside edge-adjacent lines', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const targetLine = lineKey([0, 0], [0, 1])
+    puzzle.tiles[tileKey(0, 1)] = { fill: 'yellow' }
+    puzzle.tiles[tileKey(1, 1)] = { fill: 'green' }
+
+    const result = createMasyuColorLinePropagationRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [targetLine]: 'line' })
+  })
+
+  it('Masyu Color-Line Propagation does not overwrite an already decided line', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+    const targetLine = lineKey([1, 1], [1, 2])
+    puzzle.tiles[tileKey(1, 2)] = { fill: 'green' }
+    puzzle.tiles[tileKey(2, 2)] = { fill: 'yellow' }
+    markLine(puzzle, targetLine, 'blank')
+
+    expect(createMasyuColorLinePropagationRule().apply(puzzle)).toBeNull()
+  })
+
+  it('registers Masyu color propagation before premature loop prevention', () => {
     const rules = masyuPlugin.getRules().map((rule) => rule.id)
 
     expect(rules).toContain('masyu-tile-color-propagation')
-    expect(rules.indexOf('masyu-tile-color-propagation')).toBeLessThan(rules.indexOf('masyu-prevent-premature-loop'))
+    expect(rules).toContain('masyu-color-line-propagation')
+    expect(rules.indexOf('masyu-color-line-propagation')).toBe(rules.indexOf('masyu-tile-color-propagation') + 1)
+    expect(rules.indexOf('masyu-color-line-propagation')).toBeLessThan(
+      rules.indexOf('masyu-prevent-premature-loop'),
+    )
   })
 
   it('Prevent Premature Loop blanks a line that would close a smaller loop while other lines remain outside', () => {
@@ -703,11 +755,11 @@ describe('Masyu black pearl candidate pruning', () => {
       puzzle = result.nextPuzzle
     }
 
-    expect(pruningStep?.affectedCells).toEqual([cellKey(1, 4)])
+    expect(pruningStep?.affectedCells).toEqual([cellKey(1, 6)])
     expectLineDiffs(pruningStep?.diffs, {
-      [lineKey([1, 3], [1, 4])]: 'line',
-      [lineKey([1, 2], [1, 3])]: 'line',
-      [lineKey([1, 4], [1, 5])]: 'blank',
+      [lineKey([1, 6], [1, 7])]: 'line',
+      [lineKey([1, 7], [1, 8])]: 'line',
+      [lineKey([1, 5], [1, 6])]: 'blank',
     })
   })
 

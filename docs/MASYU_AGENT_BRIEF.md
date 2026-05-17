@@ -38,10 +38,11 @@ Registered rule order:
 5. `Consecutive White Pearls Straight`
 6. `Double Black Squeeze`
 7. `Masyu Tile Color Propagation`
-8. `Prevent Premature Loop`
-9. `Black Pearl Candidate Pruning`
-10. `Pearl Completion`
-11. `Cell Completion`
+8. `Masyu Color-Line Propagation`
+9. `Prevent Premature Loop`
+10. `Black Pearl Candidate Pruning`
+11. `Pearl Completion`
+12. `Cell Completion`
 
 Implemented rule areas:
 
@@ -54,6 +55,8 @@ Implemented rule areas:
   - boundary tiles are `yellow` / outside;
   - known `blank` lines imply same-color adjacent tiles;
   - known `line` lines imply opposite-color adjacent tiles;
+  - same-color adjacent tiles imply a `blank` Masyu line;
+  - opposite-color adjacent tiles imply a `line` Masyu line;
   - tile fills are replay-safe via `TileDiff`;
   - Masyu tile colors render on the board as full-size vertex-centered tiles.
 
@@ -79,21 +82,17 @@ Replay and rendering plumbing:
 
 ## Current Development Direction
 
-Near-term Masyu work should focus on making tile color useful beyond coloring:
+Near-term Masyu work should focus on making tile color useful beyond local propagation:
 
-1. Add Masyu Color-Line Propagation:
-   - adjacent tiles same color => separating Masyu line is `blank`;
-   - adjacent tiles opposite color => separating Masyu line is `line`.
-
-2. Add tile connectivity reasoning:
+1. Add tile connectivity reasoning:
    - outside/yellow should remain connected to boundary;
    - inside/green should remain connected when known green sources exist;
    - adapt Slither color cut/reachability ideas to the Masyu tile graph.
 
-3. Add pearl-local color implications:
+2. Add pearl-local color implications:
    - migrate selected Puzzlink in/out tricks only when they can be explained as small Masyu tile parity rules.
 
-4. Keep rule granularity small:
+3. Keep rule granularity small:
    - one reasoning idea per rule;
    - explicit diffs;
    - concise explanation message;
