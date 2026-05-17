@@ -1,46 +1,37 @@
 # Masyu
 
-Current implementation location:
+Masyu is a loop puzzle with black and white pearls. The final answer is one continuous loop that passes through every pearl.
 
-- IR factory: `src/domain/ir/masyu.ts`
-- puzz.link decoder: `src/domain/parsers/puzzlink/masyuPuzzlink.ts`
-- Plugin: `src/domain/plugins/masyuPlugin.ts`
-- Board rendering branch: `src/features/board/CanvasBoard.tsx`
-- Change log: `docs/MASYU_CHANGELOG.md`
-- Encoding reference: `docs/MASYU_ENCODE_METHOD.md`
-- Strategy reference: `docs/MASYU_ASSIST_STRATEGIES_CN.md`
+This page is a short user-facing technique note. AI agents and developers should start from `docs/MASYU_AGENT_BRIEF.md` instead.
 
-Current model:
+## Core Rules
 
-- `PuzzleIR.lines` is the canonical center-to-center loop decision state.
-- `PuzzleIR.edges` remains Slitherlink-style vertex-to-vertex grid-edge state.
-- `PuzzleIR.tiles` is reserved for future vertex-centered coloring units.
-- Pearl clues are stored on cells as
-  `Clue { kind: "pearl"; color: "white" | "black" }`.
-- Masyu line keys use cell coordinates:
-  `lineKey([row, col], [neighborRow, neighborCol])`.
+- The loop travels between cell centers and never branches.
+- Every pearl is visited by the loop.
+- A white pearl is passed through straight, and the loop must turn in at least one adjacent cell before or after it.
+- A black pearl is turned on, and the loop must go straight for at least one cell before and after the turn.
+- The final loop must be a single loop, not several disconnected loops or an early small loop.
 
-Implemented so far:
+## PuzzleKit Model
 
-- Import from `puzz.link` Masyu-family URLs: `masyu`, `mashu`, and `pearl`.
-- Render dashed inner grid, thick outer border, pearls, center lines, and
-  crosses.
-- Replay and trace stats understand `LineDiff`.
+PuzzleKit represents Masyu with a center-line model:
 
-Not implemented yet:
+- `PuzzleIR.lines` stores the Masyu loop decisions.
+- `PuzzleIR.cells` stores pearl clues.
+- `PuzzleIR.tiles` stores vertex-centered inside/outside colors used by Masyu coloring rules.
+- `PuzzleIR.edges` is Slitherlink state and is not the Masyu loop model.
 
-- Deterministic Masyu solving rules.
-- Masyu editor, dataset flow, completion analysis, and URL export.
-- Masyu-specific Live Stats labels and rich legend examples.
+## Current Support
 
-Next rule-development direction:
+- Import from Masyu-family `puzz.link` URLs.
+- Render pearls, center-to-center loop segments, crosses, and tile colors.
+- Replay deterministic solving steps with explanations.
+- Analyze completion for a single valid loop and satisfied pearl constraints.
+- Apply local pearl rules, selected local patterns, premature-loop prevention, candidate pruning, completion rules, and Masyu tile-color propagation.
 
-- Use `docs/MASYU_ASSIST_STRATEGIES_CN.md` as the main source for Masyu solving
-  strategies.
-- Start with generic single-loop-in-cell rules: degree 2, no dead ends, forced
-  two exits, and premature loop prevention.
-- Then add pearl-local rules:
-  - Black pearl turn-and-straight constraints.
-  - White pearl straight-and-turn-nearby constraints.
-- Keep each rule deterministic, explainable, small, and covered by focused
-  tests.
+## Developer Pointers
+
+- Start here for Masyu development: `docs/MASYU_AGENT_BRIEF.md`
+- Current rule taxonomy: `docs/MASYU_RULE_ABSTRACTIONS.md`
+- Original strategy research: `docs/MASYU_ASSIST_STRATEGIES_CN.md`
+- Historical implementation notes: `docs/MASYU_CHANGELOG.md`
