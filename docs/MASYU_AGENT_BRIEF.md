@@ -5,10 +5,9 @@ This is the lightweight starting point for AI agents working on Masyu in PuzzleK
 ## Read-On-Demand Route
 
 - Implement a Masyu rule: read this brief, then inspect the relevant `src/domain/rules/masyu/*` files.
-- Research Puzzlink Assistance strategy: also read `docs/MASYU_ASSIST_STRATEGIES_CN.md`.
-- Design a new rule family: also read `docs/MASYU_RULE_ABSTRACTIONS.md`.
-- Check historical context: also read `docs/MASYU_CHANGELOG.md`.
+- Refactor or design Masyu rules: also read `docs/MASYU_RULE_ROADMAP.md`.
 - Change plugin, IR, replay, stats, or app-wide architecture: also read `docs/PROJECT_GUIDE_EN.md`.
+- User-facing Masyu rules/help wording lives in `docs/techniques/masyu.md`.
 
 ## Current State
 
@@ -92,12 +91,21 @@ Replay and rendering plumbing:
 
 ## Current Development Direction
 
-Near-term Masyu work should focus on making tile color useful beyond connectivity coloring:
+Near-term Masyu work should focus on reducing rule bloat before adding more
+large deductions:
 
-1. Add pearl-local color implications:
-   - migrate selected Puzzlink in/out tricks only when they can be explained as small Masyu tile parity rules.
+1. Consolidate repeated rule primitives:
+   - line/tile decision collection;
+   - pearl selection and candidate modeling;
+   - line graph helpers;
+   - tile parity graph helpers.
 
-2. Keep rule granularity small:
+2. Use the shared primitives to add missing deterministic strength:
+   - white pearl candidate pruning;
+   - pearl-local tile color implications;
+   - candidate graph articulation improvements.
+
+3. Keep rule granularity small:
    - one reasoning idea per rule;
    - explicit diffs;
    - concise explanation message;
@@ -123,18 +131,15 @@ pnpm build
 
 ## When To Read More
 
-Read `docs/MASYU_RULE_ABSTRACTIONS.md` when designing a new rule family or checking intended rule taxonomy.
-
-Read `docs/MASYU_ASSIST_STRATEGIES_CN.md` only when tracing a deduction back to Puzzlink Assistance. It is research/provenance, not the implementation source of truth.
-
-Read `docs/MASYU_CHANGELOG.md` only when historical context matters.
+Read `docs/MASYU_RULE_ROADMAP.md` when refactoring existing Masyu rules, designing
+new rule families, or checking the intended candidate/color/graph direction.
 
 Read `docs/PROJECT_GUIDE_EN.md` when changing plugin contracts, IR conventions, replay, stats, or app-wide architecture.
 
 ## Maintenance Rules
 
 - Update this brief whenever rule order, canonical state, or next development direction changes.
-- Keep this brief current, not historical. Move history to `docs/MASYU_CHANGELOG.md`.
+- Keep this brief current, not historical. Use git history for old implementation notes.
 - Keep this brief short enough that it can be pasted into an AI context without drowning the actual task.
 - Prefer links and routing over duplicating long explanations.
 

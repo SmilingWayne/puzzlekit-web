@@ -1,39 +1,34 @@
 # Slitherlink
 
-Current implementation location:
+Slitherlink is a loop puzzle played on a grid of dots. The final answer is one
+continuous loop drawn along grid edges.
 
-- Rule aggregator: `src/domain/rules/slither/rules.ts`
-- Rule modules: `src/domain/rules/slither/rules/`
-- Completion analysis: `src/domain/rules/slither/completion.ts`
-- Tests: `src/domain/rules/slither/rules.test.ts`
+## Core Rules
 
-Current rule organization:
+- The loop never branches or crosses itself.
+- Every grid vertex touched by the loop has exactly two used edges.
+- A numbered cell tells how many of its four surrounding edges are part of the
+  loop.
+- Empty cells have no direct number clue, but they still obey the single-loop
+  rules.
+- The final loop must be one connected loop, not several smaller loops.
 
-- `patterns.ts`: clue pattern rules, such as contiguous 3-runs and diagonal
-  adjacent 3s.
-- `core.ts`: generic Slitherlink constraints, including clue edge counts,
-  vertex degree, and premature loop prevention.
-- `color.ts`: cell color seeding and propagation.
-- `sectorInference.ts`: corner-sector inference from local edge, vertex, and
-  cell evidence.
-- `sectorPropagation.ts`: sector-to-sector and sector-to-edge propagation.
-- `colorAssumptionInference.ts`: conservative color-branch contradiction
-  inference.
-- `sectorParityInference.ts`: conservative sector-parity contradiction
-  inference.
-- `strongInference.ts`: conservative branch-based contradiction inference.
-- `shared.ts`: reusable geometry, clue, color, and mask helpers.
+## PuzzleKit Model
 
-Important Slitherlink model note:
+PuzzleKit represents Slitherlink with a grid-edge model:
 
-- Sector state is a bitmask of allowed corner line counts `{0,1,2}`.
-- Sector diffs use `fromMask -> toMask`.
-- Rule semantics narrow masks by intersection and then propagate strict masks.
-- Do not revert sectors to old single-label semantics.
+- `PuzzleIR.edges` stores line and cross decisions.
+- `PuzzleIR.cells` stores numbered clues.
+- `PuzzleIR.sectors` stores corner-sector constraints used by advanced
+  reasoning.
+- `PuzzleIR.vertices` stores vertex candidate information.
 
-Branch inference note:
+## Current Support
 
-- Branch-based rules should not self-reference the exported `slitherRules`
-  array.
-- Use dependency injection, for example
-  `createStrongInferenceRule(() => deterministicSlitherRules)`.
+- Import from `puzz.link` Slitherlink URLs and Penpa inputs.
+- Create and edit Slitherlink puzzles in the editor.
+- Render clues, lines, crosses, colors, sectors, and solver highlights.
+- Replay deterministic and conservative branch-based solving steps with
+  explanations.
+- Analyze completion for one valid loop satisfying all numbered clues.
+

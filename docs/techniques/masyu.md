@@ -2,8 +2,6 @@
 
 Masyu is a loop puzzle with black and white pearls. The final answer is one continuous loop that passes through every pearl.
 
-This page is a short user-facing technique note. AI agents and developers should start from `docs/MASYU_AGENT_BRIEF.md` instead.
-
 ## Core Rules
 
 - The loop travels between cell centers and never branches.
@@ -28,10 +26,3 @@ PuzzleKit represents Masyu with a center-line model:
 - Replay deterministic solving steps with explanations.
 - Analyze completion for a single valid loop and satisfied pearl constraints.
 - Apply local pearl rules, selected local patterns, premature-loop prevention, candidate pruning, completion rules, and Masyu tile-color propagation.
-
-## Developer Pointers
-
-- Start here for Masyu development: `docs/MASYU_AGENT_BRIEF.md`
-- Current rule taxonomy: `docs/MASYU_RULE_ABSTRACTIONS.md`
-- Original strategy research: `docs/MASYU_ASSIST_STRATEGIES_CN.md`
-- Historical implementation notes: `docs/MASYU_CHANGELOG.md`

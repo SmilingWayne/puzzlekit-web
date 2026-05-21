@@ -79,8 +79,10 @@ Current families:
 
 - Slitherlink: parser, renderer, editor, rules, stats, completion analysis, and
   export support are implemented.
-- Masyu: puzz.link import, IR, renderer, stats, help, and replay plumbing are
-  implemented; solving rules and export are still planned.
+- Masyu: puzz.link import, IR, renderer, stats, help, replay plumbing,
+  completion analysis, deterministic solving rules, bounded strong inference,
+  and tile-color topology support are implemented. Editor, dataset flow, and
+  URL export remain future work.
 - Nonogram: visible as a planned plugin stub.
 
 ## 5. IR And Diff Conventions
@@ -94,8 +96,8 @@ Important state buckets:
 - `edges`: Slitherlink-style vertex-to-vertex grid-edge decisions.
 - `lines`: Masyu-style cell-center-to-cell-center line decisions.
 - `sectors`: Slitherlink corner-sector constraints.
-- `tiles`: future vertex-centered coloring units, currently introduced for
-  Masyu.
+- `tiles`: vertex-centered coloring units currently used by Masyu
+  inside/outside reasoning.
 - `vertices`: vertex candidate state for Slitherlink inference.
 
 `RuleDiff` is the replay contract. If a rule mutates a new IR bucket, add a diff
@@ -115,8 +117,8 @@ technique notes instead:
 - `docs/techniques/masyu.md`
 - `docs/techniques/slitherlink.md`
 
-That file points to the current Slitherlink rule modules, the Masyu changelog,
-the Masyu URL encoding reference, and the Masyu strategy research document:
+For implementation-oriented Masyu rule work, start with
+`docs/MASYU_AGENT_BRIEF.md` and then `docs/MASYU_RULE_ROADMAP.md`.
 
 
 ## 7. Benchmark And Dataset Flow
@@ -172,7 +174,10 @@ Implemented:
 - Masyu IR support through `lines`, `tiles`, and pearl clues.
 - Masyu solver-board rendering for dashed grids, pearls, center lines, and
   crosses.
-- Replay support for both edge diffs and line diffs.
+- Masyu deterministic solving rules, completion analysis, tile-color
+  propagation, candidate bridge reasoning, black-pearl pruning, and bounded
+  strong inference.
+- Replay support for edge, line, and tile diffs.
 - Live Stats trace cache for step-prefix summaries, chart progress, and rule
   usage.
 - Public/private benchmark manifest workflow.
@@ -180,8 +185,7 @@ Implemented:
 
 Planned or partial:
 
-- Masyu deterministic solving rules.
-- Masyu editor, dataset flow, completion analysis, and URL export.
+- Masyu editor, dataset flow, and URL export.
 - Nonogram parser, renderer, editor, and rules.
 - Puzzle-specific Live Stats wording beyond the current shared labels.
 - Penpa adapter/export completeness.
@@ -197,13 +201,13 @@ If you are an AI agent onboarding this repository, read in this order:
 4. `src/domain/plugins/types.ts`
 5. `src/domain/plugins/registry.ts`
 6. `src/features/solver/solverStore.ts`
-7. `docs/techniques/PUZZLE_TECHNIQUES_EN.md` for puzzle-specific rule work
+7. The relevant puzzle note in `docs/techniques/` for user-facing rules/help
 
 For targeted work:
 
 - Slitherlink rules: start at `src/domain/rules/slither/rules.ts`.
-- Masyu import/display: start at `docs/MASYU_CHANGELOG.md`.
-- Masyu future rules: start at `docs/MASYU_ASSIST_STRATEGIES_CN.md`.
+- Masyu rules: start at `docs/MASYU_AGENT_BRIEF.md`, then read
+  `docs/MASYU_RULE_ROADMAP.md` for refactor direction.
 - Editor/UI work: inspect the relevant `src/features/*` component and page test.
 - Benchmark work: read `src/domain/benchmark/runner.ts` and
   `scripts/benchmark-solve.ts`.
