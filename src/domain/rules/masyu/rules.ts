@@ -24,6 +24,7 @@ import {
   createDoubleBlackSqueezeRule,
 } from './rules/patterns'
 import { createBlackCircleRule, createWhiteCircleRule } from './rules/pearls'
+import { createWhitePearlStrongInferenceRule } from './rules/whitePearlStrongInference'
 
 export const deterministicMasyuRules: Rule[] = [
   createWhiteCircleRule(),
@@ -48,4 +49,5 @@ export const deterministicMasyuRules: Rule[] = [
 export const masyuRules: Rule[] = [
   ...deterministicMasyuRules,
   createBlackPearlStrongInferenceRule(() => deterministicMasyuRules),
+  createWhitePearlStrongInferenceRule(() => deterministicMasyuRules),
 ]
