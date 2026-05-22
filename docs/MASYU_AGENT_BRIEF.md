@@ -44,9 +44,10 @@ Registered rule order:
 12. `Prevent Premature Loop`
 13. `Black Pearl Candidate Pruning`
 14. `White Pearl Candidate Pruning`
-15. `Pearl Completion`
-16. `Cell Completion`
-17. `Black Pearl Strong Inference`
+15. `Adjacent White Pearls LookAhead`
+16. `Pearl Completion`
+17. `Cell Completion`
+18. `Black Pearl Strong Inference`
 
 Implemented rule areas:
 
@@ -55,6 +56,7 @@ Implemented rule areas:
 - Premature loop prevention over `PuzzleIR.lines`.
 - Black pearl candidate pruning with shallow feasibility checks.
 - White pearl candidate pruning with the same shared pearl-candidate model.
+- Adjacent white pearl lookahead pruning for the two local joint traversal modes.
 - Black pearl strong inference with bounded trial propagation that crosses out an exit when that exit's two-step assumption leads to a hard contradiction.
 - Completion rules for pearl and non-pearl cells.
 - Tile color propagation:
@@ -104,10 +106,16 @@ large deductions:
 
 2. Use the shared primitives to add missing deterministic strength:
    - white pearl candidate pruning;
+   - structured assumption inference for white pearl axes and named white-pearl patterns;
    - pearl-local tile color implications;
    - candidate graph articulation improvements.
 
-3. Keep rule granularity small:
+3. Keep assumption inference explainable:
+   - prefer named candidate sources such as a pearl axis, adjacent white pair, or tile-color component;
+   - avoid unbounded tree search in the default solver;
+   - use contradiction or common-conclusion explanations for branch-based steps.
+
+4. Keep rule granularity small:
    - one reasoning idea per rule;
    - explicit diffs;
    - concise explanation message;

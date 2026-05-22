@@ -2,6 +2,7 @@ import type { Rule } from '../types'
 import { createBlackPearlStrongInferenceRule } from './rules/blackPearlStrongInference'
 import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
 import {
+  createAdjacentWhitePearlsLookaheadRule,
   createBlackPearlCandidatePruningRule,
   createWhitePearlCandidatePruningRule,
 } from './rules/candidates'
@@ -39,6 +40,7 @@ export const deterministicMasyuRules: Rule[] = [
   createPreventPrematureLoopRule(),
   createBlackPearlCandidatePruningRule(),
   createWhitePearlCandidatePruningRule(),
+  createAdjacentWhitePearlsLookaheadRule(),
   createPearlCompletionRule(),
   createCellCompletionRule(),
 ]

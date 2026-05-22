@@ -17,6 +17,8 @@ the current rule strategy smaller and easier to extend:
 - separate rule semantics by reasoning idea;
 - give white pearls the same candidate-model treatment black pearls already
   have;
+- generalize strong inference so it can test named white-pearl and color
+  candidates, not only black-pearl exits;
 - make tile color useful through small pearl-local parity rules;
 - keep every rule replay-safe and explainable.
 
@@ -107,7 +109,31 @@ Use this model for:
 - trial feasibility checks;
 - common consequence extraction across all feasible candidates.
 
-### 4. Line Graph Helpers
+### 4. Structured Assumption Inference
+
+Generalize the current black-pearl strong inference into a small assumption
+runner. Candidate sources should be typed and explainable rather than arbitrary
+unknown lines.
+
+Good candidate sources:
+
+- a black-pearl exit;
+- a single white pearl axis;
+- a named local white-pearl pattern, such as adjacent white pearls;
+- a tile-color component with two possible colors.
+
+Supported outcomes:
+
+- contradiction: one branch fails, so its assumption is rejected;
+- forced alternative: one branch fails and the opposite branch gives a direct
+  line or tile decision;
+- common conclusion: every surviving branch produces the same unknown line or
+  tile decision.
+
+Default strong inference should stay bounded by candidate count, trial steps,
+and wall-clock time. Avoid unbounded tree search in the normal rule stack.
+
+### 5. Line Graph Helpers
 
 Centralize graph operations over `PuzzleIR.lines`:
 
@@ -122,7 +148,7 @@ Centralize graph operations over `PuzzleIR.lines`:
 `Masyu Candidate Bridge Line` and `Prevent Premature Loop` should eventually use
 the same graph vocabulary.
 
-### 5. Tile Parity Graph
+### 6. Tile Parity Graph
 
 Centralize tile inside/outside parity:
 
@@ -162,16 +188,32 @@ deduction has a short explanation and focused tests.
 
 Highest leverage additions:
 
-1. White pearl candidate pruning.
-2. Black pearl local tile-color implications.
-3. White pearl candidate color implications when all feasible axes imply the
+1. White pearl axis candidate pruning.
+2. White pearl strong inference using the structured assumption runner.
+3. Named white-pearl pattern inference, starting with adjacent white pairs.
+4. Black pearl local tile-color implications.
+5. White pearl candidate color implications when all feasible axes imply the
    same tile relation.
-4. Candidate graph articulation reasoning beyond single bridge edges.
-5. A Masyu `NoChecker`-style tile parity inference only if it can be stated in
+6. Candidate graph articulation reasoning beyond single bridge edges.
+7. A Masyu `NoChecker`-style tile parity inference only if it can be stated in
    vertex-centered tile terms and returned as explicit diffs.
 
 Avoid broad monolithic "assistance script" ports. Convert outside research into
 small line, pearl-candidate, graph, or tile-parity rules.
+
+## Search Boundary
+
+PuzzleKit should not become a default backtracking solver. The acceptable middle
+ground is bounded, typed, explainable search:
+
+- do not guess arbitrary unknown lines in the default rule stack;
+- do generate small candidate sets from a named structure;
+- do explain branch results as contradiction, forced alternative, or common
+  conclusion;
+- do keep budgets low enough that replay remains responsive and deterministic.
+
+If a puzzle still stalls, prefer adding a new named candidate source or
+deterministic technique before adding deeper generic search.
 
 ## Test Plan
 
@@ -203,11 +245,12 @@ New tests should be fixture-sized and grouped by behavior:
 - line graph helpers: premature closures, bridge lines, articulation cells,
   required-source connectivity;
 - trial inference: hard contradictions should match deterministic feasibility
-  semantics.
+  semantics;
+- structured assumptions: black exits, white axes, adjacent white-pair patterns,
+  and common-conclusion branches.
 
 ## Working Rule
 
 If this roadmap disagrees with current code, trust current code and update the
 roadmap. Keep this file current and compact; use git history for historical
 detail.
-

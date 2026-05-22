@@ -26,6 +26,10 @@ export type MasyuLookaheadContext = {
     overlay: MasyuLineOverlay,
     key: string,
   ) => MasyuDirectionalLine[]
+  isOverlayLocallyFeasible: (
+    centerKeys: Iterable<string>,
+    overlay: MasyuLineOverlay,
+  ) => boolean
   getFeasibleBlackPearlCandidates: (pearlKey: string) => BlackPearlCandidate[]
   getFeasibleWhitePearlCandidates: (pearlKey: string) => WhitePearlCandidate[]
 }
@@ -195,10 +199,12 @@ export const createMasyuLookaheadContext = (
 
   const areAffectedPearlsStillPossible = (
     overlay: MasyuLineOverlay,
-    centerKey: string,
+    centerKeys: Iterable<string>,
   ): boolean => {
     const affected = geometry.getAffectedPearls(overlay)
-    affected.add(centerKey)
+    for (const centerKey of centerKeys) {
+      affected.add(centerKey)
+    }
     for (const key of affected) {
       const color = geometry.pearlColors.get(key)
       if (!color) {
@@ -274,6 +280,44 @@ export const createMasyuLookaheadContext = (
     )
   }
 
+  const hasPrematureLoopFromOverlay = (overlay: MasyuLineOverlay): boolean => {
+    const assumedLineEndpoints: Array<[left: number, right: number]> = []
+    for (const [lineKeyValue, mark] of overlay.entries()) {
+      if (mark !== 'line') {
+        continue
+      }
+      if ((puzzle.lines[lineKeyValue]?.mark ?? 'unknown') === 'line') {
+        continue
+      }
+      assumedLineEndpoints.push(geometry.lineEndpoints(lineKeyValue))
+    }
+    return (
+      assumedLineEndpoints.length > 0 &&
+      wouldCreatePrematureLoop(assumedLineEndpoints)
+    )
+  }
+
+  const isOverlayLocallyFeasible = (
+    centerKeys: Iterable<string>,
+    overlay: MasyuLineOverlay,
+  ): boolean => {
+    if (!isOverlayConsistentWithPuzzle(overlay)) {
+      return false
+    }
+    for (const key of geometry.getTouchedCells(overlay.keys())) {
+      if (
+        !isCellDegreeValid(overlay, key) ||
+        !isPearlShapeStillPossible(overlay, key)
+      ) {
+        return false
+      }
+    }
+    if (hasPrematureLoopFromOverlay(overlay)) {
+      return false
+    }
+    return areAffectedPearlsStillPossible(overlay, centerKeys)
+  }
+
   const isBlackPearlCandidateFeasible = (
     pearlKey: string,
     candidate: BlackPearlCandidate,
@@ -296,7 +340,7 @@ export const createMasyuLookaheadContext = (
     if (hasPrematureLoopFromCandidate(candidate)) {
       return false
     }
-    return areAffectedPearlsStillPossible(overlay, pearlKey)
+    return areAffectedPearlsStillPossible(overlay, [pearlKey])
   }
 
   const getFeasibleBlackPearlCandidates = (
@@ -334,7 +378,7 @@ export const createMasyuLookaheadContext = (
     ) {
       return false
     }
-    return areAffectedPearlsStillPossible(overlay, pearlKey)
+    return areAffectedPearlsStillPossible(overlay, [pearlKey])
   }
 
   const getFeasibleWhitePearlCandidates = (
@@ -363,6 +407,7 @@ export const createMasyuLookaheadContext = (
     getBlackPearlKeys: () => geometry.blackPearlKeys,
     getWhitePearlKeys: () => geometry.whitePearlKeys,
     getIncidentEntries: geometry.getIncidentEntries,
+    isOverlayLocallyFeasible,
     getFeasibleBlackPearlCandidates,
     getFeasibleWhitePearlCandidates,
   }

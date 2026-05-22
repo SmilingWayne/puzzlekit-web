@@ -8,6 +8,7 @@ import { masyuPlugin } from '../../plugins/masyuPlugin'
 import { createBlackPearlStrongInferenceRule } from './rules/blackPearlStrongInference'
 import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
 import {
+  createAdjacentWhitePearlsLookaheadRule,
   createBlackPearlCandidatePruningRule,
   createWhitePearlCandidatePruningRule,
 } from './rules/candidates'
@@ -481,6 +482,7 @@ describe('Masyu pearl rules', () => {
       'Prevent Premature Loop',
       'Black Pearl Candidate Pruning',
       'White Pearl Candidate Pruning',
+      'Adjacent White Pearls LookAhead',
       'Pearl Completion',
       'Cell Completion',
       'Black Pearl Strong Inference',
@@ -812,7 +814,10 @@ describe('Masyu loop rules', () => {
     expect(rules.indexOf('masyu-white-pearl-candidate-pruning')).toBe(
       rules.indexOf('masyu-black-pearl-candidate-pruning') + 1,
     )
-    expect(rules.indexOf('masyu-white-pearl-candidate-pruning')).toBeLessThan(
+    expect(rules.indexOf('masyu-adjacent-white-pearls-lookahead')).toBe(
+      rules.indexOf('masyu-white-pearl-candidate-pruning') + 1,
+    )
+    expect(rules.indexOf('masyu-adjacent-white-pearls-lookahead')).toBeLessThan(
       rules.indexOf('pearl-completion'),
     )
   })
@@ -1139,6 +1144,112 @@ describe('Masyu white pearl candidate pruning', () => {
     addPearl(puzzle, 2, 2, 'white')
 
     expect(createWhitePearlCandidatePruningRule().apply(puzzle)).toBeNull()
+  })
+})
+
+describe('Masyu adjacent white pearls lookahead', () => {
+  it('keeps parallel paths for horizontal white pearls when through is impossible', () => {
+    const puzzle = createMasyuPuzzle(5, 6)
+    addPearl(puzzle, 2, 2, 'white')
+    addPearl(puzzle, 2, 3, 'white')
+    markLine(puzzle, lineKey([2, 1], [2, 2]), 'blank')
+    markLine(puzzle, lineKey([2, 3], [2, 4]), 'blank')
+
+    const result = createAdjacentWhitePearlsLookaheadRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([1, 2], [2, 2])]: 'line',
+      [lineKey([2, 2], [3, 2])]: 'line',
+      [lineKey([1, 3], [2, 3])]: 'line',
+      [lineKey([2, 3], [3, 3])]: 'line',
+      [lineKey([2, 2], [2, 3])]: 'blank',
+    })
+    expect(result?.affectedCells).toEqual([cellKey(2, 2), cellKey(2, 3)])
+    expect(result?.message).toContain('parallel')
+  })
+
+  it('keeps one horizontal through-line when parallel is impossible', () => {
+    const puzzle = createMasyuPuzzle(5, 6)
+    addPearl(puzzle, 2, 2, 'white')
+    addPearl(puzzle, 2, 3, 'white')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'blank')
+    markLine(puzzle, lineKey([1, 3], [2, 3]), 'blank')
+
+    const result = createAdjacentWhitePearlsLookaheadRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([2, 2], [2, 3])]: 'line',
+      [lineKey([2, 1], [2, 2])]: 'line',
+      [lineKey([2, 3], [2, 4])]: 'line',
+      [lineKey([2, 2], [3, 2])]: 'blank',
+      [lineKey([2, 3], [3, 3])]: 'blank',
+    })
+    expect(result?.message).toContain('one straight line')
+  })
+
+  it('keeps parallel paths for vertical white pearls when through is impossible', () => {
+    const puzzle = createMasyuPuzzle(6, 5)
+    addPearl(puzzle, 2, 2, 'white')
+    addPearl(puzzle, 3, 2, 'white')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'blank')
+    markLine(puzzle, lineKey([3, 2], [4, 2]), 'blank')
+
+    const result = createAdjacentWhitePearlsLookaheadRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([2, 1], [2, 2])]: 'line',
+      [lineKey([2, 2], [2, 3])]: 'line',
+      [lineKey([3, 1], [3, 2])]: 'line',
+      [lineKey([3, 2], [3, 3])]: 'line',
+      [lineKey([2, 2], [3, 2])]: 'blank',
+    })
+  })
+
+  it('keeps one vertical through-line when parallel is impossible', () => {
+    const puzzle = createMasyuPuzzle(6, 5)
+    addPearl(puzzle, 2, 2, 'white')
+    addPearl(puzzle, 3, 2, 'white')
+    markLine(puzzle, lineKey([2, 1], [2, 2]), 'blank')
+    markLine(puzzle, lineKey([3, 1], [3, 2]), 'blank')
+
+    const result = createAdjacentWhitePearlsLookaheadRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([2, 2], [3, 2])]: 'line',
+      [lineKey([1, 2], [2, 2])]: 'line',
+      [lineKey([3, 2], [4, 2])]: 'line',
+      [lineKey([2, 2], [2, 3])]: 'blank',
+      [lineKey([3, 2], [3, 3])]: 'blank',
+    })
+  })
+
+  it('does nothing when both adjacent-white patterns remain feasible', () => {
+    const puzzle = createMasyuPuzzle(5, 6)
+    addPearl(puzzle, 2, 2, 'white')
+    addPearl(puzzle, 2, 3, 'white')
+
+    expect(createAdjacentWhitePearlsLookaheadRule().apply(puzzle)).toBeNull()
+  })
+
+  it('does nothing when both adjacent-white patterns are impossible', () => {
+    const puzzle = createMasyuPuzzle(5, 6)
+    addPearl(puzzle, 2, 2, 'white')
+    addPearl(puzzle, 2, 3, 'white')
+    markLine(puzzle, lineKey([2, 1], [2, 2]), 'blank')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'blank')
+
+    expect(createAdjacentWhitePearlsLookaheadRule().apply(puzzle)).toBeNull()
+  })
+
+  it('does not force the remaining adjacent-white pattern through a degree-2 cell', () => {
+    const puzzle = createMasyuPuzzle(5, 6)
+    addPearl(puzzle, 2, 2, 'white')
+    addPearl(puzzle, 2, 3, 'white')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'blank')
+    markLine(puzzle, lineKey([2, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([2, 1], [3, 1]), 'line')
+
+    expect(createAdjacentWhitePearlsLookaheadRule().apply(puzzle)).toBeNull()
   })
 })
 
