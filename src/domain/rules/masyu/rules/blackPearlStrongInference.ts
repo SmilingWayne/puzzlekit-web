@@ -6,6 +6,7 @@ import {
   runMasyuTrialUntilFixpoint,
   type MasyuTrialResult,
 } from './trial'
+import { getMasyuBlackPearlKeys } from './pearlSelectors'
 import {
   formatMasyuCellKeyLabel,
   formatMasyuLineLabel,
@@ -49,12 +50,17 @@ const deriveProbeBudgets = (maxTrialSteps: number): number[] => {
 }
 
 const isUndecidedBlackPearl = (puzzle: PuzzleIR, pearlKey: string): boolean =>
-  Object.values(getMasyuIncidentDirectionalLines(puzzle, pearlKey)).some((line) => line?.mark === 'unknown')
+  Object.values(getMasyuIncidentDirectionalLines(puzzle, pearlKey)).some(
+    (line) => line?.mark === 'unknown',
+  )
 
-const collectBlackPearlExitCandidates = (puzzle: PuzzleIR, maxCandidates: number): BlackPearlExitCandidate[] => {
+const collectBlackPearlExitCandidates = (
+  puzzle: PuzzleIR,
+  maxCandidates: number,
+): BlackPearlExitCandidate[] => {
   const candidates: BlackPearlExitCandidate[] = []
-  for (const [pearlKey, cell] of Object.entries(puzzle.cells)) {
-    if (cell.clue?.kind !== 'pearl' || cell.clue.color !== 'black' || !isUndecidedBlackPearl(puzzle, pearlKey)) {
+  for (const pearlKey of getMasyuBlackPearlKeys(puzzle)) {
+    if (!isUndecidedBlackPearl(puzzle, pearlKey)) {
       continue
     }
     for (const direction of MASYU_DIRECTIONS) {
@@ -62,7 +68,11 @@ const collectBlackPearlExitCandidates = (puzzle: PuzzleIR, maxCandidates: number
       if (!first || !second || first.mark !== 'unknown') {
         continue
       }
-      const opposite = getMasyuDirectionalLine(puzzle, pearlKey, oppositeMasyuDirection(direction))
+      const opposite = getMasyuDirectionalLine(
+        puzzle,
+        pearlKey,
+        oppositeMasyuDirection(direction),
+      )
       candidates.push({
         pearlKey,
         direction,
@@ -78,7 +88,10 @@ const collectBlackPearlExitCandidates = (puzzle: PuzzleIR, maxCandidates: number
   return candidates
 }
 
-const buildBranch = (puzzle: PuzzleIR, candidate: BlackPearlExitCandidate): StrongBranch => {
+const buildBranch = (
+  puzzle: PuzzleIR,
+  candidate: BlackPearlExitCandidate,
+): StrongBranch => {
   const branch = clonePuzzle(puzzle)
   const assumptions: Array<[lineKey: string, mark: 'line' | 'blank']> = [
     [candidate.firstLine, 'line'],
@@ -94,7 +107,9 @@ const buildBranch = (puzzle: PuzzleIR, candidate: BlackPearlExitCandidate): Stro
   }
 
   const setupDescription = assumptions
-    .map(([lineKeyValue, mark]) => `${formatMasyuLineLabel(lineKeyValue)} ${mark}`)
+    .map(
+      ([lineKeyValue, mark]) => `${formatMasyuLineLabel(lineKeyValue)} ${mark}`,
+    )
     .join(', ')
 
   return { puzzle: branch, setupOk, setupDescription }
@@ -109,7 +124,8 @@ const immediateContradictionResult = (puzzle: PuzzleIR): MasyuTrialResult => ({
   elapsedMs: 0,
   contradictionReason: {
     kind: 'line-assumption',
-    message: 'line-assumption contradiction: this exit assumption conflicts with an already decided Masyu line',
+    message:
+      'line-assumption contradiction: this exit assumption conflicts with an already decided Masyu line',
   },
 })
 
@@ -133,13 +149,18 @@ export const createBlackPearlStrongInferenceRule = (
   name: 'Black Pearl Strong Inference',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const deterministicRules = getDeterministicRules()
-    const candidates = collectBlackPearlExitCandidates(puzzle, options.maxCandidates ?? STRONG_MAX_CANDIDATES)
+    const candidates = collectBlackPearlExitCandidates(
+      puzzle,
+      options.maxCandidates ?? STRONG_MAX_CANDIDATES,
+    )
     if (candidates.length === 0) {
       return null
     }
 
     const deadlineMs = Date.now() + (options.maxMs ?? STRONG_MAX_MS)
-    const budgets = deriveProbeBudgets(options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS)
+    const budgets = deriveProbeBudgets(
+      options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
+    )
     for (const budget of budgets) {
       for (const candidate of candidates) {
         if (Date.now() > deadlineMs) {
@@ -148,7 +169,12 @@ export const createBlackPearlStrongInferenceRule = (
 
         const branch = buildBranch(puzzle, candidate)
         const result = branch.setupOk
-          ? runMasyuTrialUntilFixpoint(branch.puzzle, deterministicRules, budget, deadlineMs)
+          ? runMasyuTrialUntilFixpoint(
+              branch.puzzle,
+              deterministicRules,
+              budget,
+              deadlineMs,
+            )
           : immediateContradictionResult(branch.puzzle)
         if (result.timedOut) {
           return null
@@ -156,7 +182,9 @@ export const createBlackPearlStrongInferenceRule = (
         if (!result.contradiction) {
           continue
         }
-        if ((puzzle.lines[candidate.firstLine]?.mark ?? 'unknown') !== 'unknown') {
+        if (
+          (puzzle.lines[candidate.firstLine]?.mark ?? 'unknown') !== 'unknown'
+        ) {
           continue
         }
 

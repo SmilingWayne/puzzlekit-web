@@ -1,8 +1,9 @@
-import { cellKey, parseLineKey, tileKey } from '../../../ir/keys'
+import { cellKey, parseLineKey } from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
 import { runNextRule } from '../../engine'
 import type { Rule } from '../../types'
-import { getMasyuLineTileRelation, isMasyuTileColor } from './color'
+import { getMasyuKnownLineComponents } from './lineGraph'
+import { buildMasyuTileParityGraph } from './tileParity'
 import {
   areMasyuDirectionsOpposite,
   areMasyuDirectionsTurn,
@@ -36,9 +37,11 @@ export type MasyuTrialResult = {
   contradictionReason?: MasyuTrialContradictionReason
 }
 
-type Parity = 0 | 1
-
-export const applyMasyuLineAssumption = (puzzle: PuzzleIR, lineKeyValue: string, to: LineMark): boolean => {
+export const applyMasyuLineAssumption = (
+  puzzle: PuzzleIR,
+  lineKeyValue: string,
+  to: LineMark,
+): boolean => {
   const current = puzzle.lines[lineKeyValue]?.mark ?? 'unknown'
   if (current !== 'unknown') {
     return current === to
@@ -47,15 +50,23 @@ export const applyMasyuLineAssumption = (puzzle: PuzzleIR, lineKeyValue: string,
   return true
 }
 
-const getLineDirectionsAtCell = (puzzle: PuzzleIR, key: string): MasyuDirection[] =>
-  Object.values(getMasyuIncidentDirectionalLines(puzzle, key)).flatMap((item) =>
-    item && item.mark === 'line' ? [item.direction] : [],
+const getLineDirectionsAtCell = (
+  puzzle: PuzzleIR,
+  key: string,
+): MasyuDirection[] =>
+  Object.values(getMasyuIncidentDirectionalLines(puzzle, key)).flatMap(
+    (item) => (item && item.mark === 'line' ? [item.direction] : []),
   )
 
-const getIncidentCounts = (puzzle: PuzzleIR, key: string): { lineCount: number; unknownCount: number } => {
+const getIncidentCounts = (
+  puzzle: PuzzleIR,
+  key: string,
+): { lineCount: number; unknownCount: number } => {
   let lineCount = 0
   let unknownCount = 0
-  for (const item of Object.values(getMasyuIncidentDirectionalLines(puzzle, key))) {
+  for (const item of Object.values(
+    getMasyuIncidentDirectionalLines(puzzle, key),
+  )) {
     if (!item) {
       continue
     }
@@ -68,7 +79,9 @@ const getIncidentCounts = (puzzle: PuzzleIR, key: string): { lineCount: number; 
   return { lineCount, unknownCount }
 }
 
-const detectCellDegreeContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionReason | null => {
+const detectCellDegreeContradiction = (
+  puzzle: PuzzleIR,
+): MasyuTrialContradictionReason | null => {
   for (let row = 0; row < puzzle.rows; row += 1) {
     for (let col = 0; col < puzzle.cols; col += 1) {
       const key = cellKey(row, col)
@@ -90,7 +103,10 @@ const detectCellDegreeContradiction = (puzzle: PuzzleIR): MasyuTrialContradictio
   return null
 }
 
-const canLineStillBeLine = (puzzle: PuzzleIR, lineKeyValue: string): boolean => {
+const canLineStillBeLine = (
+  puzzle: PuzzleIR,
+  lineKeyValue: string,
+): boolean => {
   const current = puzzle.lines[lineKeyValue]?.mark ?? 'unknown'
   if (current === 'blank') {
     return false
@@ -99,7 +115,9 @@ const canLineStillBeLine = (puzzle: PuzzleIR, lineKeyValue: string): boolean => 
     return true
   }
   const [left, right] = parseLineKey(lineKeyValue)
-  return [left, right].every(([row, col]) => getIncidentCounts(puzzle, cellKey(row, col)).lineCount < 2)
+  return [left, right].every(
+    ([row, col]) => getIncidentCounts(puzzle, cellKey(row, col)).lineCount < 2,
+  )
 }
 
 const canBlackPearlStillWork = (puzzle: PuzzleIR, key: string): boolean => {
@@ -124,7 +142,12 @@ const canBlackPearlStillWork = (puzzle: PuzzleIR, key: string): boolean => {
     }
     for (const direction of [leftDirection, rightDirection]) {
       const { first, second } = getMasyuTwoStepLine(puzzle, key, direction)
-      if (!first || !second || !canLineStillBeLine(puzzle, first.lineKey) || !canLineStillBeLine(puzzle, second.lineKey)) {
+      if (
+        !first ||
+        !second ||
+        !canLineStillBeLine(puzzle, first.lineKey) ||
+        !canLineStillBeLine(puzzle, second.lineKey)
+      ) {
         return false
       }
     }
@@ -141,17 +164,25 @@ const canBlackPearlStillWork = (puzzle: PuzzleIR, key: string): boolean => {
   })
 }
 
-const canWhiteSideStillTurn = (puzzle: PuzzleIR, key: string, direction: MasyuDirection): boolean => {
+const canWhiteSideStillTurn = (
+  puzzle: PuzzleIR,
+  key: string,
+  direction: MasyuDirection,
+): boolean => {
   const first = getMasyuDirectionalLine(puzzle, key, direction)
   if (!first || !canLineStillBeLine(puzzle, first.lineKey)) {
     return false
   }
-  const straightContinuation = getMasyuDirectionalLine(puzzle, first.neighborKey, direction)
+  const straightContinuation = getMasyuDirectionalLine(
+    puzzle,
+    first.neighborKey,
+    direction,
+  )
   if (straightContinuation?.mark === 'line') {
     return false
   }
-  return getMasyuTurnCandidateLines(puzzle, first.neighborKey, direction).some((turn) =>
-    canLineStillBeLine(puzzle, turn.lineKey),
+  return getMasyuTurnCandidateLines(puzzle, first.neighborKey, direction).some(
+    (turn) => canLineStillBeLine(puzzle, turn.lineKey),
   )
 }
 
@@ -187,11 +218,16 @@ const canWhitePearlStillWork = (puzzle: PuzzleIR, key: string): boolean => {
         return false
       }
     }
-    return canWhiteSideStillTurn(puzzle, key, leftDirection) || canWhiteSideStillTurn(puzzle, key, rightDirection)
+    return (
+      canWhiteSideStillTurn(puzzle, key, leftDirection) ||
+      canWhiteSideStillTurn(puzzle, key, rightDirection)
+    )
   })
 }
 
-const detectPearlContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionReason | null => {
+const detectPearlContradiction = (
+  puzzle: PuzzleIR,
+): MasyuTrialContradictionReason | null => {
   for (const [key, cell] of Object.entries(puzzle.cells)) {
     if (cell.clue?.kind !== 'pearl') {
       continue
@@ -201,14 +237,21 @@ const detectPearlContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionReas
       if (
         cell.clue.color === 'black' &&
         (!areMasyuDirectionsTurn(lineDirections[0], lineDirections[1]) ||
-          !lineDirections.every((direction) => getMasyuTwoStepLine(puzzle, key, direction).second?.mark !== 'blank'))
+          !lineDirections.every(
+            (direction) =>
+              getMasyuTwoStepLine(puzzle, key, direction).second?.mark !==
+              'blank',
+          ))
       ) {
         return {
           kind: 'pearl-shape',
           message: `pearl-shape contradiction at ${formatMasyuCellKeyLabel(key)}: a black pearl must turn and continue straight after both exits`,
         }
       }
-      if (cell.clue.color === 'white' && !areMasyuDirectionsOpposite(lineDirections[0], lineDirections[1])) {
+      if (
+        cell.clue.color === 'white' &&
+        !areMasyuDirectionsOpposite(lineDirections[0], lineDirections[1])
+      ) {
         return {
           kind: 'pearl-shape',
           message: `pearl-shape contradiction at ${formatMasyuCellKeyLabel(key)}: a white pearl must go straight through`,
@@ -217,7 +260,9 @@ const detectPearlContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionReas
     }
 
     const possible =
-      cell.clue.color === 'black' ? canBlackPearlStillWork(puzzle, key) : canWhitePearlStillWork(puzzle, key)
+      cell.clue.color === 'black'
+        ? canBlackPearlStillWork(puzzle, key)
+        : canWhitePearlStillWork(puzzle, key)
     if (!possible) {
       return {
         kind: 'pearl-shape',
@@ -228,71 +273,40 @@ const detectPearlContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionReas
   return null
 }
 
-const detectLineLoopContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionReason | null => {
-  const lineEntries = Object.entries(puzzle.lines).filter(([, line]) => (line?.mark ?? 'unknown') === 'line')
-  if (lineEntries.length === 0) {
+const detectLineLoopContradiction = (
+  puzzle: PuzzleIR,
+): MasyuTrialContradictionReason | null => {
+  const lineCount = Object.values(puzzle.lines).filter(
+    (line) => (line?.mark ?? 'unknown') === 'line',
+  ).length
+  if (lineCount === 0) {
     return null
   }
 
-  const cellCount = puzzle.rows * puzzle.cols
-  const parent = Array.from({ length: cellCount }, (_, idx) => idx)
-  const rank = new Array<number>(cellCount).fill(0)
   const degree = new Map<number, number>()
-  const toCellIndex = (row: number, col: number): number => row * puzzle.cols + col
-  const find = (idx: number): number => {
-    if (parent[idx] !== idx) {
-      parent[idx] = find(parent[idx])
-    }
-    return parent[idx]
-  }
-  const union = (left: number, right: number): void => {
-    const rootLeft = find(left)
-    const rootRight = find(right)
-    if (rootLeft === rootRight) {
-      return
-    }
-    if (rank[rootLeft] < rank[rootRight]) {
-      parent[rootLeft] = rootRight
-    } else if (rank[rootLeft] > rank[rootRight]) {
-      parent[rootRight] = rootLeft
-    } else {
-      parent[rootRight] = rootLeft
-      rank[rootLeft] += 1
-    }
-  }
+  const toCellIndex = (row: number, col: number): number =>
+    row * puzzle.cols + col
 
-  for (const [lineKeyValue] of lineEntries) {
+  for (const [lineKeyValue, line] of Object.entries(puzzle.lines)) {
+    if ((line?.mark ?? 'unknown') !== 'line') {
+      continue
+    }
     const [left, right] = parseLineKey(lineKeyValue)
     const leftIdx = toCellIndex(left[0], left[1])
     const rightIdx = toCellIndex(right[0], right[1])
-    union(leftIdx, rightIdx)
     degree.set(leftIdx, (degree.get(leftIdx) ?? 0) + 1)
     degree.set(rightIdx, (degree.get(rightIdx) ?? 0) + 1)
   }
 
-  const componentEdgeCount = new Map<number, number>()
-  const componentCells = new Map<number, Set<number>>()
-  for (const [lineKeyValue] of lineEntries) {
-    const [left, right] = parseLineKey(lineKeyValue)
-    const leftIdx = toCellIndex(left[0], left[1])
-    const rightIdx = toCellIndex(right[0], right[1])
-    const root = find(leftIdx)
-    componentEdgeCount.set(root, (componentEdgeCount.get(root) ?? 0) + 1)
-    const cells = componentCells.get(root) ?? new Set<number>()
-    cells.add(leftIdx)
-    cells.add(rightIdx)
-    componentCells.set(root, cells)
-  }
-
   let closedLoopCount = 0
   let closedLoopLines = 0
-  for (const [root, cells] of componentCells.entries()) {
-    const edgeCount = componentEdgeCount.get(root) ?? 0
-    if (edgeCount !== cells.size) {
+  for (const component of getMasyuKnownLineComponents(puzzle)) {
+    const { edgeCount, vertices } = component
+    if (edgeCount !== vertices.size) {
       continue
     }
     let allDegreeTwo = true
-    for (const cell of cells) {
+    for (const cell of vertices) {
       if ((degree.get(cell) ?? 0) !== 2) {
         allDegreeTwo = false
         break
@@ -305,7 +319,10 @@ const detectLineLoopContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionR
     closedLoopLines += edgeCount
   }
 
-  if (closedLoopCount > 1 || (closedLoopCount === 1 && closedLoopLines < lineEntries.length)) {
+  if (
+    closedLoopCount > 1 ||
+    (closedLoopCount === 1 && closedLoopLines < lineCount)
+  ) {
     return {
       kind: 'line-loop',
       message:
@@ -317,118 +334,25 @@ const detectLineLoopContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionR
   return null
 }
 
-const detectTileColorContradiction = (puzzle: PuzzleIR): MasyuTrialContradictionReason | null => {
-  const parent = new Map<string, string>()
-  const rank = new Map<string, number>()
-  const parityToParent = new Map<string, Parity>()
-
-  const ensure = (key: string): void => {
-    if (parent.has(key)) {
-      return
-    }
-    parent.set(key, key)
-    rank.set(key, 0)
-    parityToParent.set(key, 0)
-  }
-  const find = (key: string): { root: string; parity: Parity } => {
-    ensure(key)
-    const currentParent = parent.get(key)
-    if (currentParent === undefined || currentParent === key) {
-      return { root: key, parity: 0 }
-    }
-    const found = find(currentParent)
-    const parity = ((parityToParent.get(key) ?? 0) ^ found.parity) as Parity
-    parent.set(key, found.root)
-    parityToParent.set(key, parity)
-    return { root: found.root, parity }
-  }
-  const union = (left: string, right: string, relation: Parity, source: string): MasyuTrialContradictionReason | null => {
-    const leftRoot = find(left)
-    const rightRoot = find(right)
-    if (leftRoot.root === rightRoot.root) {
-      if ((leftRoot.parity ^ rightRoot.parity) !== relation) {
-        return {
-          kind: 'tile-color',
-          message: `tile-color contradiction at ${formatMasyuLineLabel(source)}: line/tile parity requirements conflict`,
-        }
-      }
-      return null
-    }
-    const mergedParity = (leftRoot.parity ^ rightRoot.parity ^ relation) as Parity
-    const leftRank = rank.get(leftRoot.root) ?? 0
-    const rightRank = rank.get(rightRoot.root) ?? 0
-    if (leftRank < rightRank) {
-      parent.set(leftRoot.root, rightRoot.root)
-      parityToParent.set(leftRoot.root, mergedParity)
-    } else {
-      parent.set(rightRoot.root, leftRoot.root)
-      parityToParent.set(rightRoot.root, mergedParity)
-      if (leftRank === rightRank) {
-        rank.set(leftRoot.root, leftRank + 1)
-      }
-    }
+const detectTileColorContradiction = (
+  puzzle: PuzzleIR,
+): MasyuTrialContradictionReason | null => {
+  const conflict = buildMasyuTileParityGraph(puzzle).firstConflict
+  if (!conflict) {
     return null
   }
-
-  for (let row = 0; row <= puzzle.rows; row += 1) {
-    for (let col = 0; col <= puzzle.cols; col += 1) {
-      ensure(tileKey(row, col))
-    }
+  return {
+    kind: 'tile-color',
+    message:
+      conflict.kind === 'relation'
+        ? `tile-color contradiction at ${formatMasyuLineLabel(conflict.source)}: ${conflict.message}`
+        : `tile-color contradiction at ${conflict.source}: ${conflict.message}`,
   }
-
-  for (const [lineKeyValue, line] of Object.entries(puzzle.lines)) {
-    const mark = line?.mark ?? 'unknown'
-    if (mark !== 'line' && mark !== 'blank') {
-      continue
-    }
-    const relation = getMasyuLineTileRelation(puzzle, lineKeyValue)
-    if (!relation) {
-      continue
-    }
-    const contradiction = union(relation.leftTile, relation.rightTile, mark === 'line' ? 1 : 0, lineKeyValue)
-    if (contradiction) {
-      return contradiction
-    }
-  }
-
-  const anchoredRootColors = new Map<string, 'green' | 'yellow'>()
-  const rememberAnchor = (key: string, color: 'green' | 'yellow'): MasyuTrialContradictionReason | null => {
-    const { root, parity } = find(key)
-    const rootColor = (parity === 0 ? color : color === 'green' ? 'yellow' : 'green') as 'green' | 'yellow'
-    const current = anchoredRootColors.get(root)
-    if (current !== undefined && current !== rootColor) {
-      return {
-        kind: 'tile-color',
-        message: `tile-color contradiction at ${key}: fixed Masyu tile colors require both ${current} and ${rootColor}`,
-      }
-    }
-    anchoredRootColors.set(root, rootColor)
-    return null
-  }
-
-  for (let row = 0; row <= puzzle.rows; row += 1) {
-    for (let col = 0; col <= puzzle.cols; col += 1) {
-      if (row === 0 || row === puzzle.rows || col === 0 || col === puzzle.cols) {
-        const contradiction = rememberAnchor(tileKey(row, col), 'yellow')
-        if (contradiction) {
-          return contradiction
-        }
-      }
-    }
-  }
-  for (const [key, tile] of Object.entries(puzzle.tiles ?? {})) {
-    if (!isMasyuTileColor(tile.fill)) {
-      continue
-    }
-    const contradiction = rememberAnchor(key, tile.fill)
-    if (contradiction) {
-      return contradiction
-    }
-  }
-  return null
 }
 
-export const findMasyuHardContradictionReason = (puzzle: PuzzleIR): MasyuTrialContradictionReason | null =>
+export const findMasyuHardContradictionReason = (
+  puzzle: PuzzleIR,
+): MasyuTrialContradictionReason | null =>
   detectCellDegreeContradiction(puzzle) ??
   detectPearlContradiction(puzzle) ??
   detectLineLoopContradiction(puzzle) ??
@@ -466,7 +390,11 @@ export const runMasyuTrialUntilFixpoint = (
         elapsedMs: Math.max(0, performance.now() - startedAt),
       }
     }
-    const { nextPuzzle, step } = runNextRule(trial, deterministicRules, stepNumber)
+    const { nextPuzzle, step } = runNextRule(
+      trial,
+      deterministicRules,
+      stepNumber,
+    )
     if (!step) {
       const contradictionReason = findMasyuHardContradictionReason(trial)
       return {

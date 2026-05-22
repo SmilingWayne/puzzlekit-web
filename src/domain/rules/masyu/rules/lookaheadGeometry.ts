@@ -9,32 +9,53 @@ import {
   type MasyuDirectionalLine,
   type MasyuTwoStepLine,
 } from './shared'
-import type { MasyuLineOverlay } from './loop'
+import type { MasyuLineOverlay } from './lineGraph'
 
 type PearlColor = 'white' | 'black'
 
 export type MasyuLookaheadGeometry = {
   blackPearlKeys: string[]
+  whitePearlKeys: string[]
   pearlColors: Map<string, PearlColor>
   baseLineCounts: Map<number, number>
   totalBaseLineCount: number
   findBase: (idx: number) => number
   lineEndpoints: (lineKeyValue: string) => [left: number, right: number]
-  getIncident: (key: string) => Record<MasyuDirection, MasyuDirectionalLine | null>
+  getIncident: (
+    key: string,
+  ) => Record<MasyuDirection, MasyuDirectionalLine | null>
   getTwoStep: (key: string, direction: MasyuDirection) => MasyuTwoStepLine
-  getTurnCandidates: (key: string, throughDirection: MasyuDirection) => MasyuDirectionalLine[]
+  getTurnCandidates: (
+    key: string,
+    throughDirection: MasyuDirection,
+  ) => MasyuDirectionalLine[]
   getLineMark: (overlay: MasyuLineOverlay, key: string) => LineMark
-  getIncidentEntries: (overlay: MasyuLineOverlay, key: string) => MasyuDirectionalLine[]
+  getIncidentEntries: (
+    overlay: MasyuLineOverlay,
+    key: string,
+  ) => MasyuDirectionalLine[]
   getTouchedCells: (lineKeys: Iterable<string>) => Set<string>
   getAffectedPearls: (overlay: MasyuLineOverlay) => Set<string>
 }
 
-export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGeometry => {
+export const createMasyuLookaheadGeometry = (
+  puzzle: PuzzleIR,
+): MasyuLookaheadGeometry => {
   const blackPearlKeys: string[] = []
+  const whitePearlKeys: string[] = []
   const pearlColors = new Map<string, PearlColor>()
-  const incidentCache = new Map<string, Record<MasyuDirection, MasyuDirectionalLine | null>>()
-  const twoStepCache = new Map<string, Record<MasyuDirection, MasyuTwoStepLine>>()
-  const turnCandidateCache = new Map<string, Record<MasyuDirection, MasyuDirectionalLine[]>>()
+  const incidentCache = new Map<
+    string,
+    Record<MasyuDirection, MasyuDirectionalLine | null>
+  >()
+  const twoStepCache = new Map<
+    string,
+    Record<MasyuDirection, MasyuTwoStepLine>
+  >()
+  const turnCandidateCache = new Map<
+    string,
+    Record<MasyuDirection, MasyuDirectionalLine[]>
+  >()
   const lineEndpointCache = new Map<string, [left: number, right: number]>()
   const lineCellCache = new Map<string, [left: string, right: string]>()
   const dependencyCellPearls = new Map<string, Set<string>>()
@@ -45,7 +66,8 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
   const baseLineCounts = new Map<number, number>()
   let totalBaseLineCount = 0
 
-  const toCellIndex = (row: number, col: number): number => row * puzzle.cols + col
+  const toCellIndex = (row: number, col: number): number =>
+    row * puzzle.cols + col
 
   const findBase = (idx: number): number => {
     if (baseParent[idx] !== idx) {
@@ -70,15 +92,23 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
     }
   }
 
-  const lineEndpoints = (lineKeyValue: string): [left: number, right: number] => {
+  const lineEndpoints = (
+    lineKeyValue: string,
+  ): [left: number, right: number] => {
     const cached = lineEndpointCache.get(lineKeyValue)
     if (cached) {
       return cached
     }
     const [left, right] = parseLineKey(lineKeyValue)
-    const endpoints: [number, number] = [toCellIndex(left[0], left[1]), toCellIndex(right[0], right[1])]
+    const endpoints: [number, number] = [
+      toCellIndex(left[0], left[1]),
+      toCellIndex(right[0], right[1]),
+    ]
     lineEndpointCache.set(lineKeyValue, endpoints)
-    lineCellCache.set(lineKeyValue, [cellKey(left[0], left[1]), cellKey(right[0], right[1])])
+    lineCellCache.set(lineKeyValue, [
+      cellKey(left[0], left[1]),
+      cellKey(right[0], right[1]),
+    ])
     return endpoints
   }
 
@@ -95,13 +125,19 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
     return cells
   }
 
-  const addDependency = (index: Map<string, Set<string>>, key: string, pearlKey: string): void => {
+  const addDependency = (
+    index: Map<string, Set<string>>,
+    key: string,
+    pearlKey: string,
+  ): void => {
     const set = index.get(key) ?? new Set<string>()
     set.add(pearlKey)
     index.set(key, set)
   }
 
-  const getIncident = (key: string): Record<MasyuDirection, MasyuDirectionalLine | null> => {
+  const getIncident = (
+    key: string,
+  ): Record<MasyuDirection, MasyuDirectionalLine | null> => {
     const cached = incidentCache.get(key)
     if (cached) {
       return cached
@@ -111,7 +147,10 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
     return incident
   }
 
-  const getTwoStep = (key: string, direction: MasyuDirection): MasyuTwoStepLine => {
+  const getTwoStep = (
+    key: string,
+    direction: MasyuDirection,
+  ): MasyuTwoStepLine => {
     const cached = twoStepCache.get(key)
     if (cached) {
       return cached[direction]
@@ -126,7 +165,10 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
     return twoStep[direction]
   }
 
-  const getTurnCandidates = (key: string, throughDirection: MasyuDirection): MasyuDirectionalLine[] => {
+  const getTurnCandidates = (
+    key: string,
+    throughDirection: MasyuDirection,
+  ): MasyuDirectionalLine[] => {
     const cached = turnCandidateCache.get(key)
     if (cached) {
       return cached[throughDirection]
@@ -142,8 +184,10 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
   }
 
   const registerPearlDependencies = (pearlKey: string): void => {
-    const addCell = (key: string): void => addDependency(dependencyCellPearls, key, pearlKey)
-    const addLine = (key: string): void => addDependency(dependencyLinePearls, key, pearlKey)
+    const addCell = (key: string): void =>
+      addDependency(dependencyCellPearls, key, pearlKey)
+    const addLine = (key: string): void =>
+      addDependency(dependencyLinePearls, key, pearlKey)
     addCell(pearlKey)
     for (const direction of MASYU_DIRECTIONS) {
       const { first, second } = getTwoStep(pearlKey, direction)
@@ -195,6 +239,8 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
     pearlColors.set(key, clue.color)
     if (clue.color === 'black') {
       blackPearlKeys.push(key)
+    } else {
+      whitePearlKeys.push(key)
     }
     registerPearlDependencies(key)
   }
@@ -202,7 +248,10 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
   const getLineMark = (overlay: MasyuLineOverlay, key: string): LineMark =>
     overlay.get(key) ?? puzzle.lines[key]?.mark ?? 'unknown'
 
-  const getIncidentEntries = (overlay: MasyuLineOverlay, key: string): MasyuDirectionalLine[] => {
+  const getIncidentEntries = (
+    overlay: MasyuLineOverlay,
+    key: string,
+  ): MasyuDirectionalLine[] => {
     const incident = getIncident(key)
     return MASYU_DIRECTIONS.flatMap((direction) => {
       const item = incident[direction]
@@ -231,7 +280,12 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
       [row, col + 1],
     ]
     for (const [cellRow, cellCol] of cells) {
-      if (cellRow < 0 || cellRow >= puzzle.rows || cellCol < 0 || cellCol >= puzzle.cols) {
+      if (
+        cellRow < 0 ||
+        cellRow >= puzzle.rows ||
+        cellCol < 0 ||
+        cellCol >= puzzle.cols
+      ) {
         continue
       }
       const pearlKey = cellKey(cellRow, cellCol)
@@ -263,6 +317,7 @@ export const createMasyuLookaheadGeometry = (puzzle: PuzzleIR): MasyuLookaheadGe
 
   return {
     blackPearlKeys,
+    whitePearlKeys,
     pearlColors,
     baseLineCounts,
     totalBaseLineCount,

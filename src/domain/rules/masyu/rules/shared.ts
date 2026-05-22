@@ -1,4 +1,10 @@
-import { cellKey, getCellLineKeys, lineKey, parseCellKey, parseLineKey } from '../../../ir/keys'
+import {
+  cellKey,
+  getCellLineKeys,
+  lineKey,
+  parseCellKey,
+  parseLineKey,
+} from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
 import type { LineDiff } from '../../types'
 
@@ -6,7 +12,9 @@ export type MasyuDirection = 'N' | 'E' | 'S' | 'W'
 
 export const MASYU_DIRECTIONS: MasyuDirection[] = ['N', 'E', 'S', 'W']
 
-export const oppositeMasyuDirection = (direction: MasyuDirection): MasyuDirection => {
+export const oppositeMasyuDirection = (
+  direction: MasyuDirection,
+): MasyuDirection => {
   if (direction === 'N') return 'S'
   if (direction === 'S') return 'N'
   if (direction === 'E') return 'W'
@@ -23,7 +31,10 @@ export const areMasyuDirectionsTurn = (
   right: MasyuDirection,
 ): boolean => left !== right && !areMasyuDirectionsOpposite(left, right)
 
-const directionOffsets: Record<MasyuDirection, [rowDelta: number, colDelta: number]> = {
+const directionOffsets: Record<
+  MasyuDirection,
+  [rowDelta: number, colDelta: number]
+> = {
   N: [-1, 0],
   E: [0, 1],
   S: [1, 0],
@@ -34,7 +45,8 @@ export const getMasyuDirectionOffset = (
   direction: MasyuDirection,
 ): [rowDelta: number, colDelta: number] => directionOffsets[direction]
 
-export const formatMasyuCellLabel = (row: number, col: number): string => `(R${row + 1}, C${col + 1})`
+export const formatMasyuCellLabel = (row: number, col: number): string =>
+  `(R${row + 1}, C${col + 1})`
 
 export const formatMasyuCellKeyLabel = (key: string): string => {
   const [row, col] = parseCellKey(key)
@@ -84,7 +96,12 @@ export const getMasyuDirectionalLine = (
   const [rowDelta, colDelta] = directionOffsets[direction]
   const neighborRow = row + rowDelta
   const neighborCol = col + colDelta
-  if (neighborRow < 0 || neighborRow >= puzzle.rows || neighborCol < 0 || neighborCol >= puzzle.cols) {
+  if (
+    neighborRow < 0 ||
+    neighborRow >= puzzle.rows ||
+    neighborCol < 0 ||
+    neighborCol >= puzzle.cols
+  ) {
     return null
   }
   const neighborKey = cellKey(neighborRow, neighborCol)
@@ -132,12 +149,15 @@ export const getMasyuTwoStepLine = (
   const first = getMasyuDirectionalLine(puzzle, key, direction)
   return {
     first,
-    second: first ? getMasyuDirectionalLine(puzzle, first.neighborKey, direction) : null,
+    second: first
+      ? getMasyuDirectionalLine(puzzle, first.neighborKey, direction)
+      : null,
   }
 }
 
-export const isMasyuLineAvailable = (line: MasyuDirectionalLine | null): boolean =>
-  line !== null && line.mark !== 'blank'
+export const isMasyuLineAvailable = (
+  line: MasyuDirectionalLine | null,
+): boolean => line !== null && line.mark !== 'blank'
 
 export const getMasyuTurnCandidateLines = (
   puzzle: PuzzleIR,
@@ -145,7 +165,9 @@ export const getMasyuTurnCandidateLines = (
   throughDirection: MasyuDirection,
 ): MasyuDirectionalLine[] => {
   const turnDirections: MasyuDirection[] =
-    throughDirection === 'N' || throughDirection === 'S' ? ['E', 'W'] : ['N', 'S']
+    throughDirection === 'N' || throughDirection === 'S'
+      ? ['E', 'W']
+      : ['N', 'S']
   return turnDirections.flatMap((direction) => {
     const item = getMasyuDirectionalLine(puzzle, key, direction)
     return item ? [item] : []
@@ -180,7 +202,10 @@ export const getMasyuCellLineDegree = (
 ): number => {
   const [row, col] = parseCellKey(key)
   return getCellLineKeys(row, col, puzzle.rows, puzzle.cols).filter(
-    (lineKeyValue) => (decisions.get(lineKeyValue) ?? puzzle.lines[lineKeyValue]?.mark ?? 'unknown') === 'line',
+    (lineKeyValue) =>
+      (decisions.get(lineKeyValue) ??
+        puzzle.lines[lineKeyValue]?.mark ??
+        'unknown') === 'line',
   ).length
 }
 
@@ -197,7 +222,10 @@ export const canMasyuLineBeAddedWithoutDegreeOverflow = (
     return false
   }
   const [left, right] = parseLineKey(key)
-  return [left, right].every(([row, col]) => getMasyuCellLineDegree(puzzle, cellKey(row, col), decisions) < 2)
+  return [left, right].every(
+    ([row, col]) =>
+      getMasyuCellLineDegree(puzzle, cellKey(row, col), decisions) < 2,
+  )
 }
 
 export const collectMasyuLineDecisionWithoutDegreeOverflow = (
@@ -206,7 +234,10 @@ export const collectMasyuLineDecisionWithoutDegreeOverflow = (
   key: string,
   to: LineMark,
 ): boolean => {
-  if (to === 'line' && !canMasyuLineBeAddedWithoutDegreeOverflow(puzzle, key, decisions)) {
+  if (
+    to === 'line' &&
+    !canMasyuLineBeAddedWithoutDegreeOverflow(puzzle, key, decisions)
+  ) {
     return false
   }
   return collectMasyuLineDecision(decisions, puzzle, key, to)

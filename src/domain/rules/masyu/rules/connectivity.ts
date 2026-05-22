@@ -41,7 +41,9 @@ const getTileAdjacencies = (puzzle: PuzzleIR): TileAdjacency[] => {
   for (let row = 0; row <= puzzle.rows; row += 1) {
     for (let col = 0; col < puzzle.cols; col += 1) {
       const separatorLine =
-        row > 0 && row < puzzle.rows ? lineKey([row - 1, col], [row, col]) : null
+        row > 0 && row < puzzle.rows
+          ? lineKey([row - 1, col], [row, col])
+          : null
       adjacencies.push({
         left: tileKey(row, col),
         right: tileKey(row, col + 1),
@@ -53,7 +55,9 @@ const getTileAdjacencies = (puzzle: PuzzleIR): TileAdjacency[] => {
   for (let row = 0; row < puzzle.rows; row += 1) {
     for (let col = 0; col <= puzzle.cols; col += 1) {
       const separatorLine =
-        col > 0 && col < puzzle.cols ? lineKey([row, col - 1], [row, col]) : null
+        col > 0 && col < puzzle.cols
+          ? lineKey([row, col - 1], [row, col])
+          : null
       adjacencies.push({
         left: tileKey(row, col),
         right: tileKey(row + 1, col),
@@ -65,7 +69,10 @@ const getTileAdjacencies = (puzzle: PuzzleIR): TileAdjacency[] => {
   return adjacencies
 }
 
-const getSeparatorMark = (puzzle: PuzzleIR, adjacency: TileAdjacency): LineMark | 'permanent-blank' => {
+const getSeparatorMark = (
+  puzzle: PuzzleIR,
+  adjacency: TileAdjacency,
+): LineMark | 'permanent-blank' => {
   if (adjacency.separatorLine === null) {
     return 'permanent-blank'
   }
@@ -74,7 +81,11 @@ const getSeparatorMark = (puzzle: PuzzleIR, adjacency: TileAdjacency): LineMark 
 
 const findConnectivityTileColorUpdates = (
   puzzle: PuzzleIR,
-  { target, includeOutsideSource, getEffectiveTileColor }: ConnectivityCutPassOptions,
+  {
+    target,
+    includeOutsideSource,
+    getEffectiveTileColor,
+  }: ConnectivityCutPassOptions,
 ): ConnectivityTileColorUpdate[] => {
   const blocked = oppositeMasyuTileColor(target)
   const parent = new Map<string, string>()
@@ -87,7 +98,8 @@ const findConnectivityTileColorUpdates = (
     }
   }
 
-  const isCandidateTile = (key: string): boolean => getEffectiveTileColor(key) !== blocked
+  const isCandidateTile = (key: string): boolean =>
+    getEffectiveTileColor(key) !== blocked
 
   const ensureNode = (key: string): void => {
     if (parent.has(key)) {
@@ -219,7 +231,11 @@ const findConnectivityTileColorUpdates = (
   const reachableComponents = new Set<string>()
   let timestamp = 0
 
-  const dfs = (node: string, parentNode: string | null, connectedNodes: string[]): void => {
+  const dfs = (
+    node: string,
+    parentNode: string | null,
+    connectedNodes: string[],
+  ): void => {
     discovery.set(node, timestamp)
     low.set(node, timestamp)
     timestamp += 1
@@ -237,7 +253,10 @@ const findConnectivityTileColorUpdates = (
         treeChildren.set(node, children)
         dfs(neighbor, node, connectedNodes)
         low.set(node, Math.min(low.get(node) ?? 0, low.get(neighbor) ?? 0))
-        subtreeSources.set(node, (subtreeSources.get(node) ?? 0) + (subtreeSources.get(neighbor) ?? 0))
+        subtreeSources.set(
+          node,
+          (subtreeSources.get(node) ?? 0) + (subtreeSources.get(neighbor) ?? 0),
+        )
         continue
       }
       low.set(node, Math.min(low.get(node) ?? 0, discovery.get(neighbor) ?? 0))
@@ -262,7 +281,9 @@ const findConnectivityTileColorUpdates = (
     }
     const connectedNodes: string[] = []
     dfs(node, null, connectedNodes)
-    const totalSources = connectedNodes.filter((component) => sourceComponents.has(component)).length
+    const totalSources = connectedNodes.filter((component) =>
+      sourceComponents.has(component),
+    ).length
     if (totalSources < 2) {
       continue
     }
@@ -285,7 +306,11 @@ const findConnectivityTileColorUpdates = (
     }
     for (const key of tiles) {
       if (getEffectiveTileColor(key) === null) {
-        updates.set(key, { tileKey: key, toFill: unreachableFill, reason: 'unreachable' })
+        updates.set(key, {
+          tileKey: key,
+          toFill: unreachableFill,
+          reason: 'unreachable',
+        })
       }
     }
   }

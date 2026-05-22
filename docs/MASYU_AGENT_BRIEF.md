@@ -43,9 +43,10 @@ Registered rule order:
 11. `Masyu Candidate Bridge Line`
 12. `Prevent Premature Loop`
 13. `Black Pearl Candidate Pruning`
-14. `Pearl Completion`
-15. `Cell Completion`
-16. `Black Pearl Strong Inference`
+14. `White Pearl Candidate Pruning`
+15. `Pearl Completion`
+16. `Cell Completion`
+17. `Black Pearl Strong Inference`
 
 Implemented rule areas:
 
@@ -53,6 +54,7 @@ Implemented rule areas:
 - Local pattern rules derived from common Masyu situations.
 - Premature loop prevention over `PuzzleIR.lines`.
 - Black pearl candidate pruning with shallow feasibility checks.
+- White pearl candidate pruning with the same shared pearl-candidate model.
 - Black pearl strong inference with bounded trial propagation that crosses out an exit when that exit's two-step assumption leads to a hard contradiction.
 - Completion rules for pearl and non-pearl cells.
 - Tile color propagation:

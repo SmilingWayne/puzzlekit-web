@@ -1,14 +1,20 @@
 import type { Rule } from '../types'
 import { createBlackPearlStrongInferenceRule } from './rules/blackPearlStrongInference'
 import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
-import { createBlackPearlCandidatePruningRule } from './rules/candidates'
+import {
+  createBlackPearlCandidatePruningRule,
+  createWhitePearlCandidatePruningRule,
+} from './rules/candidates'
 import {
   createMasyuColorLinePropagationRule,
   createMasyuColorPearlPropagationRule,
   createMasyuTileColorPropagationRule,
 } from './rules/color'
 import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
-import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
+import {
+  createCellCompletionRule,
+  createPearlCompletionRule,
+} from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
 import {
   createBlackDiagonalWhitePinchRule,
@@ -32,6 +38,7 @@ export const deterministicMasyuRules: Rule[] = [
   createMasyuCandidateBridgeLineRule(),
   createPreventPrematureLoopRule(),
   createBlackPearlCandidatePruningRule(),
+  createWhitePearlCandidatePruningRule(),
   createPearlCompletionRule(),
   createCellCompletionRule(),
 ]
