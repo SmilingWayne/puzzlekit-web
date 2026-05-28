@@ -7,6 +7,7 @@ Current focus:
 - Pure web-based solving experience
 - Rule-driven, explainable, replayable deduction flow
 - Modular Slitherlink rule architecture (including strong-inference fallback)
+- Masyu rule stack with pearl, color, loop, completion, and bounded strong-inference deductions
 - Practical interoperability with common puzzle URL formats (currently centered on puzz.link)
 
 ---

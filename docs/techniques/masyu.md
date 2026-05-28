@@ -361,3 +361,16 @@ forced in the real puzzle.
 
 This rule determines the confirmed lines and crossed-out lines belonging to the
 forced white-pearl axis.
+
+### Empty Cell Strong Inference
+
+For a non-pearl cell, the solver can test bounded degree choices when the local
+state has either one known line with exactly two unknown exits, or no known lines
+with exactly two unknown exits.
+
+In the degree-1 case, it assumes each possible continuation in turn. If one
+continuation reaches a contradiction, the other continuation is forced.
+
+In the degree-0 case, it tests the two local modes: both exits are used, or both
+exits are crossed out. If one mode reaches a contradiction, the other mode is
+forced in the real puzzle.
