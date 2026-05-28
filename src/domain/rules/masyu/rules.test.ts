@@ -482,7 +482,6 @@ describe('Masyu pearl rules', () => {
       'Black Pearl Candidate Pruning',
       'White Pearl Candidate Pruning',
       'Adjacent White Pearls LookAhead',
-      'Empty Cell Candidate Pruning',
       'Cell Exit Completion',
       'Black Pearl Strong Inference',
       'White Pearl Strong Inference',
@@ -817,10 +816,7 @@ describe('Masyu loop rules', () => {
     expect(rules.indexOf('masyu-adjacent-white-pearls-lookahead')).toBe(
       rules.indexOf('masyu-white-pearl-candidate-pruning') + 1,
     )
-    expect(rules.indexOf('masyu-empty-cell-candidate-pruning')).toBe(
-      rules.indexOf('masyu-adjacent-white-pearls-lookahead') + 1,
-    )
-    expect(rules.indexOf('masyu-empty-cell-candidate-pruning')).toBeLessThan(
+    expect(rules.indexOf('masyu-adjacent-white-pearls-lookahead')).toBeLessThan(
       rules.indexOf('cell-exit-completion'),
     )
   })
