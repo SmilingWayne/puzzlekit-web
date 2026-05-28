@@ -10,6 +10,7 @@ import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
 import {
   createAdjacentWhitePearlsLookaheadRule,
   createBlackPearlCandidatePruningRule,
+  createEmptyCellCandidatePruningRule,
   createWhitePearlCandidatePruningRule,
 } from './rules/candidates'
 import {
@@ -481,6 +482,7 @@ describe('Masyu pearl rules', () => {
       'Black Pearl Candidate Pruning',
       'White Pearl Candidate Pruning',
       'Adjacent White Pearls LookAhead',
+      'Empty Cell Candidate Pruning',
       'Cell Exit Completion',
       'Black Pearl Strong Inference',
       'White Pearl Strong Inference',
@@ -815,7 +817,10 @@ describe('Masyu loop rules', () => {
     expect(rules.indexOf('masyu-adjacent-white-pearls-lookahead')).toBe(
       rules.indexOf('masyu-white-pearl-candidate-pruning') + 1,
     )
-    expect(rules.indexOf('masyu-adjacent-white-pearls-lookahead')).toBeLessThan(
+    expect(rules.indexOf('masyu-empty-cell-candidate-pruning')).toBe(
+      rules.indexOf('masyu-adjacent-white-pearls-lookahead') + 1,
+    )
+    expect(rules.indexOf('masyu-empty-cell-candidate-pruning')).toBeLessThan(
       rules.indexOf('cell-exit-completion'),
     )
   })
@@ -1248,6 +1253,70 @@ describe('Masyu adjacent white pearls lookahead', () => {
     markLine(puzzle, lineKey([2, 1], [3, 1]), 'line')
 
     expect(createAdjacentWhitePearlsLookaheadRule().apply(puzzle)).toBeNull()
+  })
+})
+
+describe('Masyu empty cell candidate pruning', () => {
+  it('skips an unconstrained center empty cell with four unknown exits', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+
+    expect(createEmptyCellCandidatePruningRule().apply(puzzle)).toBeNull()
+  })
+
+  it('forces the only corner continuation from a degree-1 empty cell', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const south = lineKey([0, 0], [1, 0])
+    const east = lineKey([0, 0], [0, 1])
+    markLine(puzzle, south, 'line')
+
+    const result = createEmptyCellCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [east]: 'line' })
+    expect(result?.affectedCells).toEqual([cellKey(0, 0)])
+    expect(result?.message).toContain('Empty cell')
+  })
+
+  it('rejects candidates that would overflow a touched cell degree', () => {
+    const puzzle = createMasyuPuzzle(2, 4)
+    const target = cellKey(0, 1)
+    const east = lineKey([0, 1], [0, 2])
+    const west = lineKey([0, 0], [0, 1])
+    const south = lineKey([0, 1], [1, 1])
+    markLine(puzzle, west, 'blank')
+    markLine(puzzle, lineKey([0, 0], [1, 0]), 'blank')
+    markLine(puzzle, lineKey([0, 2], [1, 2]), 'line')
+    markLine(puzzle, lineKey([0, 2], [0, 3]), 'line')
+
+    const result = createEmptyCellCandidatePruningRule().apply(puzzle)
+
+    expect(result?.affectedCells).toEqual([target])
+    expectLineDiffs(result?.diffs, { [east]: 'blank', [south]: 'blank' })
+  })
+
+  it('rejects candidates that make a nearby white pearl locally impossible', () => {
+    const puzzle = createMasyuPuzzle(2, 4)
+    addPearl(puzzle, 0, 2, 'white')
+    const westOfEmpty = lineKey([0, 0], [0, 1])
+    const toWhite = lineKey([0, 1], [0, 2])
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'blank')
+    markLine(puzzle, lineKey([0, 2], [1, 2]), 'blank')
+
+    const result = createEmptyCellCandidatePruningRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [westOfEmpty]: 'line',
+      [toWhite]: 'line',
+    })
+  })
+
+  it('does not rely on downstream deterministic propagation inside candidates', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'blank')
+    markLine(puzzle, lineKey([1, 1], [1, 2]), 'unknown')
+    markLine(puzzle, lineKey([1, 1], [2, 1]), 'unknown')
+
+    expect(createEmptyCellCandidatePruningRule().apply(puzzle)).toBeNull()
   })
 })
 

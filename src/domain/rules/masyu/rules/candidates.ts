@@ -1,5 +1,5 @@
 import { cellKey, parseCellKey } from '../../../ir/keys'
-import type { PuzzleIR } from '../../../ir/types'
+import type { LineMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
 import { createMasyuLineDecisionCollector } from './decisionCollector'
 import type { MasyuLineOverlay } from './lineGraph'
@@ -9,9 +9,15 @@ import {
   formatMasyuLineLabel,
   getMasyuDirectionalLine,
   oppositeMasyuDirection,
+  MASYU_DIRECTIONS,
   type MasyuDirection,
+  type MasyuDirectionalLine,
 } from './shared'
 import { createMasyuLookaheadContext } from './lookahead'
+
+type EmptyCellCandidate = {
+  overlay: MasyuLineOverlay
+}
 
 export const createBlackPearlCandidatePruningRule = (): Rule => ({
   id: 'masyu-black-pearl-candidate-pruning',
@@ -274,6 +280,158 @@ export const createAdjacentWhitePearlsLookaheadRule = (): Rule => ({
         diffs,
         affectedCells: [pair.first, pair.second],
         affectedLines: diffs.map((diff) => diff.lineKey),
+      }
+    }
+
+    return null
+  },
+})
+
+const isEmptyCellCandidateActive = (
+  puzzle: PuzzleIR,
+  key: string,
+  incident: MasyuDirectionalLine[],
+): boolean => {
+  if (puzzle.cells[key]?.clue?.kind === 'pearl') {
+    return false
+  }
+  const unknownCount = incident.filter((item) => item.mark === 'unknown').length
+  if (unknownCount === 0) {
+    return false
+  }
+  const lineCount = incident.filter((item) => item.mark === 'line').length
+  if (lineCount === 1 || unknownCount <= 3) {
+    return true
+  }
+  return incident.some((item) =>
+    getMasyuIncidentLineCount(puzzle, item.neighborKey) > 0,
+  )
+}
+
+const getMasyuIncidentLineCount = (puzzle: PuzzleIR, key: string): number =>
+  MASYU_DIRECTIONS.flatMap((direction) => {
+    const item = getMasyuDirectionalLine(puzzle, key, direction)
+    return item ? [item] : []
+  }).filter((item) => item.mark === 'line').length
+
+const buildEmptyCellCandidateOverlay = (
+  incident: MasyuDirectionalLine[],
+  selectedLineKeys: ReadonlySet<string>,
+): MasyuLineOverlay | null => {
+  const overlay = new Map<string, LineMark>()
+  for (const item of incident) {
+    if (
+      !addMasyuOverlayDecision(
+        overlay,
+        item.lineKey,
+        selectedLineKeys.has(item.lineKey) ? 'line' : 'blank',
+      )
+    ) {
+      return null
+    }
+  }
+  return overlay
+}
+
+const buildEmptyCellCandidates = (
+  incident: MasyuDirectionalLine[],
+): EmptyCellCandidate[] => {
+  const candidates: EmptyCellCandidate[] = []
+  const degreeZero = buildEmptyCellCandidateOverlay(incident, new Set())
+  if (degreeZero) {
+    candidates.push({ overlay: degreeZero })
+  }
+
+  for (let leftIndex = 0; leftIndex < incident.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < incident.length;
+      rightIndex += 1
+    ) {
+      const overlay = buildEmptyCellCandidateOverlay(
+        incident,
+        new Set([
+          incident[leftIndex].lineKey,
+          incident[rightIndex].lineKey,
+        ]),
+      )
+      if (overlay) {
+        candidates.push({ overlay })
+      }
+    }
+  }
+
+  return candidates
+}
+
+const getOverlayCellDegree = (
+  incident: MasyuDirectionalLine[],
+  overlay: MasyuLineOverlay,
+): number =>
+  incident.filter((item) => overlay.get(item.lineKey) === 'line').length
+
+const getCommonOverlayDecisions = (
+  overlays: MasyuLineOverlay[],
+): Array<[string, LineMark]> => {
+  const [first] = overlays
+  if (!first) {
+    return []
+  }
+  return [...first.entries()].filter(([lineKeyValue, mark]) =>
+    overlays.every((overlay) => overlay.get(lineKeyValue) === mark),
+  )
+}
+
+export const createEmptyCellCandidatePruningRule = (): Rule => ({
+  id: 'masyu-empty-cell-candidate-pruning',
+  name: 'Empty Cell Candidate Pruning',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    const context = createMasyuLookaheadContext(puzzle)
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const key = cellKey(row, col)
+        const incident = context.getIncidentEntries(new Map(), key)
+        if (!isEmptyCellCandidateActive(puzzle, key, incident)) {
+          continue
+        }
+
+        const feasibleCandidates = buildEmptyCellCandidates(incident).filter(
+          (candidate) => {
+            const degree = getOverlayCellDegree(incident, candidate.overlay)
+            return (
+              (degree === 0 || degree === 2) &&
+              context.isOverlayLocallyFeasible([key], candidate.overlay)
+            )
+          },
+        )
+        if (feasibleCandidates.length === 0) {
+          continue
+        }
+
+        const decisions = createMasyuLineDecisionCollector(puzzle, {
+          guardLineDegree: true,
+        })
+        for (const [lineKeyValue, mark] of getCommonOverlayDecisions(
+          feasibleCandidates.map((candidate) => candidate.overlay),
+        )) {
+          decisions.add(lineKeyValue, mark)
+        }
+
+        if (!decisions.hasChanges()) {
+          continue
+        }
+
+        const diffs = decisions.diffs()
+        const firstLine = diffs[0]?.lineKey
+        return {
+          message: firstLine
+            ? `Empty cell ${formatMasyuCellKeyLabel(key)} has only compatible degree-0/degree-2 candidates left, so ${formatMasyuLineLabel(firstLine)} is decided${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
+            : 'Empty cell candidate pruning applied.',
+          diffs,
+          affectedCells: [key],
+          affectedLines: diffs.map((diff) => diff.lineKey),
+        }
       }
     }
 

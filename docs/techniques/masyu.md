@@ -263,6 +263,23 @@ Mode 2: both pearls use parallel perpendicular paths.
 Only the feasible mode is kept.
 ```
 
+### Empty Cell Candidate Pruning
+
+Empty Cell Candidate Pruning checks selected non-pearl cells that are already
+locally constrained. It compares the bounded local candidates where the loop
+either skips the cell completely or passes through it with exactly two exits.
+
+This rule can determine confirmed lines and crossed-out lines:
+
+- It considers only active empty cells, such as cells with one confirmed line,
+  few unknown exits, or nearby confirmed line structure.
+- It filters degree-0 and degree-2 candidates with the same local feasibility
+  checks used by pearl candidate pruning.
+- It does not run deterministic rule propagation or strong inference inside a
+  candidate assumption.
+- If every locally feasible candidate agrees on an incident line, that line is
+  decided.
+
 ## Tile Color Rules
 
 Tile colors are vertex-centered region markers used for inside/outside

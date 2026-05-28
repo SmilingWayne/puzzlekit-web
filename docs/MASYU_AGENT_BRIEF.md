@@ -45,9 +45,10 @@ Registered rule order:
 13. `Black Pearl Candidate Pruning`
 14. `White Pearl Candidate Pruning`
 15. `Adjacent White Pearls LookAhead`
-16. `Cell Exit Completion`
-17. `Black Pearl Strong Inference`
-18. `White Pearl Strong Inference`
+16. `Empty Cell Candidate Pruning`
+17. `Cell Exit Completion`
+18. `Black Pearl Strong Inference`
+19. `White Pearl Strong Inference`
 
 Implemented rule areas:
 
@@ -57,6 +58,8 @@ Implemented rule areas:
 - Black pearl candidate pruning with shallow feasibility checks.
 - White pearl candidate pruning with the same shared pearl-candidate model.
 - Adjacent white pearl lookahead pruning for the two local joint traversal modes.
+- Empty cell candidate pruning for selected non-pearl cells, using bounded
+  degree-0/degree-2 candidates without deterministic trial propagation.
 - Black pearl strong inference with bounded trial propagation that crosses out an exit when that exit's two-step assumption leads to a hard contradiction.
 - Unified cell-exit completion for ordinary cells, white pearls, and black
   pearls.

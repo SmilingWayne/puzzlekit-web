@@ -4,6 +4,7 @@ import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
 import {
   createAdjacentWhitePearlsLookaheadRule,
   createBlackPearlCandidatePruningRule,
+  createEmptyCellCandidatePruningRule,
   createWhitePearlCandidatePruningRule,
 } from './rules/candidates'
 import {
@@ -39,6 +40,7 @@ export const deterministicMasyuRules: Rule[] = [
   createBlackPearlCandidatePruningRule(),
   createWhitePearlCandidatePruningRule(),
   createAdjacentWhitePearlsLookaheadRule(),
+  createEmptyCellCandidatePruningRule(),
   createCellExitCompletionRule(),
 ]
 
