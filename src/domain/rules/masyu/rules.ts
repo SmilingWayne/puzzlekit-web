@@ -12,10 +12,7 @@ import {
   createMasyuTileColorPropagationRule,
 } from './rules/color'
 import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
-import {
-  createCellCompletionRule,
-  createPearlCompletionRule,
-} from './rules/completion'
+import { createCellExitCompletionRule } from './rules/completion'
 import { createPreventPrematureLoopRule } from './rules/loop'
 import {
   createBlackDiagonalWhitePinchRule,
@@ -23,12 +20,12 @@ import {
   createConsecutiveWhitePearlsStraightRule,
   createDoubleBlackSqueezeRule,
 } from './rules/patterns'
-import { createBlackCircleRule, createWhiteCircleRule } from './rules/pearls'
+import { createBlackPearlRule, createWhitePearlRule } from './rules/pearls'
 import { createWhitePearlStrongInferenceRule } from './rules/whitePearlStrongInference'
 
 export const deterministicMasyuRules: Rule[] = [
-  createWhiteCircleRule(),
-  createBlackCircleRule(),
+  createWhitePearlRule(),
+  createBlackPearlRule(),
   createBlackFacingConsecutiveWhitesRule(),
   createBlackDiagonalWhitePinchRule(),
   createConsecutiveWhitePearlsStraightRule(),
@@ -42,8 +39,7 @@ export const deterministicMasyuRules: Rule[] = [
   createBlackPearlCandidatePruningRule(),
   createWhitePearlCandidatePruningRule(),
   createAdjacentWhitePearlsLookaheadRule(),
-  createPearlCompletionRule(),
-  createCellCompletionRule(),
+  createCellExitCompletionRule(),
 ]
 
 export const masyuRules: Rule[] = [

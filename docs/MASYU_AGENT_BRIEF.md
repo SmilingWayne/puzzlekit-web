@@ -30,8 +30,8 @@ Important coordinate convention:
 
 Registered rule order:
 
-1. `White Circle Rule`
-2. `Black Circle Rule`
+1. `White Pearl Rule`
+2. `Black Pearl Rule`
 3. `Black Facing Consecutive Whites`
 4. `Black Diagonal White Pinch`
 5. `Consecutive White Pearls Straight`
@@ -45,9 +45,9 @@ Registered rule order:
 13. `Black Pearl Candidate Pruning`
 14. `White Pearl Candidate Pruning`
 15. `Adjacent White Pearls LookAhead`
-16. `Pearl Completion`
-17. `Cell Completion`
-18. `Black Pearl Strong Inference`
+16. `Cell Exit Completion`
+17. `Black Pearl Strong Inference`
+18. `White Pearl Strong Inference`
 
 Implemented rule areas:
 
@@ -58,7 +58,8 @@ Implemented rule areas:
 - White pearl candidate pruning with the same shared pearl-candidate model.
 - Adjacent white pearl lookahead pruning for the two local joint traversal modes.
 - Black pearl strong inference with bounded trial propagation that crosses out an exit when that exit's two-step assumption leads to a hard contradiction.
-- Completion rules for pearl and non-pearl cells.
+- Unified cell-exit completion for ordinary cells, white pearls, and black
+  pearls.
 - Tile color propagation:
   - boundary tiles are `yellow` / outside;
   - known `blank` lines imply same-color adjacent tiles;

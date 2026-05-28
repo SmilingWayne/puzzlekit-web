@@ -440,7 +440,7 @@ describe('solver puzzle loading', () => {
 
     useSolverStore.getState().nextStep()
     const afterStep = useSolverStore.getState()
-    expect(afterStep.steps[0]?.ruleName).toBe('White Circle Rule')
+    expect(afterStep.steps[0]?.ruleName).toBe('White Pearl Rule')
     expect(afterStep.highlightedLines.length).toBeGreaterThan(0)
     expect(afterStep.steps[0]?.diffs.some((diff) => diff.kind === 'line')).toBe(true)
   })

@@ -44,7 +44,7 @@ the vertex-centered tile colors that sit around those lines.
 
 ## Core Pearl Rules
 
-### White Circle Rule
+### White Pearl Rule
 
 A white pearl must be passed through straight, and at least one adjacent cell on
 the path must turn.
@@ -72,7 +72,7 @@ horizontally through the pearl.
 ?   x   ?
 ```
 
-### Black Circle Rule
+### Black Pearl Rule
 
 A black pearl must turn on the pearl, and both exits from the pearl must continue
 straight for one more segment.
@@ -164,34 +164,22 @@ If one vertical exit of the middle cell is x, the other vertical exit is x too.
 
 ## Completion Rules
 
-### Pearl Completion
+### Cell Exit Completion
 
-Pearl Completion applies local pearl shape completion once enough exits are
-known or eliminated.
-
-This rule can determine confirmed lines and crossed-out lines:
-
-- If a pearl already has its legal two exits, all other incident unknown exits
-  are crossed out.
-- If a pearl has one known exit and only one legal matching exit remains, that
-  matching exit is forced.
-- If no exit is known and only one complete legal pearl shape remains, both
-  exits of that shape are forced.
-- For black pearls, once an exit is selected, the required straight extension
-  after that exit is also forced.
-
-### Cell Completion
-
-Cell Completion applies ordinary loop-degree logic to non-pearl cells.
+Cell Exit Completion applies local exit completion to every cell. It uses
+ordinary loop-degree logic for empty cells and pearl-shape logic for pearl cells.
 
 This rule can determine confirmed lines and crossed-out lines:
 
-- If a non-pearl cell already has degree 2, all other incident unknown exits are
-  crossed out.
-- If a non-pearl cell has degree 1 and exactly one unknown exit remains, that
-  unknown exit is forced so the loop can continue.
-- If a non-pearl cell has degree 0 and exactly one unknown exit remains, that
-  unknown exit is crossed out because using it would create a dead end.
+- For ordinary cells, degree 2 crosses out every other unknown exit; degree 1
+  with one unknown exit forces continuation; degree 0 with one unknown exit
+  crosses out that dead-end candidate.
+- For white pearls, exits must be opposite. A known exit keeps only its opposite
+  exit, and a single remaining straight axis is completed.
+- For black pearls, exits must be adjacent. A known exit crosses out its
+  opposite exit, and a single remaining turn pair is completed.
+- Black pearl straight extensions are handled by Black Pearl Rule, not by this
+  completion rule.
 
 ```text
   |

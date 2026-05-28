@@ -35,7 +35,7 @@ PuzzleKit 已有 `Prevent Premature Loop`，也有 `Candidate Bridge Line`，但
 - 使用 `lineaux` 临时可能线判断候选路径组；
 - 长路径分量与局部空格之间的“包围/反弹”推理。
 
-其中有些可能已经被 `Cell Completion`、`Pearl Completion` 或候选 pruning 间接覆盖，但还没有形成一套清晰的“单环通用图规则”。
+其中有些可能已经被 `Cell Exit Completion` 或候选 pruning 间接覆盖，但还没有形成一套清晰的“单环通用图规则”。
 
 ### 2. 连通性框架拆得更可解释，但能力不如作者集中
 

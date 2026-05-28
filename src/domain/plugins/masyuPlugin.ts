@@ -13,11 +13,11 @@ const formatPercent = (count: number, total: number): string => {
 
 const masyuHelp: PuzzleHelpContent = {
   title: 'Masyu Rules',
-  summary: 'Draw lines through orthogonally adjacent cells to form a loop that goes through every circle.',
+  summary: 'Draw lines through orthogonally adjacent cells to form a loop that goes through every pearl.',
   rules: [
     'The loop cannot branch off or cross itself.',
-    'The loop must turn on black circles and travel straight through the cells before and after the circle.',
-    'The loop must go straight through white circles, and turn in at least one of the cells on either side.',
+    'The loop must turn on black pearls and travel straight through the cells before and after the pearl.',
+    'The loop must go straight through white pearls, and turn in at least one of the cells on either side.',
   ],
   notes: ['Rule examples are planned for a later Masyu update.'],
 }

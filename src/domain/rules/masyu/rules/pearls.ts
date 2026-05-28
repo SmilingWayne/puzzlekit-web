@@ -123,9 +123,9 @@ const collectNewMasyuLineDecisionWithoutDegreeOverflow = (
   return to === 'line' ? decisions.addNew(key, to) : decisions.addNew(key, to)
 }
 
-export const createWhiteCircleRule = (): Rule => ({
-  id: 'white-circle-rule',
-  name: 'White Circle Rule',
+export const createWhitePearlRule = (): Rule => ({
+  id: 'white-pearl-rule',
+  name: 'White Pearl Rule',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decisions = createMasyuLineDecisionCollector(puzzle, {
       guardLineDegree: true,
@@ -304,7 +304,7 @@ export const createWhiteCircleRule = (): Rule => ({
       message:
         firstPearl && firstLine
           ? `White pearl ${formatMasyuCellKeyLabel(firstPearl)} ${firstReason ?? 'forces a local decision'}, so ${formatMasyuLineLabel(firstLine)} is decided${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
-          : 'White circle rule applied.',
+          : 'White pearl rule applied.',
       diffs,
       affectedCells: [...affectedCells],
       affectedLines: diffs.map((diff) => diff.lineKey),
@@ -312,9 +312,9 @@ export const createWhiteCircleRule = (): Rule => ({
   },
 })
 
-export const createBlackCircleRule = (): Rule => ({
-  id: 'black-circle-rule',
-  name: 'Black Circle Rule',
+export const createBlackPearlRule = (): Rule => ({
+  id: 'black-pearl-rule',
+  name: 'Black Pearl Rule',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decisions = createMasyuLineDecisionCollector(puzzle)
     const affectedCells = new Set<string>()
@@ -466,7 +466,7 @@ export const createBlackCircleRule = (): Rule => ({
       message:
         firstPearl && firstLine
           ? `Black pearl ${formatMasyuCellKeyLabel(firstPearl)} must turn, so ${formatMasyuLineLabel(firstLine)} is a line${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
-          : 'Black circle rule applied.',
+          : 'Black pearl rule applied.',
       diffs,
       affectedCells: [...affectedCells],
       affectedLines: diffs.map((diff) => diff.lineKey),

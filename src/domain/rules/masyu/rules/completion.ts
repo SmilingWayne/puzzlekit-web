@@ -1,23 +1,16 @@
 import { cellKey } from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
-import {
-  createMasyuLineDecisionCollector,
-  type MasyuLineDecisionCollector,
-} from './decisionCollector'
-import {
-  getMasyuPearlColor,
-  getMasyuPearlKeys,
-  type MasyuPearlColor,
-} from './pearlSelectors'
+import { createMasyuLineDecisionCollector } from './decisionCollector'
+import { getMasyuPearlColor, type MasyuPearlColor } from './pearlSelectors'
 import {
   areMasyuDirectionsOpposite,
   areMasyuDirectionsTurn,
   formatMasyuCellKeyLabel,
   formatMasyuLineLabel,
   getMasyuIncidentDirectionalLines,
-  getMasyuTwoStepLine,
   MASYU_DIRECTIONS,
+  oppositeMasyuDirection,
   type MasyuDirection,
   type MasyuDirectionalLine,
 } from './shared'
@@ -52,184 +45,19 @@ const getLegalPearlPairs = (
   return pairs
 }
 
-const rememberPearlDecision = (
-  decisions: MasyuLineDecisionCollector,
-  lineKey: string,
-  to: LineMark,
-): boolean => {
-  return decisions.addNew(lineKey, to)
-}
-
-const rememberBlackExtension = (
-  decisions: MasyuLineDecisionCollector,
-  puzzle: PuzzleIR,
-  pearlKey: string,
+const directionsInclude = (
+  directions: readonly MasyuDirection[],
   direction: MasyuDirection,
-): string | null => {
-  const extension = getMasyuTwoStepLine(puzzle, pearlKey, direction).second
-  if (
-    !extension ||
-    !rememberPearlDecision(decisions, extension.lineKey, 'line')
-  ) {
-    return null
-  }
-  return extension.lineKey
-}
+): boolean => directions.includes(direction)
 
-export const createPearlCompletionRule = (): Rule => ({
-  id: 'pearl-completion',
-  name: 'Pearl Completion',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const decisions = createMasyuLineDecisionCollector(puzzle)
-    const affectedCells = new Set<string>()
-    let firstPearl: string | null = null
-    let firstLine: string | null = null
-    let firstReason: string | null = null
-
-    const remember = (
-      pearlKey: string,
-      lineKey: string,
-      to: LineMark,
-      reason: string,
-    ): void => {
-      if (!rememberPearlDecision(decisions, lineKey, to)) {
-        return
-      }
-      affectedCells.add(pearlKey)
-      if (firstPearl === null) {
-        firstPearl = pearlKey
-        firstLine = lineKey
-        firstReason = reason
-      }
-    }
-
-    const rememberBlackExitExtensions = (
-      pearlKey: string,
-      directions: MasyuDirection[],
-      reason: string,
-    ): void => {
-      for (const direction of directions) {
-        const extensionLineKey = rememberBlackExtension(
-          decisions,
-          puzzle,
-          pearlKey,
-          direction,
-        )
-        if (extensionLineKey) {
-          affectedCells.add(pearlKey)
-          if (firstPearl === null) {
-            firstPearl = pearlKey
-            firstLine = extensionLineKey
-            firstReason = reason
-          }
-        }
-      }
-    }
-
-    for (const pearlKey of getMasyuPearlKeys(puzzle)) {
-      const color = getMasyuPearlColor(puzzle, pearlKey)
-      if (!color) {
-        continue
-      }
-      const directional = getMasyuIncidentDirectionalLines(puzzle, pearlKey)
-      const incident = MASYU_DIRECTIONS.flatMap((direction) => {
-        const item = directional[direction]
-        return item ? [item] : []
-      })
-      const lineEntries = incident.filter((item) => item.mark === 'line')
-      const unknownEntries = incident.filter((item) => item.mark === 'unknown')
-      const availableEntries = incident.filter((item) => item.mark !== 'blank')
-      const reason =
-        color === 'white'
-          ? 'must have two straight-through exits'
-          : 'must turn and extend from each exit'
-
-      if (lineEntries.length === 2) {
-        if (
-          !isLegalPearlPair(
-            color,
-            lineEntries[0].direction,
-            lineEntries[1].direction,
-          )
-        ) {
-          continue
-        }
-        for (const item of unknownEntries) {
-          remember(pearlKey, item.lineKey, 'blank', reason)
-        }
-        if (color === 'black') {
-          rememberBlackExitExtensions(
-            pearlKey,
-            lineEntries.map((item) => item.direction),
-            reason,
-          )
-        }
-        continue
-      }
-
-      if (lineEntries.length === 1) {
-        const legalCandidates = unknownEntries.filter((item) =>
-          isLegalPearlPair(color, lineEntries[0].direction, item.direction),
-        )
-        if (legalCandidates.length !== 1) {
-          continue
-        }
-        remember(pearlKey, legalCandidates[0].lineKey, 'line', reason)
-        if (color === 'black') {
-          rememberBlackExitExtensions(
-            pearlKey,
-            [lineEntries[0].direction, legalCandidates[0].direction],
-            reason,
-          )
-        }
-        continue
-      }
-
-      if (lineEntries.length !== 0) {
-        continue
-      }
-
-      const legalPairs = getLegalPearlPairs(color, availableEntries)
-      if (legalPairs.length !== 1) {
-        continue
-      }
-
-      const [left, right] = legalPairs[0]
-      remember(pearlKey, left.lineKey, 'line', reason)
-      remember(pearlKey, right.lineKey, 'line', reason)
-      if (color === 'black') {
-        rememberBlackExitExtensions(
-          pearlKey,
-          [left.direction, right.direction],
-          reason,
-        )
-      }
-    }
-
-    if (!decisions.hasChanges()) {
-      return null
-    }
-
-    const diffs = decisions.diffs()
-    return {
-      message:
-        firstPearl && firstLine && firstReason
-          ? `${getMasyuPearlColor(puzzle, firstPearl) === 'white' ? 'White' : 'Black'} pearl ${formatMasyuCellKeyLabel(firstPearl)} ${firstReason}, so ${formatMasyuLineLabel(firstLine)} is decided${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
-          : 'Pearl completion applied.',
-      diffs,
-      affectedCells: [...affectedCells],
-      affectedLines: diffs.map((diff) => diff.lineKey),
-    }
-  },
-})
-
-export const createCellCompletionRule = (): Rule => ({
-  id: 'cell-completion',
-  name: 'Cell Completion',
+export const createCellExitCompletionRule = (): Rule => ({
+  id: 'cell-exit-completion',
+  name: 'Cell Exit Completion',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decisions = createMasyuLineDecisionCollector(puzzle)
     const affectedCells = new Set<string>()
     let firstCell: string | null = null
+    let firstLine: string | null = null
     let firstReason: string | null = null
 
     const remember = (
@@ -238,12 +66,13 @@ export const createCellCompletionRule = (): Rule => ({
       to: LineMark,
       reason: string,
     ): void => {
-      if (!decisions.add(lineKey, to)) {
+      if (!decisions.addNew(lineKey, to)) {
         return
       }
       affectedCells.add(key)
       if (firstCell === null) {
         firstCell = key
+        firstLine = lineKey
         firstReason = reason
       }
     }
@@ -251,10 +80,7 @@ export const createCellCompletionRule = (): Rule => ({
     for (let row = 0; row < puzzle.rows; row += 1) {
       for (let col = 0; col < puzzle.cols; col += 1) {
         const key = cellKey(row, col)
-        const clue = puzzle.cells[key]?.clue
-        if (clue?.kind === 'pearl') {
-          continue
-        }
+        const color = getMasyuPearlColor(puzzle, key)
         const directional = getMasyuIncidentDirectionalLines(puzzle, key)
         const incident = MASYU_DIRECTIONS.flatMap((direction) => {
           const item = directional[direction]
@@ -268,19 +94,29 @@ export const createCellCompletionRule = (): Rule => ({
           continue
         }
 
-        if (lineEntries.length === 2) {
-          for (const item of unknownEntries) {
+        if (!color) {
+          if (lineEntries.length === 2) {
+            for (const item of unknownEntries) {
+              remember(
+                key,
+                item.lineKey,
+                'blank',
+                'it already has degree 2, so every other exit is blank',
+              )
+            }
+            continue
+          }
+
+          if (lineEntries.length === 1 && unknownEntries.length === 1) {
             remember(
               key,
-              item.lineKey,
-              'blank',
-              'it already has degree 2, so every other exit is blank',
+              unknownEntries[0].lineKey,
+              'line',
+              'one line must continue through the only remaining candidate',
             )
+            continue
           }
-          continue
-        }
 
-        if (lineEntries.length !== 1) {
           if (lineEntries.length === 0 && unknownEntries.length === 1) {
             remember(
               key,
@@ -292,12 +128,94 @@ export const createCellCompletionRule = (): Rule => ({
           continue
         }
 
-        if (unknownEntries.length === 1) {
+        if (lineEntries.length === 2) {
+          if (
+            !isLegalPearlPair(
+              color,
+              lineEntries[0].direction,
+              lineEntries[1].direction,
+            )
+          ) {
+            continue
+          }
+          const lineDirections = lineEntries.map((item) => item.direction)
+          for (const item of unknownEntries) {
+            if (directionsInclude(lineDirections, item.direction)) {
+              continue
+            }
+            remember(
+              key,
+              item.lineKey,
+              'blank',
+              color === 'white'
+                ? 'it already has its straight-through exits, so every other exit is blank'
+                : 'it already has its turning exits, so every other exit is blank',
+            )
+          }
+          continue
+        }
+
+        if (lineEntries.length === 1) {
+          const knownDirection = lineEntries[0].direction
+          if (color === 'white') {
+            const opposite = oppositeMasyuDirection(knownDirection)
+            for (const item of unknownEntries) {
+              remember(
+                key,
+                item.lineKey,
+                item.direction === opposite ? 'line' : 'blank',
+                'a white pearl must continue straight through the opposite exit',
+              )
+            }
+            continue
+          }
+
+          const opposite = oppositeMasyuDirection(knownDirection)
+          const legalCandidates = unknownEntries.filter((item) =>
+            areMasyuDirectionsTurn(knownDirection, item.direction),
+          )
+          for (const item of unknownEntries) {
+            if (item.direction !== opposite) {
+              continue
+            }
+            remember(
+              key,
+              item.lineKey,
+              'blank',
+              'a black pearl must turn, so the opposite exit is blank',
+            )
+          }
+          if (legalCandidates.length === 1) {
+            remember(
+              key,
+              legalCandidates[0].lineKey,
+              'line',
+              'a black pearl has only one turning exit left',
+            )
+          }
+          continue
+        }
+
+        if (lineEntries.length !== 0) {
+          continue
+        }
+
+        const availableEntries = incident.filter((item) => item.mark !== 'blank')
+        const legalPairs = getLegalPearlPairs(color, availableEntries)
+        if (legalPairs.length !== 1) {
+          continue
+        }
+
+        const [left, right] = legalPairs[0]
+        const pairDirections = [left.direction, right.direction] as const
+        for (const item of unknownEntries) {
           remember(
             key,
-            unknownEntries[0].lineKey,
-            'line',
-            'one line must continue through the only remaining candidate',
+            item.lineKey,
+            directionsInclude(pairDirections, item.direction) ? 'line' : 'blank',
+            color === 'white'
+              ? 'only one straight-through axis remains'
+              : 'only one turning pair remains',
           )
         }
       }
@@ -310,9 +228,9 @@ export const createCellCompletionRule = (): Rule => ({
     const diffs = decisions.diffs()
     return {
       message:
-        firstCell && firstReason
-          ? `Cell ${formatMasyuCellKeyLabel(firstCell)}: ${firstReason}${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
-          : 'Cell completion applied.',
+        firstCell && firstLine && firstReason
+          ? `Cell ${formatMasyuCellKeyLabel(firstCell)}: ${firstReason}, so ${formatMasyuLineLabel(firstLine)} is decided${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
+          : 'Cell exit completion applied.',
       diffs,
       affectedCells: [...affectedCells],
       affectedLines: diffs.map((diff) => diff.lineKey),
