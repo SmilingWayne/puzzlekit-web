@@ -1936,6 +1936,87 @@ describe('Masyu pattern rules', () => {
     expectLineDiffs(result?.diffs, { [east]: 'blank' })
   })
 
+  it('Double Black Squeeze treats the bottom edge as a crossed-out perpendicular exit', () => {
+    const puzzle = createMasyuPuzzle(10, 10)
+    addPearl(puzzle, 9, 5, 'black')
+    addPearl(puzzle, 9, 7, 'black')
+    const north = lineKey([8, 6], [9, 6])
+
+    const result = createDoubleBlackSqueezeRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [north]: 'blank' })
+    expect(result?.affectedCells).toEqual([cellKey(9, 6)])
+  })
+
+  it('Double Black Squeeze treats the top edge as a crossed-out perpendicular exit', () => {
+    const puzzle = createMasyuPuzzle(10, 10)
+    addPearl(puzzle, 0, 2, 'black')
+    addPearl(puzzle, 0, 4, 'black')
+    const south = lineKey([0, 3], [1, 3])
+
+    const result = createDoubleBlackSqueezeRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, { [south]: 'blank' })
+    expect(result?.affectedCells).toEqual([cellKey(0, 3)])
+  })
+
+  it('Double Black Squeeze treats side edges as crossed-out perpendicular exits', () => {
+    const puzzle = createMasyuPuzzle(10, 10)
+    addPearl(puzzle, 2, 0, 'black')
+    addPearl(puzzle, 4, 0, 'black')
+    addPearl(puzzle, 5, 9, 'black')
+    addPearl(puzzle, 7, 9, 'black')
+    const rightFromLeftEdge = lineKey([3, 0], [3, 1])
+    const leftFromRightEdge = lineKey([6, 8], [6, 9])
+
+    const result = createDoubleBlackSqueezeRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [rightFromLeftEdge]: 'blank',
+      [leftFromRightEdge]: 'blank',
+    })
+    expect(result?.affectedCells).toEqual([cellKey(3, 0), cellKey(6, 9)])
+  })
+
+  it('Double Black Squeeze does not overwrite a border perpendicular exit that is already a line', () => {
+    const puzzle = createMasyuPuzzle(10, 10)
+    addPearl(puzzle, 9, 5, 'black')
+    addPearl(puzzle, 9, 7, 'black')
+    markLine(puzzle, lineKey([8, 6], [9, 6]), 'line')
+
+    expect(createDoubleBlackSqueezeRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Double Black Squeeze handles the supplied bottom-edge puzzle without strong inference', () => {
+    let puzzle = masyuPlugin.parse(
+      'https://puzz.link/p?mashu/10/10/0000000000000000000000000300000260',
+    )
+    const rules = deterministicMasyuRules
+    const expectedLines = [
+      lineKey([7, 5], [8, 5]),
+      lineKey([8, 5], [9, 5]),
+      lineKey([7, 7], [8, 7]),
+      lineKey([8, 7], [9, 7]),
+    ]
+    const squeezed = lineKey([8, 6], [9, 6])
+    let sawDoubleBlackSqueeze = false
+
+    for (let stepNumber = 1; stepNumber <= 8; stepNumber += 1) {
+      const result = runNextRule(puzzle, rules, stepNumber)
+      if (!result.step) {
+        break
+      }
+      sawDoubleBlackSqueeze ||= result.step.ruleName === 'Double Black Squeeze'
+      puzzle = result.nextPuzzle
+    }
+
+    expect(sawDoubleBlackSqueeze).toBe(true)
+    expect(puzzle.lines[squeezed]?.mark).toBe('blank')
+    for (const key of expectedLines) {
+      expect(puzzle.lines[key]?.mark).toBe('line')
+    }
+  })
+
   it('Double Black Squeeze does not fire unless both opposite cells are black pearls', () => {
     const puzzle = createMasyuPuzzle(5, 6)
     addPearl(puzzle, 2, 2, 'black')

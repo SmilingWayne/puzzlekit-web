@@ -331,8 +331,20 @@ const collectDoubleBlackSqueeze = (
     middleKey,
     perpendicularDirections[1],
   )
-  if (!first || !second) {
+  if (!first && !second) {
     return null
+  }
+  if (!first) {
+    const onlyExit = second
+    return onlyExit?.mark === 'unknown' &&
+      decisions.addNew(onlyExit.lineKey, 'blank')
+      ? onlyExit.lineKey
+      : null
+  }
+  if (!second) {
+    return first.mark === 'unknown' && decisions.addNew(first.lineKey, 'blank')
+      ? first.lineKey
+      : null
   }
   if (first.mark === 'blank') {
     return decisions.addNew(second.lineKey, 'blank') ? second.lineKey : null

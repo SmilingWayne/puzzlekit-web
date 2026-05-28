@@ -150,7 +150,7 @@ white pearls.
 
 If a non-pearl cell sits between two black pearls, that middle cell cannot keep
 exactly one perpendicular exit. If one perpendicular exit is already crossed
-out, the other perpendicular exit is crossed out too.
+out or points off-board, the other perpendicular exit is crossed out too.
 
 This rule determines crossed-out line segments at the middle cell.
 
@@ -159,7 +159,8 @@ This rule determines crossed-out line segments at the middle cell.
 B ? . ? B
     x
 
-If one vertical exit of the middle cell is x, the other vertical exit is x too.
+If one vertical exit of the middle cell is x or off-board, the other vertical
+exit is x too.
 ```
 
 ## Completion Rules
