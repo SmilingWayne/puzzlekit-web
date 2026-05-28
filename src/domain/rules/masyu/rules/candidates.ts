@@ -1,6 +1,6 @@
 import { cellKey, parseCellKey } from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
-import type { Rule, RuleApplication } from '../../types'
+import type { Rule, RuleApplication, RuleRuntimeContext } from '../../types'
 import { createMasyuLineDecisionCollector } from './decisionCollector'
 import type { MasyuLineOverlay } from './lineGraph'
 import { addMasyuOverlayDecision } from './pearlCandidates'
@@ -13,17 +13,58 @@ import {
   type MasyuDirection,
   type MasyuDirectionalLine,
 } from './shared'
-import { createMasyuLookaheadContext } from './lookahead'
+import { getMasyuLookaheadContext } from './lookahead'
 
 type EmptyCellCandidate = {
   overlay: MasyuLineOverlay
 }
 
+type PearlCandidateWithExits = {
+  lines: ReadonlySet<string>
+  exitLines: ReadonlySet<string>
+}
+
+const getCommonLineDecisions = (
+  overlays: MasyuLineOverlay[],
+): Array<[string, LineMark]> => {
+  const [first] = overlays
+  if (!first) {
+    return []
+  }
+  return [...first.entries()].filter(([lineKeyValue, mark]) =>
+    overlays.every((overlay) => overlay.get(lineKeyValue) === mark),
+  )
+}
+
+const getCommonPearlCandidateDecisions = (
+  candidates: PearlCandidateWithExits[],
+  exitLineKeys: string[],
+): Array<[string, LineMark]> => {
+  const [first] = candidates
+  if (!first) {
+    return []
+  }
+  const commonLines = [...first.lines]
+    .filter((lineKeyValue) =>
+      candidates.every((candidate) => candidate.lines.has(lineKeyValue)),
+    )
+    .map((lineKeyValue): [string, LineMark] => [lineKeyValue, 'line'])
+  const excludedExits = exitLineKeys
+    .filter((lineKeyValue) =>
+      candidates.every((candidate) => !candidate.exitLines.has(lineKeyValue)),
+    )
+    .map((lineKeyValue): [string, LineMark] => [lineKeyValue, 'blank'])
+  return [...commonLines, ...excludedExits]
+}
+
 export const createBlackPearlCandidatePruningRule = (): Rule => ({
   id: 'masyu-black-pearl-candidate-pruning',
   name: 'Black Pearl Candidate Pruning',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const context = createMasyuLookaheadContext(puzzle)
+  apply: (
+    puzzle: PuzzleIR,
+    runtimeContext?: RuleRuntimeContext,
+  ): RuleApplication | null => {
+    const context = getMasyuLookaheadContext(puzzle, runtimeContext)
 
     for (const pearlKey of context.getBlackPearlKeys()) {
       const decisions = createMasyuLineDecisionCollector(puzzle)
@@ -34,18 +75,11 @@ export const createBlackPearlCandidatePruningRule = (): Rule => ({
         continue
       }
 
-      const commonLineKeys = [...candidates[0].lines].filter((lineKeyValue) =>
-        candidates.every((candidate) => candidate.lines.has(lineKeyValue)),
-      )
-      const excludedExitLineKeys = exitLineKeys.filter((lineKeyValue) =>
-        candidates.every((candidate) => !candidate.exitLines.has(lineKeyValue)),
-      )
-
-      for (const lineKeyValue of commonLineKeys) {
-        decisions.add(lineKeyValue, 'line')
-      }
-      for (const lineKeyValue of excludedExitLineKeys) {
-        decisions.add(lineKeyValue, 'blank')
+      for (const [lineKeyValue, mark] of getCommonPearlCandidateDecisions(
+        candidates,
+        exitLineKeys,
+      )) {
+        decisions.add(lineKeyValue, mark)
       }
 
       if (!decisions.hasChanges()) {
@@ -71,8 +105,11 @@ export const createBlackPearlCandidatePruningRule = (): Rule => ({
 export const createWhitePearlCandidatePruningRule = (): Rule => ({
   id: 'masyu-white-pearl-candidate-pruning',
   name: 'White Pearl Candidate Pruning',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const context = createMasyuLookaheadContext(puzzle)
+  apply: (
+    puzzle: PuzzleIR,
+    runtimeContext?: RuleRuntimeContext,
+  ): RuleApplication | null => {
+    const context = getMasyuLookaheadContext(puzzle, runtimeContext)
 
     for (const pearlKey of context.getWhitePearlKeys()) {
       const decisions = createMasyuLineDecisionCollector(puzzle, {
@@ -85,18 +122,11 @@ export const createWhitePearlCandidatePruningRule = (): Rule => ({
         continue
       }
 
-      const commonLineKeys = [...candidates[0].lines].filter((lineKeyValue) =>
-        candidates.every((candidate) => candidate.lines.has(lineKeyValue)),
-      )
-      const excludedExitLineKeys = exitLineKeys.filter((lineKeyValue) =>
-        candidates.every((candidate) => !candidate.exitLines.has(lineKeyValue)),
-      )
-
-      for (const lineKeyValue of commonLineKeys) {
-        decisions.add(lineKeyValue, 'line')
-      }
-      for (const lineKeyValue of excludedExitLineKeys) {
-        decisions.add(lineKeyValue, 'blank')
+      for (const [lineKeyValue, mark] of getCommonPearlCandidateDecisions(
+        candidates,
+        exitLineKeys,
+      )) {
+        decisions.add(lineKeyValue, mark)
       }
 
       if (!decisions.hasChanges()) {
@@ -226,8 +256,11 @@ const getAdjacentWhitePearlPairs = (
 export const createAdjacentWhitePearlsLookaheadRule = (): Rule => ({
   id: 'masyu-adjacent-white-pearls-lookahead',
   name: 'Adjacent White Pearls LookAhead',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const context = createMasyuLookaheadContext(puzzle)
+  apply: (
+    puzzle: PuzzleIR,
+    runtimeContext?: RuleRuntimeContext,
+  ): RuleApplication | null => {
+    const context = getMasyuLookaheadContext(puzzle, runtimeContext)
 
     for (const pair of getAdjacentWhitePearlPairs(puzzle)) {
       const patterns: AdjacentWhitePearlPatternResult[] = (
@@ -303,8 +336,8 @@ const isEmptyCellCandidateActive = (
   if (lineCount === 1 || unknownCount <= 3) {
     return true
   }
-  return incident.some((item) =>
-    getMasyuIncidentLineCount(puzzle, item.neighborKey) > 0,
+  return incident.some(
+    (item) => getMasyuIncidentLineCount(puzzle, item.neighborKey) > 0,
   )
 }
 
@@ -350,10 +383,7 @@ const buildEmptyCellCandidates = (
     ) {
       const overlay = buildEmptyCellCandidateOverlay(
         incident,
-        new Set([
-          incident[leftIndex].lineKey,
-          incident[rightIndex].lineKey,
-        ]),
+        new Set([incident[leftIndex].lineKey, incident[rightIndex].lineKey]),
       )
       if (overlay) {
         candidates.push({ overlay })
@@ -370,23 +400,14 @@ const getOverlayCellDegree = (
 ): number =>
   incident.filter((item) => overlay.get(item.lineKey) === 'line').length
 
-const getCommonOverlayDecisions = (
-  overlays: MasyuLineOverlay[],
-): Array<[string, LineMark]> => {
-  const [first] = overlays
-  if (!first) {
-    return []
-  }
-  return [...first.entries()].filter(([lineKeyValue, mark]) =>
-    overlays.every((overlay) => overlay.get(lineKeyValue) === mark),
-  )
-}
-
 export const createEmptyCellCandidatePruningRule = (): Rule => ({
   id: 'masyu-empty-cell-candidate-pruning',
   name: 'Empty Cell Candidate Pruning',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const context = createMasyuLookaheadContext(puzzle)
+  apply: (
+    puzzle: PuzzleIR,
+    runtimeContext?: RuleRuntimeContext,
+  ): RuleApplication | null => {
+    const context = getMasyuLookaheadContext(puzzle, runtimeContext)
 
     for (let row = 0; row < puzzle.rows; row += 1) {
       for (let col = 0; col < puzzle.cols; col += 1) {
@@ -412,7 +433,7 @@ export const createEmptyCellCandidatePruningRule = (): Rule => ({
         const decisions = createMasyuLineDecisionCollector(puzzle, {
           guardLineDegree: true,
         })
-        for (const [lineKeyValue, mark] of getCommonOverlayDecisions(
+        for (const [lineKeyValue, mark] of getCommonLineDecisions(
           feasibleCandidates.map((candidate) => candidate.overlay),
         )) {
           decisions.add(lineKeyValue, mark)

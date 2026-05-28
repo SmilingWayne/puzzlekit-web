@@ -1,5 +1,11 @@
 import type { PuzzleIR } from '../ir/types'
-import type { Rule, RuleDiff, RuleStep } from './types'
+import type {
+  Rule,
+  RuleAttempt,
+  RuleDiff,
+  RuleRuntimeContext,
+  RuleStep,
+} from './types'
 
 type WritableBuckets = {
   cells: PuzzleIR['cells'] | null
@@ -43,11 +49,14 @@ const applyDiffEntry = (
       next.sectors = writable.sectors
     }
     const prev = writable.sectors[diff.sectorKey]
-    writable.sectors[diff.sectorKey] = prev ? { ...prev, constraintsMask } : { constraintsMask }
+    writable.sectors[diff.sectorKey] = prev
+      ? { ...prev, constraintsMask }
+      : { constraintsMask }
     return
   }
   if (diff.kind === 'vertex') {
-    const candidateEdgeSets = mode === 'forward' ? diff.toCandidates : diff.fromCandidates
+    const candidateEdgeSets =
+      mode === 'forward' ? diff.toCandidates : diff.fromCandidates
     if (!writable.vertices) {
       writable.vertices = { ...(next.vertices ?? {}) }
       next.vertices = writable.vertices
@@ -117,12 +126,19 @@ const applyRuleDiffsInternal = (
 export const applyRuleDiffs = (puzzle: PuzzleIR, diffs: RuleDiff[]): PuzzleIR =>
   applyRuleDiffsInternal(puzzle, diffs, 'forward')
 
-export const revertRuleDiffs = (puzzle: PuzzleIR, diffs: RuleDiff[]): PuzzleIR =>
-  applyRuleDiffsInternal(puzzle, diffs, 'backward')
+export const revertRuleDiffs = (
+  puzzle: PuzzleIR,
+  diffs: RuleDiff[],
+): PuzzleIR => applyRuleDiffsInternal(puzzle, diffs, 'backward')
 
-const applyDiffs = (puzzle: PuzzleIR, step: RuleStep): PuzzleIR => applyRuleDiffs(puzzle, step.diffs)
+const applyDiffs = (puzzle: PuzzleIR, step: RuleStep): PuzzleIR =>
+  applyRuleDiffs(puzzle, step.diffs)
 
-export const buildPuzzleFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[], pointer: number): PuzzleIR => {
+export const buildPuzzleFromSteps = (
+  initialPuzzle: PuzzleIR,
+  steps: RuleStep[],
+  pointer: number,
+): PuzzleIR => {
   const clamped = Math.max(0, Math.min(pointer, steps.length))
   let next = initialPuzzle
   for (let i = 0; i < clamped; i += 1) {
@@ -131,7 +147,10 @@ export const buildPuzzleFromSteps = (initialPuzzle: PuzzleIR, steps: RuleStep[],
   return next
 }
 
-export const rewindPuzzleByStep = (puzzle: PuzzleIR, step: RuleStep | undefined): PuzzleIR => {
+export const rewindPuzzleByStep = (
+  puzzle: PuzzleIR,
+  step: RuleStep | undefined,
+): PuzzleIR => {
   if (!step) {
     return puzzle
   }
@@ -144,11 +163,25 @@ export const runNextRule = (
   stepNumber: number,
 ): { nextPuzzle: PuzzleIR; step: RuleStep | null } => {
   const startedAt = performance.now()
+  const runtimeContext: RuleRuntimeContext = {
+    cache: new Map<string, unknown>(),
+  }
+  const attempts: RuleAttempt[] = []
   for (const rule of rules) {
-    const result = rule.apply(puzzle)
+    const ruleStartedAt = performance.now()
+    const result = rule.apply(puzzle, runtimeContext)
+    const ruleApplyMs = Math.max(0, performance.now() - ruleStartedAt)
+    const hit = Boolean(result && result.diffs.length > 0)
+    attempts.push({
+      ruleId: rule.id,
+      ruleName: rule.name,
+      durationMs: ruleApplyMs,
+      hit,
+    })
     if (!result || result.diffs.length === 0) {
       continue
     }
+    const chainDurationMs = Math.max(0, performance.now() - startedAt)
     const step: RuleStep = {
       id: `step-${stepNumber}`,
       ruleId: rule.id,
@@ -157,15 +190,22 @@ export const runNextRule = (
       diffs: result.diffs,
       affectedCells: result.affectedCells,
       affectedTiles:
-        result.affectedTiles ?? result.diffs.flatMap((d) => (d.kind === 'tile' ? [d.tileKey] : [])),
-      affectedEdges: result.diffs.flatMap((d) => (d.kind === 'edge' ? [d.edgeKey] : [])),
+        result.affectedTiles ??
+        result.diffs.flatMap((d) => (d.kind === 'tile' ? [d.tileKey] : [])),
+      affectedEdges: result.diffs.flatMap((d) =>
+        d.kind === 'edge' ? [d.edgeKey] : [],
+      ),
       affectedLines:
-        result.affectedLines ?? result.diffs.flatMap((d) => (d.kind === 'line' ? [d.lineKey] : [])),
+        result.affectedLines ??
+        result.diffs.flatMap((d) => (d.kind === 'line' ? [d.lineKey] : [])),
       affectedSectors:
         result.affectedSectors ??
         result.diffs.flatMap((d) => (d.kind === 'sector' ? [d.sectorKey] : [])),
       timestamp: Date.now(),
-      durationMs: Math.max(0, performance.now() - startedAt),
+      durationMs: chainDurationMs,
+      chainDurationMs,
+      ruleApplyMs,
+      ruleAttempts: attempts,
     }
     return {
       nextPuzzle: applyDiffs(puzzle, step),

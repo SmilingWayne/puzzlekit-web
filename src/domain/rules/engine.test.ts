@@ -4,19 +4,64 @@ import { tileKey, vertexKey } from '../ir/keys'
 import { createMasyuPuzzle } from '../ir/masyu'
 import { applyRuleDiffs, revertRuleDiffs, runNextRule } from './engine'
 import { slitherRules } from './slither/rules'
-import type { RuleDiff } from './types'
+import type { Rule, RuleDiff } from './types'
 
 describe('rule engine', () => {
   it('finds at least one step for simple zero clue puzzle', () => {
-    const puzzle = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/3/3/g0h')
+    const puzzle = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/3/3/g0h',
+    )
     const result = runNextRule(puzzle, slitherRules, 1)
     expect(result.step).not.toBeNull()
     expect(result.step?.diffs.length).toBeGreaterThan(0)
     expect(result.step?.durationMs).toBeGreaterThanOrEqual(0)
+    expect(result.step?.chainDurationMs).toBe(result.step?.durationMs)
+    expect(result.step?.ruleApplyMs).toBeGreaterThanOrEqual(0)
+    expect(result.step?.ruleAttempts?.at(-1)?.hit).toBe(true)
+  })
+
+  it('shares one runtime context across attempted rules in a solver step', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    const line = Object.keys(puzzle.lines)[0]
+    const rules: Rule[] = [
+      {
+        id: 'miss',
+        name: 'Miss',
+        apply: (_puzzle, runtimeContext) => {
+          runtimeContext?.cache.set('shared-value', 41)
+          return null
+        },
+      },
+      {
+        id: 'hit',
+        name: 'Hit',
+        apply: (_puzzle, runtimeContext) => {
+          const value = runtimeContext?.cache.get('shared-value')
+          return {
+            message: `shared ${String(value)}`,
+            diffs: [
+              { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
+            ],
+            affectedCells: [],
+          }
+        },
+      },
+    ]
+
+    const result = runNextRule(puzzle, rules, 1)
+
+    expect(result.step?.message).toBe('shared 41')
+    expect(result.step?.ruleAttempts).toHaveLength(2)
+    expect(result.step?.ruleAttempts?.map((attempt) => attempt.hit)).toEqual([
+      false,
+      true,
+    ])
   })
 
   it('applies and reverts diffs without mutating input puzzle', () => {
-    const puzzle = decodeSlitherFromPuzzlink('https://puzz.link/p?slither/3/3/g0h')
+    const puzzle = decodeSlitherFromPuzzlink(
+      'https://puzz.link/p?slither/3/3/g0h',
+    )
     const edgeKey = Object.keys(puzzle.edges)[0]
     const sectorKey = Object.keys(puzzle.sectors)[0]
     const centerVertexKey = vertexKey(1, 1)
@@ -53,16 +98,24 @@ describe('rule engine', () => {
     expect(next.edges[edgeKey].mark).toBe('line')
     expect(next.sectors[sectorKey].constraintsMask).toBe(1)
     expect(next.cells['0,0']?.fill).toBe('green')
-    expect(next.vertices[centerVertexKey].candidateEdgeSets).toEqual(toCandidates)
+    expect(next.vertices[centerVertexKey].candidateEdgeSets).toEqual(
+      toCandidates,
+    )
     expect(puzzle.edges[edgeKey].mark).toBe('unknown')
     expect(puzzle.cells['0,0']?.fill).toBeUndefined()
-    expect(puzzle.vertices[centerVertexKey].candidateEdgeSets).toEqual(fromCandidates)
+    expect(puzzle.vertices[centerVertexKey].candidateEdgeSets).toEqual(
+      fromCandidates,
+    )
 
     const rewound = revertRuleDiffs(next, diffs)
     expect(rewound.edges[edgeKey].mark).toBe('unknown')
-    expect(rewound.sectors[sectorKey].constraintsMask).toBe(puzzle.sectors[sectorKey].constraintsMask)
+    expect(rewound.sectors[sectorKey].constraintsMask).toBe(
+      puzzle.sectors[sectorKey].constraintsMask,
+    )
     expect(rewound.cells['0,0']?.fill).toBeUndefined()
-    expect(rewound.vertices[centerVertexKey].candidateEdgeSets).toEqual(fromCandidates)
+    expect(rewound.vertices[centerVertexKey].candidateEdgeSets).toEqual(
+      fromCandidates,
+    )
   })
 
   it('applies and reverts line diffs without mutating input puzzle', () => {

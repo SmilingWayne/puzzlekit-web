@@ -1,4 +1,5 @@
 import type { LineMark, PuzzleIR } from '../../../ir/types'
+import type { RuleRuntimeContext } from '../../types'
 import {
   areMasyuDirectionsOpposite,
   areMasyuDirectionsTurn,
@@ -33,6 +34,8 @@ export type MasyuLookaheadContext = {
   getFeasibleBlackPearlCandidates: (pearlKey: string) => BlackPearlCandidate[]
   getFeasibleWhitePearlCandidates: (pearlKey: string) => WhitePearlCandidate[]
 }
+
+const MASYU_LOOKAHEAD_CONTEXT_CACHE_KEY = 'masyu.lookaheadContext'
 
 export const createMasyuLookaheadContext = (
   puzzle: PuzzleIR,
@@ -411,4 +414,20 @@ export const createMasyuLookaheadContext = (
     getFeasibleBlackPearlCandidates,
     getFeasibleWhitePearlCandidates,
   }
+}
+
+export const getMasyuLookaheadContext = (
+  puzzle: PuzzleIR,
+  runtimeContext?: RuleRuntimeContext,
+): MasyuLookaheadContext => {
+  if (!runtimeContext) {
+    return createMasyuLookaheadContext(puzzle)
+  }
+  const cached = runtimeContext.cache.get(MASYU_LOOKAHEAD_CONTEXT_CACHE_KEY)
+  if (cached) {
+    return cached as MasyuLookaheadContext
+  }
+  const context = createMasyuLookaheadContext(puzzle)
+  runtimeContext.cache.set(MASYU_LOOKAHEAD_CONTEXT_CACHE_KEY, context)
+  return context
 }
