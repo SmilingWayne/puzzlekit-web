@@ -21,6 +21,7 @@ export type MasyuLookaheadGeometry = {
   totalBaseLineCount: number
   findBase: (idx: number) => number
   lineEndpoints: (lineKeyValue: string) => [left: number, right: number]
+  lineCells: (lineKeyValue: string) => [left: string, right: string]
   getIncident: (
     key: string,
   ) => Record<MasyuDirection, MasyuDirectionalLine | null>
@@ -323,6 +324,7 @@ export const createMasyuLookaheadGeometry = (
     totalBaseLineCount,
     findBase,
     lineEndpoints,
+    lineCells,
     getIncident,
     getTwoStep,
     getTurnCandidates,

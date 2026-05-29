@@ -59,6 +59,54 @@ export const createMasyuLookaheadContext = (
       .getIncidentEntries(overlay, key)
       .filter((item) => item.mark === 'line').length <= 2
 
+  const canOverlayLineStillBecomeLine = (
+    overlay: MasyuLineOverlay,
+    lineKeyValue: string,
+  ): boolean => {
+    const mark = geometry.getLineMark(overlay, lineKeyValue)
+    if (mark === 'blank') {
+      return false
+    }
+    if (mark === 'line') {
+      return true
+    }
+    const [left, right] = geometry.lineCells(lineKeyValue)
+    return [left, right].every(
+      (key) =>
+        geometry
+          .getIncidentEntries(overlay, key)
+          .filter((item) => item.mark === 'line').length < 2,
+    )
+  }
+
+  const isEmptyCellDegreeStillPossible = (
+    overlay: MasyuLineOverlay,
+    key: string,
+  ): boolean => {
+    if (geometry.pearlColors.has(key)) {
+      return true
+    }
+    const incident = geometry.getIncidentEntries(overlay, key)
+    const lineEntries = incident.filter((item) => item.mark === 'line')
+    if (lineEntries.length > 2) {
+      return false
+    }
+    if (lineEntries.length !== 1) {
+      return true
+    }
+    return incident.some(
+      (item) =>
+        item.mark === 'unknown' &&
+        canOverlayLineStillBecomeLine(overlay, item.lineKey),
+    )
+  }
+
+  const isCellLocallyFeasible = (
+    overlay: MasyuLineOverlay,
+    key: string,
+  ): boolean =>
+    isCellDegreeValid(overlay, key) && isEmptyCellDegreeStillPossible(overlay, key)
+
   const canApplyLocalDecisions = (
     overlay: MasyuLineOverlay,
     decisions: MasyuLineOverlay,
@@ -69,7 +117,7 @@ export const createMasyuLookaheadContext = (
     }
     for (const key of geometry.getTouchedCells(decisions.keys())) {
       if (
-        !isCellDegreeValid(merged, key) ||
+        !isCellLocallyFeasible(merged, key) ||
         !isPearlShapeStillPossible(merged, key, {
           checkWhiteAdjacentTurn: false,
         })
@@ -309,7 +357,7 @@ export const createMasyuLookaheadContext = (
     }
     for (const key of geometry.getTouchedCells(overlay.keys())) {
       if (
-        !isCellDegreeValid(overlay, key) ||
+        !isCellLocallyFeasible(overlay, key) ||
         !isPearlShapeStillPossible(overlay, key)
       ) {
         return false
@@ -334,7 +382,7 @@ export const createMasyuLookaheadContext = (
       ...candidate.blanks,
     ])) {
       if (
-        !isCellDegreeValid(overlay, key) ||
+        !isCellLocallyFeasible(overlay, key) ||
         !isPearlShapeStillPossible(overlay, key)
       ) {
         return false

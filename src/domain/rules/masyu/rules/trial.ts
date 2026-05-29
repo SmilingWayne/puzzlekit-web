@@ -92,7 +92,16 @@ const detectCellDegreeContradiction = (
           message: `cell-degree contradiction at ${formatMasyuCellKeyLabel(key)}: ${lineCount} line segments meet there`,
         }
       }
-      if (lineCount === 1 && unknownCount === 0) {
+      const addableUnknownCount =
+        lineCount === 1
+          ? Object.values(getMasyuIncidentDirectionalLines(puzzle, key)).filter(
+              (item) =>
+                item !== null &&
+                item.mark === 'unknown' &&
+                canLineStillBeLine(puzzle, item.lineKey),
+            ).length
+          : unknownCount
+      if (lineCount === 1 && addableUnknownCount === 0) {
         return {
           kind: 'cell-degree',
           message: `cell-degree contradiction at ${formatMasyuCellKeyLabel(key)}: a closed cell has only one line segment`,

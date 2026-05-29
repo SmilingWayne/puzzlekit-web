@@ -47,6 +47,8 @@ import {
   findMasyuPrematureLoopClosingLines,
   getMasyuRequiredSources,
 } from './rules/lineGraph'
+import { createMasyuLookaheadContext } from './rules/lookahead'
+import { findMasyuHardContradictionReason } from './rules/trial'
 
 const markLine = (puzzle: PuzzleIR, key: string, mark: LineMark): void => {
   puzzle.lines[key] = { ...puzzle.lines[key], mark }
@@ -1051,6 +1053,19 @@ describe('Masyu black pearl candidate pruning', () => {
     expect(createBlackPearlCandidatePruningRule().apply(puzzle)).toBeNull()
   })
 
+  it('rejects a black pearl candidate that leaves an extension endpoint with no second exit', () => {
+    const puzzle = createMasyuPuzzle(4, 5)
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'blank')
+    markLine(puzzle, lineKey([2, 2], [3, 2]), 'blank')
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([0, 3], [0, 4]), 'line')
+    markLine(puzzle, lineKey([0, 3], [1, 3]), 'line')
+
+    expect(createBlackPearlCandidatePruningRule().apply(puzzle)).toBeNull()
+  })
+
   it('does nothing when all black pearl candidates remain symmetric', () => {
     const puzzle = createMasyuPuzzle(5, 5)
     addPearl(puzzle, 2, 2, 'black')
@@ -1136,6 +1151,21 @@ describe('Masyu white pearl candidate pruning', () => {
     markLine(puzzle, lineKey([1, 1], [2, 1]), 'line')
     markLine(puzzle, lineKey([0, 2], [1, 2]), 'blank')
     markLine(puzzle, lineKey([1, 2], [2, 2]), 'blank')
+
+    expect(createWhitePearlCandidatePruningRule().apply(puzzle)).toBeNull()
+  })
+
+  it('rejects a white pearl axis that leaves a neighboring empty cell with no second exit', () => {
+    const puzzle = createMasyuPuzzle(4, 5)
+    addPearl(puzzle, 1, 2, 'white')
+    markLine(puzzle, lineKey([0, 2], [1, 2]), 'blank')
+    markLine(puzzle, lineKey([1, 2], [2, 2]), 'blank')
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [0, 2]), 'line')
+    markLine(puzzle, lineKey([0, 0], [1, 0]), 'line')
+    markLine(puzzle, lineKey([1, 0], [2, 0]), 'line')
+    markLine(puzzle, lineKey([2, 0], [2, 1]), 'line')
+    markLine(puzzle, lineKey([2, 1], [2, 2]), 'line')
 
     expect(createWhitePearlCandidatePruningRule().apply(puzzle)).toBeNull()
   })
@@ -1252,6 +1282,32 @@ describe('Masyu adjacent white pearls lookahead', () => {
 
     expect(createAdjacentWhitePearlsLookaheadRule().apply(puzzle)).toBeNull()
   })
+
+  it('rejects the reported adjacent-white horizontal assumption when it creates a single-exit empty cell', () => {
+    const puzzle = createMasyuPuzzle(10, 10)
+    addPearl(puzzle, 6, 6, 'black')
+    addPearl(puzzle, 4, 8, 'white')
+    addPearl(puzzle, 5, 8, 'white')
+    markLine(puzzle, lineKey([4, 6], [5, 6]), 'line')
+    markLine(puzzle, lineKey([5, 6], [6, 6]), 'line')
+    markLine(puzzle, lineKey([4, 6], [4, 7]), 'line')
+    markLine(puzzle, lineKey([6, 6], [6, 7]), 'line')
+    markLine(puzzle, lineKey([6, 7], [6, 8]), 'line')
+
+    const horizontalThroughOverlay = new Map<string, LineMark>([
+      [lineKey([5, 7], [5, 8]), 'line'],
+      [lineKey([5, 8], [5, 9]), 'line'],
+      [lineKey([4, 7], [4, 8]), 'line'],
+      [lineKey([4, 8], [4, 9]), 'line'],
+    ])
+
+    expect(
+      createMasyuLookaheadContext(puzzle).isOverlayLocallyFeasible(
+        [cellKey(4, 8), cellKey(5, 8)],
+        horizontalThroughOverlay,
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('Masyu empty cell candidate pruning', () => {
@@ -1295,7 +1351,6 @@ describe('Masyu empty cell candidate pruning', () => {
     const puzzle = createMasyuPuzzle(2, 4)
     addPearl(puzzle, 0, 2, 'white')
     const westOfEmpty = lineKey([0, 0], [0, 1])
-    const toWhite = lineKey([0, 1], [0, 2])
     markLine(puzzle, lineKey([0, 1], [1, 1]), 'blank')
     markLine(puzzle, lineKey([0, 2], [1, 2]), 'blank')
 
@@ -1303,7 +1358,7 @@ describe('Masyu empty cell candidate pruning', () => {
 
     expectLineDiffs(result?.diffs, {
       [westOfEmpty]: 'line',
-      [toWhite]: 'line',
+      [lineKey([0, 0], [1, 0])]: 'line',
     })
   })
 
@@ -1400,6 +1455,24 @@ describe('Masyu shared helper primitives', () => {
     expect(parity.getInferredColor(tileKey(1, 1))).toBe('green')
     expect(parity.getInferredColor(tileKey(2, 1))).toBe('green')
     expect(parity.firstConflict).toBeNull()
+  })
+})
+
+describe('Masyu hard contradiction detection', () => {
+  it('treats a degree-1 empty cell as closed when every unknown exit would overflow its other endpoint', () => {
+    const puzzle = createMasyuPuzzle(3, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 2], [0, 3]), 'line')
+    markLine(puzzle, lineKey([0, 2], [1, 2]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [2, 0]), 'line')
+    markLine(puzzle, lineKey([2, 1], [2, 2]), 'line')
+    markLine(puzzle, lineKey([2, 1], [2, 0]), 'line')
+
+    const reason = findMasyuHardContradictionReason(puzzle)
+
+    expect(reason?.kind).toBe('cell-degree')
+    expect(reason?.message).toContain('only one line segment')
   })
 })
 
