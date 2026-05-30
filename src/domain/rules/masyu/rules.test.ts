@@ -26,6 +26,7 @@ import {
   createBlackFacingConsecutiveWhitesRule,
   createConsecutiveWhitePearlsStraightRule,
   createDoubleBlackSqueezeRule,
+  createWhiteCorridorRule,
 } from './rules/patterns'
 import { createBlackPearlRule, createWhitePearlRule } from './rules/pearls'
 import { deterministicMasyuRules } from './rules'
@@ -535,6 +536,7 @@ describe('Masyu pearl rules', () => {
       'Black Facing Consecutive Whites',
       'Black Diagonal White Pinch',
       'Consecutive White Pearls Straight',
+      'White Corridor',
       'Double Black Squeeze',
       'Masyu Tile Color Propagation',
       'Masyu Color-Pearl Propagation',
@@ -2218,6 +2220,77 @@ describe('Masyu pattern rules', () => {
       [lineKey([1, 3], [2, 3])]: 'line',
       [lineKey([2, 3], [3, 3])]: 'line',
     })
+  })
+
+  it('White Corridor forces the two inner white pearls through the L-shaped corridor', () => {
+    const puzzle = createMasyuPuzzle(8, 8)
+    addPearl(puzzle, 4, 5, 'white')
+    addPearl(puzzle, 5, 4, 'white')
+    markLine(puzzle, lineKey([3, 3], [3, 4]), 'line')
+    markLine(puzzle, lineKey([3, 4], [3, 5]), 'line')
+    markLine(puzzle, lineKey([3, 3], [4, 3]), 'line')
+    markLine(puzzle, lineKey([4, 3], [5, 3]), 'line')
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+
+    const result = createWhiteCorridorRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([4, 4], [4, 5])]: 'line',
+      [lineKey([4, 5], [4, 6])]: 'line',
+      [lineKey([4, 4], [5, 4])]: 'line',
+      [lineKey([5, 4], [6, 4])]: 'line',
+    })
+    expect(result?.affectedCells).toEqual([
+      cellKey(3, 3),
+      cellKey(4, 5),
+      cellKey(5, 4),
+    ])
+  })
+
+  it('White Corridor works after rotation', () => {
+    const puzzle = createMasyuPuzzle(8, 8)
+    addPearl(puzzle, 5, 2, 'white')
+    addPearl(puzzle, 4, 1, 'white')
+    markLine(puzzle, lineKey([3, 3], [4, 3]), 'line')
+    markLine(puzzle, lineKey([4, 3], [5, 3]), 'line')
+    markLine(puzzle, lineKey([3, 3], [3, 2]), 'line')
+    markLine(puzzle, lineKey([3, 2], [3, 1]), 'line')
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+
+    const result = createWhiteCorridorRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([4, 2], [5, 2])]: 'line',
+      [lineKey([5, 2], [6, 2])]: 'line',
+      [lineKey([4, 1], [4, 2])]: 'line',
+      [lineKey([4, 0], [4, 1])]: 'line',
+    })
+  })
+
+  it('White Corridor does not fire before there are multiple known line components', () => {
+    const puzzle = createMasyuPuzzle(8, 8)
+    addPearl(puzzle, 4, 5, 'white')
+    addPearl(puzzle, 5, 4, 'white')
+    markLine(puzzle, lineKey([3, 3], [3, 4]), 'line')
+    markLine(puzzle, lineKey([3, 4], [3, 5]), 'line')
+    markLine(puzzle, lineKey([3, 3], [4, 3]), 'line')
+    markLine(puzzle, lineKey([4, 3], [5, 3]), 'line')
+
+    expect(createWhiteCorridorRule().apply(puzzle)).toBeNull()
+  })
+
+  it('White Corridor does not overwrite a blank forced line', () => {
+    const puzzle = createMasyuPuzzle(8, 8)
+    addPearl(puzzle, 4, 5, 'white')
+    addPearl(puzzle, 5, 4, 'white')
+    markLine(puzzle, lineKey([3, 3], [3, 4]), 'line')
+    markLine(puzzle, lineKey([3, 4], [3, 5]), 'line')
+    markLine(puzzle, lineKey([3, 3], [4, 3]), 'line')
+    markLine(puzzle, lineKey([4, 3], [5, 3]), 'line')
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([4, 4], [4, 5]), 'blank')
+
+    expect(createWhiteCorridorRule().apply(puzzle)).toBeNull()
   })
 
   it('Double Black Squeeze blanks the opposite vertical exit between horizontal black pearls', () => {

@@ -21,8 +21,8 @@ export type MasyuStrongBranch = {
 export type MasyuLineAssumption = [lineKey: string, mark: LineMark]
 
 export const STRONG_MAX_CANDIDATES = 300
-export const STRONG_MAX_TRIAL_STEPS = 80
-export const STRONG_MAX_MS = 10000
+export const STRONG_MAX_TRIAL_STEPS = 100
+export const STRONG_MAX_MS = 15000
 
 export const deriveMasyuStrongProbeBudgets = (
   maxTrialSteps: number,

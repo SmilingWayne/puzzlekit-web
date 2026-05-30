@@ -146,6 +146,25 @@ W   W   W     each pearl is forced vertically
 The same logic applies to vertical runs, forcing horizontal passage through the
 white pearls.
 
+### White Corridor
+
+If an existing L-shaped corridor has two white pearls tucked just inside the
+corner, and there are still multiple known line components, the corridor cannot
+locally close or turn away from both pearls. The two white pearls are forced to
+go straight through the corner-facing axes.
+
+This rule determines four confirmed line segments: the first white pearl passes
+parallel to one corridor arm, and the second white pearl passes parallel to the
+other arm.
+
+```text
+--.
+  |
+  W       forces the two nearby whites straight through
+. W
+  |
+```
+
 ### Double Black Squeeze
 
 If a non-pearl cell sits between two black pearls, that middle cell cannot keep

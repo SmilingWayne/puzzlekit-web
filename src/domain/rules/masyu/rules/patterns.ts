@@ -1,4 +1,4 @@
-import { cellKey, parseCellKey } from '../../../ir/keys'
+import { cellKey, lineKey, parseCellKey } from '../../../ir/keys'
 import type { PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
 import {
@@ -6,8 +6,10 @@ import {
   type MasyuLineDecisionCollector,
 } from './decisionCollector'
 import { getMasyuBlackPearlKeys, isMasyuPearl } from './pearlSelectors'
+import { getMasyuKnownLineComponents } from './lineGraph'
 import {
   MASYU_DIRECTIONS,
+  canMasyuLineBeAddedWithoutDegreeOverflow,
   formatMasyuCellKeyLabel,
   formatMasyuLineLabel,
   getMasyuDirectionOffset,
@@ -177,6 +179,200 @@ export const createBlackDiagonalWhitePinchRule = (): Rule => ({
         firstPearl && firstLine
           ? `Two diagonal white pearls pinch black pearl ${formatMasyuCellKeyLabel(firstPearl)}, so ${formatMasyuLineLabel(firstLine)} is forced${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
           : 'Black diagonal white pinch pattern applied.',
+      diffs,
+      affectedCells: [...affectedCells],
+      affectedLines: diffs.map((diff) => diff.lineKey),
+    }
+  },
+})
+
+type MasyuLocalBasis = {
+  right: [rowDelta: number, colDelta: number]
+  down: [rowDelta: number, colDelta: number]
+}
+
+const whiteCorridorBases: MasyuLocalBasis[] = [
+  { right: [0, 1], down: [1, 0] },
+  { right: [1, 0], down: [0, -1] },
+  { right: [0, -1], down: [-1, 0] },
+  { right: [-1, 0], down: [0, 1] },
+]
+
+const offsetLocalPoint = (
+  row: number,
+  col: number,
+  x: number,
+  y: number,
+  basis: MasyuLocalBasis,
+): [row: number, col: number] => [
+  row + basis.right[0] * x + basis.down[0] * y,
+  col + basis.right[1] * x + basis.down[1] * y,
+]
+
+const offsetLocalCellKey = (
+  puzzle: PuzzleIR,
+  originKey: string,
+  x: number,
+  y: number,
+  basis: MasyuLocalBasis,
+): string | null => {
+  const [row, col] = parseCellKey(originKey)
+  const [targetRow, targetCol] = offsetLocalPoint(row, col, x, y, basis)
+  if (!Number.isInteger(targetRow) || !Number.isInteger(targetCol)) {
+    return null
+  }
+  return isInBounds(puzzle, targetRow, targetCol)
+    ? cellKey(targetRow, targetCol)
+    : null
+}
+
+const offsetLocalLineKey = (
+  puzzle: PuzzleIR,
+  originKey: string,
+  x: number,
+  y: number,
+  basis: MasyuLocalBasis,
+): string | null => {
+  const hasHalfX = !Number.isInteger(x)
+  const hasHalfY = !Number.isInteger(y)
+  if (hasHalfX === hasHalfY) {
+    return null
+  }
+
+  const first = hasHalfX
+    ? offsetLocalCellKey(puzzle, originKey, x - 0.5, y, basis)
+    : offsetLocalCellKey(puzzle, originKey, x, y - 0.5, basis)
+  const second = hasHalfX
+    ? offsetLocalCellKey(puzzle, originKey, x + 0.5, y, basis)
+    : offsetLocalCellKey(puzzle, originKey, x, y + 0.5, basis)
+  if (!first || !second) {
+    return null
+  }
+
+  return lineKey(parseCellKey(first), parseCellKey(second))
+}
+
+const canAddMasyuLineBatch = (
+  puzzle: PuzzleIR,
+  lineKeys: string[],
+): boolean => {
+  const decisions = new Map<string, 'line'>()
+  for (const key of lineKeys) {
+    const current = puzzle.lines[key]?.mark ?? 'unknown'
+    if (current === 'blank') {
+      return false
+    }
+    if (
+      current === 'unknown' &&
+      !canMasyuLineBeAddedWithoutDegreeOverflow(puzzle, key, decisions)
+    ) {
+      return false
+    }
+    decisions.set(key, 'line')
+  }
+  return true
+}
+
+export const createWhiteCorridorRule = (): Rule => ({
+  id: 'masyu-white-corridor',
+  name: 'White Corridor',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    if (getMasyuKnownLineComponents(puzzle).length <= 1) {
+      return null
+    }
+
+    const decisions = createMasyuLineDecisionCollector(puzzle, {
+      guardLineDegree: true,
+    })
+    const affectedCells = new Set<string>()
+    let firstAnchor: string | null = null
+    let firstWhite: string | null = null
+    let firstLine: string | null = null
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const anchorKey = cellKey(row, col)
+        for (const basis of whiteCorridorBases) {
+          const corridorLines = [
+            offsetLocalLineKey(puzzle, anchorKey, 0, 0.5, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 0, 1.5, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 0.5, 0, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 1.5, 0, basis),
+          ]
+          if (
+            corridorLines.some(
+              (key) => !key || puzzle.lines[key]?.mark !== 'line',
+            )
+          ) {
+            continue
+          }
+
+          const firstWhiteKey = offsetLocalCellKey(
+            puzzle,
+            anchorKey,
+            2,
+            1,
+            basis,
+          )
+          const secondWhiteKey = offsetLocalCellKey(
+            puzzle,
+            anchorKey,
+            1,
+            2,
+            basis,
+          )
+          if (
+            !firstWhiteKey ||
+            !secondWhiteKey ||
+            !isMasyuPearl(puzzle, firstWhiteKey, 'white') ||
+            !isMasyuPearl(puzzle, secondWhiteKey, 'white')
+          ) {
+            continue
+          }
+
+          const forcedLines = [
+            offsetLocalLineKey(puzzle, anchorKey, 1.5, 1, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 2.5, 1, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 1, 1.5, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 1, 2.5, basis),
+          ]
+          if (
+            forcedLines.some((key): key is null => key === null) ||
+            !canAddMasyuLineBatch(puzzle, forcedLines as string[])
+          ) {
+            continue
+          }
+
+          const beforeSize = decisions.decisions.size
+          for (const key of forcedLines as string[]) {
+            decisions.add(key, 'line')
+          }
+          if (decisions.decisions.size === beforeSize) {
+            continue
+          }
+
+          affectedCells.add(anchorKey)
+          affectedCells.add(firstWhiteKey)
+          affectedCells.add(secondWhiteKey)
+          if (firstAnchor === null) {
+            firstAnchor = anchorKey
+            firstWhite = firstWhiteKey
+            firstLine = decisions.firstLine()
+          }
+        }
+      }
+    }
+
+    if (!decisions.hasChanges()) {
+      return null
+    }
+
+    const diffs = decisions.diffs()
+    return {
+      message:
+        firstAnchor && firstWhite && firstLine
+          ? `An L-shaped corridor at ${formatMasyuCellKeyLabel(firstAnchor)} forces nearby white pearl ${formatMasyuCellKeyLabel(firstWhite)} to go straight, so ${formatMasyuLineLabel(firstLine)} is a line${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
+          : 'White corridor pattern applied.',
       diffs,
       affectedCells: [...affectedCells],
       affectedLines: diffs.map((diff) => diff.lineKey),

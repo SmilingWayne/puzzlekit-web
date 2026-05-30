@@ -20,6 +20,7 @@ import {
   createBlackFacingConsecutiveWhitesRule,
   createConsecutiveWhitePearlsStraightRule,
   createDoubleBlackSqueezeRule,
+  createWhiteCorridorRule,
 } from './rules/patterns'
 import { createBlackPearlRule, createWhitePearlRule } from './rules/pearls'
 import { createWhitePearlStrongInferenceRule } from './rules/whitePearlStrongInference'
@@ -30,6 +31,7 @@ export const deterministicMasyuRules: Rule[] = [
   createBlackFacingConsecutiveWhitesRule(),
   createBlackDiagonalWhitePinchRule(),
   createConsecutiveWhitePearlsStraightRule(),
+  createWhiteCorridorRule(),
   createDoubleBlackSqueezeRule(),
   createMasyuTileColorPropagationRule(),
   createMasyuColorPearlPropagationRule(),
