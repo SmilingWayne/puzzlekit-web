@@ -18,6 +18,11 @@ test-results
 dataset/private/
 *.local
 
+# Local-only Masyu assist diagnostics
+AUX_Puzzlink_Assistance.js
+scripts/compare-masyu-assist.ts
+src/domain/diagnostics/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
