@@ -7,6 +7,7 @@ import {
 import {
   getMasyuBlackPearlKeys,
   getMasyuWhitePearlKeys,
+  isMasyuPearl,
 } from './pearlSelectors'
 import {
   MASYU_DIRECTIONS,
@@ -59,9 +60,15 @@ const canWhiteAxisSideTurn = (
   if (!isMasyuLineAvailable(first) || !first || second?.mark === 'line') {
     return false
   }
+  if (isMasyuPearl(puzzle, first.neighborKey, 'white')) {
+    return false
+  }
   return getMasyuTurnCandidateLines(puzzle, first.neighborKey, direction).some(
     (candidate) => {
-      if (!isMasyuLineAvailable(candidate)) {
+      if (
+        !isMasyuLineAvailable(candidate) ||
+        isMasyuPearl(puzzle, candidate.neighborKey, 'black')
+      ) {
         return false
       }
       const decisions = new Map<string, 'line' | 'blank'>()

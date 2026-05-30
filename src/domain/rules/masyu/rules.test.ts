@@ -225,6 +225,66 @@ describe('Masyu pearl rules', () => {
     })
   })
 
+  it('White Pearl Rule rejects a horizontal pass-through when both side turns break adjacent pearls', () => {
+    const puzzle = createMasyuPuzzle(10, 10)
+    addPearl(puzzle, 3, 3, 'black')
+    addPearl(puzzle, 5, 3, 'black')
+    addPearl(puzzle, 4, 4, 'white')
+    addPearl(puzzle, 4, 5, 'white')
+
+    const result = createWhitePearlRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([4, 3], [4, 4])]: 'blank',
+      [lineKey([4, 4], [4, 5])]: 'blank',
+      [lineKey([3, 4], [4, 4])]: 'line',
+      [lineKey([4, 4], [5, 4])]: 'line',
+    })
+    expect(result?.affectedCells).toEqual([cellKey(4, 4)])
+  })
+
+  it('White Pearl Rule treats an adjacent white pearl as a blocked turn side', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 3, 3, 'white')
+    addPearl(puzzle, 2, 3, 'white')
+    markLine(puzzle, lineKey([4, 2], [4, 3]), 'blank')
+    markLine(puzzle, lineKey([4, 3], [4, 4]), 'blank')
+
+    const result = createWhitePearlRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([2, 3], [3, 3])]: 'blank',
+      [lineKey([3, 3], [4, 3])]: 'blank',
+      [lineKey([3, 3], [3, 4])]: 'line',
+      [lineKey([3, 2], [3, 3])]: 'line',
+    })
+  })
+
+  it('White Pearl Rule keeps an axis available when a nearby black pearl still has candidates', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 3, 2, 'white')
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([3, 2], [4, 2]), 'blank')
+
+    const result = createWhitePearlRule().apply(puzzle)
+
+    expectLineDiffs(result?.diffs, {
+      [lineKey([2, 2], [3, 2])]: 'blank',
+      [lineKey([3, 2], [3, 3])]: 'line',
+      [lineKey([3, 1], [3, 2])]: 'line',
+    })
+  })
+
+  it('White Pearl Rule keeps a turn side available when only one target is black', () => {
+    const puzzle = createMasyuPuzzle(6, 6)
+    addPearl(puzzle, 3, 3, 'white')
+    addPearl(puzzle, 2, 2, 'black')
+    markLine(puzzle, lineKey([4, 2], [4, 3]), 'blank')
+    markLine(puzzle, lineKey([4, 3], [4, 4]), 'blank')
+
+    expect(createWhitePearlRule().apply(puzzle)).toBeNull()
+  })
+
   it('White Pearl Rule continues a known line straight and blanks turn candidates', () => {
     const puzzle = createMasyuPuzzle(5, 5)
     addPearl(puzzle, 2, 2, 'white')
