@@ -34,3 +34,4 @@ src/domain/diagnostics/
 *.sln
 *.sw?
 Puzzlink_Assistance.js
+docs/legacy/*

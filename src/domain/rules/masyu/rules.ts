@@ -14,7 +14,10 @@ import {
 import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
 import { createCellExitCompletionRule } from './rules/completion'
 import { createEmptyCellStrongInferenceRule } from './rules/emptyCellStrongInference'
-import { createPreventPrematureLoopRule } from './rules/loop'
+import {
+  createMasyuEmptyCellPrematureLoopRule,
+  createPreventPrematureLoopRule,
+} from './rules/loop'
 import {
   createBlackDiagonalWhitePinchRule,
   createBlackFacingConsecutiveWhitesRule,
@@ -39,6 +42,7 @@ export const deterministicMasyuRules: Rule[] = [
   createMasyuTileConnectivityCutColoringRule(),
   createMasyuCandidateBridgeLineRule(),
   createPreventPrematureLoopRule(),
+  createMasyuEmptyCellPrematureLoopRule(),
   createBlackPearlCandidatePruningRule(),
   createWhitePearlCandidatePruningRule(),
   createAdjacentWhitePearlsLookaheadRule(),

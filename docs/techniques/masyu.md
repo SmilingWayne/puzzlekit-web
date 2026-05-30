@@ -217,6 +217,11 @@ remain outside that loop.
 This rule determines crossed-out line segments. It only blocks premature loop
 closures; it does not complete the final loop by itself.
 
+The same premature-loop check also applies to ordinary empty cells with exactly
+two remaining unknown exits and no confirmed exits. If using both exits would
+close a smaller loop while other confirmed line segments remain outside it, both
+exits are crossed out.
+
 ### Masyu Candidate Bridge Line
 
 The solver builds a candidate graph from all confirmed and still-unknown Masyu

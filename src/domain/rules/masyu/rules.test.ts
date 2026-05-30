@@ -20,7 +20,10 @@ import {
 } from './rules/color'
 import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
 import { createCellExitCompletionRule } from './rules/completion'
-import { createPreventPrematureLoopRule } from './rules/loop'
+import {
+  createMasyuEmptyCellPrematureLoopRule,
+  createPreventPrematureLoopRule,
+} from './rules/loop'
 import {
   createBlackDiagonalWhitePinchRule,
   createBlackFacingConsecutiveWhitesRule,
@@ -544,6 +547,7 @@ describe('Masyu pearl rules', () => {
       'Masyu Tile Connectivity Cut Coloring',
       'Masyu Candidate Bridge Line',
       'Prevent Premature Loop',
+      'Masyu Empty Cell Premature Loop',
       'Black Pearl Candidate Pruning',
       'White Pearl Candidate Pruning',
       'Adjacent White Pearls LookAhead',
@@ -876,6 +880,12 @@ describe('Masyu loop rules', () => {
     expect(rules.indexOf('masyu-candidate-bridge-line')).toBeLessThan(
       rules.indexOf('masyu-prevent-premature-loop'),
     )
+    expect(rules.indexOf('masyu-empty-cell-premature-loop')).toBe(
+      rules.indexOf('masyu-prevent-premature-loop') + 1,
+    )
+    expect(rules.indexOf('masyu-empty-cell-premature-loop')).toBeLessThan(
+      rules.indexOf('masyu-black-pearl-candidate-pruning'),
+    )
     expect(rules.indexOf('masyu-white-pearl-candidate-pruning')).toBe(
       rules.indexOf('masyu-black-pearl-candidate-pruning') + 1,
     )
@@ -918,6 +928,54 @@ describe('Masyu loop rules', () => {
     markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
 
     expect(createPreventPrematureLoopRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Masyu Empty Cell Premature Loop blanks both exits when using both would close a smaller loop', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    const target = cellKey(0, 0)
+    const east = lineKey([0, 0], [0, 1])
+    const south = lineKey([0, 0], [1, 0])
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'line')
+
+    const result = createMasyuEmptyCellPrematureLoopRule().apply(puzzle)
+
+    expect(result?.affectedCells).toEqual([target])
+    expectLineDiffs(result?.diffs, { [east]: 'blank', [south]: 'blank' })
+    expect(result?.affectedLines).toEqual([east, south])
+    expect(result?.message).toContain('both remaining exits')
+    expect(result?.message).toContain('smaller loop')
+  })
+
+  it('Masyu Empty Cell Premature Loop skips cells that already have a line', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+    markLine(puzzle, lineKey([2, 2], [2, 3]), 'line')
+
+    expect(createMasyuEmptyCellPrematureLoopRule().apply(puzzle)).toBeNull()
+  })
+
+  it('Masyu Empty Cell Premature Loop skips pearl cells', () => {
+    for (const color of ['black', 'white'] as const) {
+      const puzzle = createMasyuPuzzle(4, 4)
+      addPearl(puzzle, 0, 0, color)
+      markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+      markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+      markLine(puzzle, lineKey([2, 2], [2, 3]), 'line')
+
+      expect(createMasyuEmptyCellPrematureLoopRule().apply(puzzle)).toBeNull()
+    }
+  })
+
+  it('Masyu Empty Cell Premature Loop allows both exits when no other confirmed lines remain outside', () => {
+    const puzzle = createMasyuPuzzle(4, 4)
+    markLine(puzzle, lineKey([0, 1], [1, 1]), 'line')
+    markLine(puzzle, lineKey([1, 0], [1, 1]), 'line')
+
+    expect(createMasyuEmptyCellPrematureLoopRule().apply(puzzle)).toBeNull()
   })
 })
 
