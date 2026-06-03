@@ -20,7 +20,7 @@ const parseSlitherInput = (input: string) => {
         puzzlinkError instanceof Error ? puzzlinkError.message : String(puzzlinkError)
       const penpaMessage = penpaError instanceof Error ? penpaError.message : String(penpaError)
       throw new Error(
-        `Unsupported Slitherlink URL. Paste a puzz.link, pzplus.tck.mn, pzv.jp, or Penpa+ Slitherlink URL. puzz.link-compatible: ${puzzlinkMessage} Penpa+: ${penpaMessage}`,
+        `Unsupported Slitherlink URL. Paste a puzz.link, pzplus.tck.mn, pzprxs.vercel.app, pzv.jp, or Penpa+ Slitherlink URL. puzz.link-compatible: ${puzzlinkMessage} Penpa+: ${penpaMessage}`,
       )
     }
   }

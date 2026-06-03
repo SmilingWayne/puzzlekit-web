@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { exportPuzzle, exporters, tryEncodePuzzlink } from '../../domain/exporters'
+import {
+  exportPuzzle,
+  exporters,
+  isPuzzleUrlExportFormat,
+  tryEncodePuzzleUrl,
+} from '../../domain/exporters'
 import type { ExportFormat } from '../../domain/exporters/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import { BoardLegendButton } from '../board/BoardLegendButton'
@@ -359,8 +364,8 @@ export const ControlPanel = () => {
             <button
               onClick={() => {
                 setCopyFeedback('')
-                if (exportFormat === 'puzzlink') {
-                  const result = tryEncodePuzzlink({ puzzle: currentPuzzle, pluginId })
+                if (isPuzzleUrlExportFormat(exportFormat)) {
+                  const result = tryEncodePuzzleUrl({ puzzle: currentPuzzle, pluginId }, exportFormat)
                   if (result.ok === false) {
                     setExportGenerateError(result.message)
                     return
