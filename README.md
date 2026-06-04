@@ -1,50 +1,28 @@
 # PuzzleKit Web
 
-[PuzzleKit Web](https://smilingwayne.github.io/puzzlekit-web/) provides step-wise and explainable inference flow for logical puzzles, now supporting only slitherlink (with better perf)  and Masyu (with poor perf). The core goal is not just to output a final answer, but to make each deduction step explicit: what changed, why it changed, and which rule produced this change.
+[PuzzleKit Web](https://smilingwayne.github.io/puzzlekit-web/) is a pure frontend logic-puzzle tool for step-wise, explainable solving. It currently focuses on **Slitherlink** and **Masyu**.
 
-Current focus:
+The goal is not only to produce a final answer. The app shows each deduction step: what changed, which rule changed it, and how the board can be replayed forward or backward.
 
-- Pure web-based solving experience
-- Rule-driven, explainable, replayable deduction flow
-- Modular Slitherlink rule architecture (including strong-inference fallback)
-- Masyu rule stack with pearl, color, loop, completion, and bounded strong-inference deductions
-- Practical interoperability with common puzzle URL formats (currently centered on puzz.link)
+## What It Does
 
----
+- Runs entirely in the browser.
+- Imports Slitherlink and Masyu puzzles from puzz.link-compatible URLs and Penpa+ URLs.
+- Provides an explainable solver workspace with step replay, highlights, rule messages, and live stats.
+- Provides an editor workspace for building Slitherlink and Masyu boards, importing URLs, and loading the result into the solver.
+- Provides a small Dataset page for curated examples and benchmark-oriented puzzle sets.
+- Exports supported puzzle states back to puzz.link-style URLs where available.
 
-## 1) Project Introduction
+Slitherlink has the more mature rule stack. Masyu is now a first-class puzzle family with editor, import/export, rendering, replay, completion analysis, and an actively evolving solver.
 
-### 1.1 Positioning
+![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260514010419047.png)
 
-PuzzleKit Web is a reasoning-engine-centered puzzle tool:
+## Getting Started
 
-- `domain` handles puzzle IR, rules, inference, and replay semantics
-- `features` handles controls, board rendering, step explanations, and stats views
-- The UI is not a black-box "give me the answer" interface, but a visualization layer for deduction
+Requirements:
 
-### 1.2 Current Focus: Slitherlink
-
-Slitherlink rules are modularized under `src/domain/rules/slither/rules/`, including:
-
-- Pattern rules (`patterns.ts`)
-- Core constraints (`core.ts`)
-- Color-based inference chain (`color.ts`)
-- Sector inference and propagation (`sectorInference.ts`, `sectorPropagation.ts`)
-- Conservative branch-based strong inference (`strongInference.ts`)
-- Shared helpers (`shared.ts`)
-
-Execution order is centrally managed in `src/domain/rules/slither/rules.ts`: deterministic rules first, then strong inference.
-
----
-
-## 2) Getting Started
-
-### 2.1 Requirements
-
-- Node.js 20 (see `.nvmrc`)
+- Node.js 20, matching `.nvmrc`
 - Corepack with pnpm 10.33.0
-
-### 2.2 Install and Start
 
 ```bash
 corepack enable
@@ -54,94 +32,65 @@ pnpm dev
 
 This starts the local Vite development server.
 
-![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260514010419047.png)
-
-### 2.3 Common Commands
+Common commands:
 
 ```bash
 pnpm lint       # ESLint
 pnpm test:run   # Vitest unit tests
 pnpm build      # TypeScript + Vite production build
 pnpm test:e2e   # Playwright end-to-end tests
+pnpm benchmark:solve
 ```
 
-### 2.4 Release and Deployment
+## App Surfaces
 
-GitHub Pages deployment is handled by GitHub Actions. Push a `v*` tag to run
-linting, unit tests, and the production build, then publish `dist/` to Pages.
+- **Solver** (`/`): import a puzzle, run one deduction at a time, jump through the replay timeline, inspect explanations, view stats, and export supported states.
+- **Editor** (`/editor`): create custom Slitherlink or Masyu grids, edit clues/pearls and marks, import supported URLs, then hand the puzzle to the solver.
+- **Dataset** (`/dataset`): browse curated public dataset manifests, preview puzzles, and load them into Solver or Editor.
 
----
+## Architecture Snapshot
 
-## 3) Features Implemented So Far
+```text
+src/
+  app/        page composition and routing
+  domain/     IR, parsers, exporters, plugins, rule engine, benchmark logic
+  features/   board rendering, solver controls, editor, stats, explanations
+  test/       test setup helpers
+dataset/
+  public/     small committed dataset manifests
+  private/    local-only manifests ignored by git
+docs/
+  techniques/ puzzle-specific technique notes
+```
 
-### 3.1 Input and Puzzle Construction
+Puzzle families are registered as plugins. A plugin owns parsing, exporting, help/legend content, stats, and the ordered rule list used by the solver. The shared rule engine applies explicit diffs so every step can be replayed and reverted deterministically.
 
-- Import puzzle state from URL
-- Create custom blank Slitherlink grids (rows/cols configurable)
-- Edit Slitherlink clues directly in cells (`0` to `3` and `?`)
+## Deployment
 
-> URL support note: URL import is currently focused on `puzz.link`. `penpa`-style URL support is planned next.
+CI runs on pushes and pull requests targeting `main`:
 
-### 3.2 Solving and Replay
+```bash
+pnpm lint
+pnpm test:run
+pnpm build
+```
 
-- `Next Step`: apply one inference step
-- `Previous Step`: rewind one step
-- `Solve Next 100 Steps`: auto-advance 100 steps until no more progress (or limit reached)
-- `Reset Replay`: return to initial puzzle state
-- Each rule step stores message + diffs + affected regions for replay and explanation
+GitHub Pages deployment is triggered by pushing a `v*` tag. The Pages workflow builds `dist/`, adds an SPA fallback, and publishes the result.
 
-### 3.3 Explainability and Visualization
+## Documentation
 
-- Reasoning timeline in the `Reasoning Steps` panel
-- Toggle between latest 30 steps and full history
-- Vertex numbering overlay for board analysis
+- `docs/PROJECT_GUIDE_EN.md`: compact project guide for AI agents and maintainers.
+- `docs/MASYU_AGENT_BRIEF.md`: active low-token Masyu onboarding brief.
+- `docs/techniques/slitherlink.md`: Slitherlink technique notes.
+- `docs/techniques/masyu.md`: Masyu technique notes.
+- `docs/legacy/`: older plans and research notes kept for reference only.
 
-### 3.4 Live Stats and Terminal Report
+## Why This Project Exists
 
-- Live metrics: total steps, total modifications, unique techniques, draft difficulty score
-- Terminal report when solving stalls: decided-edge ratio, unknown-edge count, blocker reasons
-- Rule usage statistics to analyze deduction paths
+Most puzzle solvers emphasize the final solution. PuzzleKit Web is built around the solving trace: each step should be inspectable, explainable, and replayable. The long-term direction is a browser-native reasoning workbench for logic puzzles, with puzzle-family support growing incrementally through small, explicit rules.
 
-### 3.5 Export
+## References
 
-- Export current puzzle state (including puzz.link encoding attempts)
-- One-click copy to clipboard
+This repo is inspired by [Puzzlink_Assistance](https://github.com/LeavingLeaves/Puzzlink_Assistance), a browser plugin for puzz.link-style puzzles.
 
----
-
-## 4) Roadmap
-
-- `penpa`-style URL support
-- Configurable solver parameters (for example: step limits, strong-inference budget)
-- Broader Slitherlink rule coverage
-- More puzzle type adapters (e.g. Masyu, Nonogram) with stronger plugin support
-- Unique-solution checking and diagnostics
-
----
-
-## 5) Why This Project Exists
-
-This project is built around one idea: solving is not only about the final answer, but also about understanding and replaying the reasoning process.
-
-1. Most solvers focus on "what is the final solution", but not "how the solution is obtained" or "what should be deduced next".
-2. By supporting `puzz.link` URLs, the tool can better fit into existing puzzle-sharing workflows and community standards.
-3. It offers a lightweight, browser-native alternative to mobile games and desktop software.
-
-The long-term direction is to build a puzzle reasoning tool that is:
-
-- Pure web implementation
-- Explainable
-- Step-by-step replayable
-- Progressively deduction-oriented
-
----
-
-## 6) Acknowledgements
-
-- Thanks to AI vibe-coding tools such as `Codex` and `Cursor` for helping accelerate development and refactoring.
-
-## 7) References
-
-This repo is inspired by the browser plugin [Puzzlink_Assistance](https://github.com/LeavingLeaves/Puzzlink_Assistance), which helps with trivial inference for puzz.link-style puzzles.
-
-The detailed inference techniques can be found in [How slitherlink should be solved](https://jonathanolson.net/slitherlink/).
+Slitherlink technique references include [How slitherlink should be solved](https://jonathanolson.net/slitherlink/).

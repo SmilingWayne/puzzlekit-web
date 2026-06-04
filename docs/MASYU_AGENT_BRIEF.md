@@ -1,139 +1,91 @@
 # Masyu Agent Brief
 
-This is the lightweight starting point for AI agents working on Masyu in PuzzleKit Web. Read this first. Only open the longer docs if the task needs them.
-
-## Read-On-Demand Route
-
-- Implement a Masyu rule: read this brief, then inspect the relevant `src/domain/rules/masyu/*` files.
-- Refactor or design Masyu rules: also read `docs/MASYU_RULE_ROADMAP.md`.
-- Change plugin, IR, replay, stats, or app-wide architecture: also read `docs/PROJECT_GUIDE_EN.md`.
-- User-facing Masyu rules/help wording lives in `docs/techniques/masyu.md`.
+This is the low-token starting point for AI agents working on Masyu in PuzzleKit Web. Read this first, then inspect the exact source files for the task.
 
 ## Current State
 
-Masyu is implemented as a first-class puzzle family with import, rendering, replay-safe rules, completion analysis, and tile-color topology support.
+Masyu is a first-class puzzle family with:
 
-Canonical model:
+- puzz.link-compatible import/export for `masyu`, `mashu`, and `pearl` URLs.
+- Penpa+ import.
+- Solver rendering, replay, explanations, stats, legend/help content, and completion analysis.
+- Editor support for blank custom grids, URL import, black/white pearl placement, and load-to-solver flow.
+- Deterministic rules plus bounded, explainable strong-inference rules.
+- Tile-color topology support for inside/outside reasoning.
+
+Public Masyu dataset manifests are not yet committed to `dataset/public`; use private manifests for local experiments until curated public examples are added.
+
+## Canonical Model
 
 - `PuzzleIR.cells`: pearl clues, stored as `{ kind: "pearl"; color: "white" | "black" }`.
-- `PuzzleIR.lines`: canonical Masyu loop decisions. These are center-to-center line segments between orthogonally adjacent cells.
-- `PuzzleIR.tiles`: vertex-centered region-color units for Masyu inside/outside reasoning.
+- `PuzzleIR.lines`: canonical Masyu loop decisions, connecting orthogonally adjacent cell centers.
+- `PuzzleIR.tiles`: vertex-centered region-color units for inside/outside reasoning.
 - `PuzzleIR.edges`: Slitherlink edge state. Do not use it as Masyu loop state.
 
-Important coordinate convention:
+Coordinate conventions:
 
 - Cell keys are `row,col`, zero-based.
-- Masyu line keys connect cells: `lineKey([r, c], [nr, nc])`.
-- Masyu tile keys are grid vertices: `tileKey(row, col)` where `row = 0..rows`, `col = 0..cols`.
+- Masyu line keys connect cells with `lineKey([r, c], [nr, nc])`.
+- Masyu tile keys are grid vertices with `tileKey(row, col)` where `row = 0..rows` and `col = 0..cols`.
 
-## Current Rule Stack
+## Rule Stack
 
-Registered rule order:
+Rule registration lives in `src/domain/rules/masyu/rules.ts`. Verify the current order there before changing or describing exact execution order.
 
-1. `White Pearl Rule`
-2. `Black Pearl Rule`
-3. `Black Facing Consecutive Whites`
-4. `Black Diagonal White Pinch`
-5. `Consecutive White Pearls Straight`
-6. `Double Black Squeeze`
-7. `Masyu Tile Color Propagation`
-8. `Masyu Color-Pearl Propagation`
-9. `Masyu Color-Line Propagation`
-10. `Masyu Tile Connectivity Cut Coloring`
-11. `Masyu Candidate Bridge Line`
-12. `Prevent Premature Loop`
-13. `Black Pearl Candidate Pruning`
-14. `White Pearl Candidate Pruning`
-15. `Adjacent White Pearls LookAhead`
-16. `Cell Exit Completion`
-17. `Black Pearl Strong Inference`
-18. `White Pearl Strong Inference`
-19. `Empty Cell Strong Inference`
-
-Implemented rule areas:
+Implemented rule areas include:
 
 - Pearl-local rules for white straight-through and black turn/extension behavior.
-- Local pattern rules derived from common Masyu situations.
-- Premature loop prevention over `PuzzleIR.lines`.
-- Black pearl candidate pruning with shallow feasibility checks.
-- White pearl candidate pruning with the same shared pearl-candidate model.
-- Adjacent white pearl lookahead pruning for the two local joint traversal modes.
-- Black pearl strong inference with bounded trial propagation that crosses out an exit when that exit's two-step assumption leads to a hard contradiction.
-- Empty cell strong inference for bounded degree-1 continuations and degree-0
-  two-exit branches on non-pearl cells.
-- Unified cell-exit completion for ordinary cells, white pearls, and black
-  pearls.
-- Tile color propagation:
-  - boundary tiles are `yellow` / outside;
-  - known `blank` lines imply same-color adjacent tiles;
-  - known `line` lines imply opposite-color adjacent tiles;
-  - white pearl diagonal tiles imply opposite colors;
-  - same-color adjacent tiles imply a `blank` Masyu line;
-  - opposite-color adjacent tiles imply a `line` Masyu line;
-  - tile connectivity cuts color articulation regions needed to connect known inside/outside regions;
-  - regions unreachable from outside/yellow through non-line passages become inside/green;
-  - tile fills are replay-safe via `TileDiff`;
-  - Masyu tile colors render on the board as full-size vertex-centered tiles.
+- Local named patterns around black/white pearl interactions.
+- Line graph constraints, cell-exit completion, and premature-loop prevention.
+- Candidate bridge reasoning and pearl candidate pruning.
+- Adjacent white pearl lookahead.
+- Tile color propagation, color-line implications, color-pearl implications, and connectivity cut coloring.
+- Bounded strong inference for black pearls, white pearls, and empty cells.
+
+Default expectation: deterministic rules run first, then bounded strong-inference rules reuse the deterministic rule list for local propagation.
 
 ## Architecture Hotspots
 
 Use these files first:
 
-- Masyu rule registration: `src/domain/rules/masyu/rules.ts`
-- Masyu geometry helpers: `src/domain/rules/masyu/rules/shared.ts`
+- Rule registration: `src/domain/rules/masyu/rules.ts`
+- Shared geometry and state helpers: `src/domain/rules/masyu/rules/shared.ts`
 - Pearl rules: `src/domain/rules/masyu/rules/pearls.ts`
 - Pattern rules: `src/domain/rules/masyu/rules/patterns.ts`
 - Loop rules: `src/domain/rules/masyu/rules/loop.ts`
 - Tile color rules: `src/domain/rules/masyu/rules/color.ts`
 - Tile connectivity rules: `src/domain/rules/masyu/rules/connectivity.ts`
-- Candidate bridge rules: `src/domain/rules/masyu/rules/bridges.ts`
+- Candidate bridge and pruning rules: `src/domain/rules/masyu/rules/bridges.ts`, `src/domain/rules/masyu/rules/candidates.ts`
 - Lookahead helpers: `src/domain/rules/masyu/rules/lookahead*.ts`
-- Tests: `src/domain/rules/masyu/rules.test.ts`
+- Masyu parser/exporter: `src/domain/parsers/puzzlink/masyuPuzzlink.ts`, `src/domain/parsers/penpa/index.ts`
+- Masyu editor: `src/features/editor/MasyuEditorBoard.tsx`, `src/features/editor/editorStore.ts`
+- Tests: `src/domain/rules/masyu/rules.test.ts`, `src/domain/ir/masyu.test.ts`, parser tests
 
 Replay and rendering plumbing:
 
 - Rule diffs: `src/domain/rules/types.ts`
 - Diff application: `src/domain/rules/engine.ts`
+- Solver timeline/checkpoints: `src/features/solver/solverStore.ts`
 - Board rendering: `src/features/board/CanvasBoard.tsx`
-- Solver timeline/highlights: `src/features/solver/solverStore.ts`
 
-## Current Development Direction
+## Development Direction
 
-Near-term Masyu work should focus on reducing rule bloat before adding more
-large deductions:
+Near-term Masyu work should favor small, maintainable rule improvements over broad rewrites:
 
-1. Consolidate repeated rule primitives:
-   - line/tile decision collection;
-   - pearl selection and candidate modeling;
-   - line graph helpers;
-   - tile parity graph helpers.
+- Consolidate repeated line, tile, candidate, and graph primitives when duplication becomes costly.
+- Prefer named deterministic rules before adding broader assumption search.
+- Keep bounded inference explainable through contradiction or common-conclusion messages.
+- Add focused fixture tests whenever a rule changes.
 
-2. Use the shared primitives to add missing deterministic strength:
-   - white pearl candidate pruning;
-   - structured assumption inference for white pearl axes and named white-pearl patterns;
-   - pearl-local tile color implications;
-   - candidate graph articulation improvements.
+Historical Masyu planning notes live under `docs/legacy/`. They are reference material, not the current source of truth.
 
-3. Keep assumption inference explainable:
-   - prefer named candidate sources such as a pearl axis, adjacent white pair, or tile-color component;
-   - avoid unbounded tree search in the default solver;
-   - use contradiction or common-conclusion explanations for branch-based steps.
-
-4. Keep rule granularity small:
-   - one reasoning idea per rule;
-   - explicit diffs;
-   - concise explanation message;
-   - focused fixture tests.
-
-## How To Start A Task
-
-Default workflow:
+## Default Workflow
 
 1. Read this brief.
-2. Inspect the exact rule/helper files touched by the task.
-3. Search existing tests before writing a new rule.
-4. Prefer extending local Masyu helpers over copying Slither code directly.
-5. Run focused tests first, then build.
+2. Inspect `src/domain/rules/masyu/rules.ts` and the exact helper files touched by the task.
+3. Search existing tests before adding a new fixture.
+4. Prefer extending local Masyu helpers over copying Slitherlink code directly.
+5. Run focused tests first, then build when the change has wider impact.
 
 Useful commands:
 
@@ -143,25 +95,11 @@ pnpm test:run src/domain/rules/engine.test.ts src/features/solver/solverStore.te
 pnpm build
 ```
 
-## When To Read More
-
-Read `docs/MASYU_RULE_ROADMAP.md` when refactoring existing Masyu rules, designing
-new rule families, or checking the intended candidate/color/graph direction.
-
-Read `docs/PROJECT_GUIDE_EN.md` when changing plugin contracts, IR conventions, replay, stats, or app-wide architecture.
-
-## Maintenance Rules
-
-- Update this brief whenever rule order, canonical state, or next development direction changes.
-- Keep this brief current, not historical. Use git history for old implementation notes.
-- Keep this brief short enough that it can be pasted into an AI context without drowning the actual task.
-- Prefer links and routing over duplicating long explanations.
-
 ## Guardrails
 
 - Do not use `PuzzleIR.edges` for Masyu loop deductions.
 - Do not mutate `PuzzleIR` inside rule inspection.
 - Do not batch unrelated reasoning into one rule.
 - Do not overwrite already-decided line/tile state with the opposite value.
-- Do not make long Puzzlink-style monolithic rules; keep steps explainable.
-- If a doc disagrees with current code, trust current code and update this brief.
+- Do not make unbounded search part of the default solver.
+- If a doc disagrees with current code, trust current code and update the doc.
