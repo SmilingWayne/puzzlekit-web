@@ -129,6 +129,13 @@ export const masyuPlugin: PuzzlePlugin = {
   displayName: 'Masyu',
   help: masyuHelp,
   legend: masyuLegend,
+  displayOptions: [
+    { id: 'showTiles', label: 'Show Tiles', enabledByDefault: true },
+    { id: 'showLineCrosses', label: 'Show Line Crosses', enabledByDefault: true },
+    { id: 'showHighlights', label: 'Show Highlights', enabledByDefault: true },
+    { id: 'showGridLabels', label: 'Show Grid Labels', enabledByDefault: true },
+    { id: 'showGrid', label: 'Show Grid', enabledByDefault: true },
+  ],
   getStats: getMasyuStats,
   parse: parseMasyuInput,
   encode: encodeMasyuToPuzzlink,

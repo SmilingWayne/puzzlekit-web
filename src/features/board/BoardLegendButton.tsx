@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import type {
   PuzzleHelpExampleEdge,
@@ -8,6 +8,9 @@ import type {
 
 type Props = {
   pluginId: string
+  isOpen: boolean
+  onToggle: () => void
+  onClose: () => void
 }
 
 const LEGEND_WIDTH = 132
@@ -172,11 +175,9 @@ const BoardLegendCanvas = ({ example, label }: { example: PuzzleLegendExample; l
   return <canvas ref={canvasRef} width={LEGEND_WIDTH} height={LEGEND_HEIGHT} aria-label={`${label} legend canvas`} />
 }
 
-export const BoardLegendButton = ({ pluginId }: Props) => {
-  const [openPluginId, setOpenPluginId] = useState<string | null>(null)
+export const BoardLegendButton = ({ pluginId, isOpen, onToggle, onClose }: Props) => {
   const plugin = puzzleRegistry.get(pluginId)
   const legend = plugin?.legend
-  const isOpen = openPluginId === pluginId
   const titleId = `${pluginId}-board-legend-title`
 
   useEffect(() => {
@@ -185,12 +186,12 @@ export const BoardLegendButton = ({ pluginId }: Props) => {
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setOpenPluginId(null)
+        onClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen])
+  }, [isOpen, onClose])
 
   if (!plugin || !legend) {
     return null
@@ -204,7 +205,7 @@ export const BoardLegendButton = ({ pluginId }: Props) => {
         aria-label={`Show ${plugin.displayName} legend`}
         aria-expanded={isOpen}
         data-active={isOpen}
-        onClick={() => setOpenPluginId((current) => (current === pluginId ? null : pluginId))}
+        onClick={onToggle}
       >
         i
       </button>
@@ -221,7 +222,7 @@ export const BoardLegendButton = ({ pluginId }: Props) => {
               type="button"
               className="panel-icon-close"
               aria-label={`Close ${plugin.displayName} legend`}
-              onClick={() => setOpenPluginId(null)}
+              onClick={onClose}
             >
               ×
             </button>

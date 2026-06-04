@@ -12,6 +12,8 @@ import { PuzzleInfoButton } from '../features/puzzleInfo/PuzzleInfoButton'
 import { useSolverStore } from '../features/solver/solverStore'
 import './workspace.css'
 
+type ActivePuzzlePopover = 'rules' | 'legend' | null
+
 export const EditorPage = () => {
   const navigate = useNavigate()
   const {
@@ -29,6 +31,7 @@ export const EditorPage = () => {
   const [localUrl, setLocalUrl] = useState(sourceUrl)
   const [rows, setRows] = useState(String(puzzle.rows))
   const [cols, setCols] = useState(String(puzzle.cols))
+  const [activePuzzlePopover, setActivePuzzlePopover] = useState<ActivePuzzlePopover>(null)
 
   useEffect(() => {
     setRows(String(puzzle.rows))
@@ -79,7 +82,13 @@ export const EditorPage = () => {
             <div className="label-row type-row-wrap">
               <span className="type-row-label">Puzzle Type</span>
               <div className="type-row-controls">
-                <select value={pluginId} onChange={(event) => setPluginId(event.target.value)}>
+                <select
+                  value={pluginId}
+                  onChange={(event) => {
+                    setActivePuzzlePopover(null)
+                    setPluginId(event.target.value)
+                  }}
+                >
                   {puzzleRegistry.all().map((plugin) => (
                     <option
                       key={plugin.id}
@@ -90,8 +99,22 @@ export const EditorPage = () => {
                     </option>
                   ))}
                 </select>
-                <PuzzleInfoButton pluginId={pluginId} />
-                <BoardLegendButton pluginId={pluginId} />
+                <PuzzleInfoButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'rules'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'rules' ? null : 'rules'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
+                <BoardLegendButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'legend'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'legend' ? null : 'legend'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
               </div>
             </div>
             <div className="control-group compact-control-group">

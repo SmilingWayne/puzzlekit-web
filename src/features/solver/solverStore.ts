@@ -11,12 +11,13 @@ import { clonePuzzle } from '../../domain/ir/normalize'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import type { PuzzleIR } from '../../domain/ir/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
+import type { PuzzleDisplayOption } from '../../domain/plugins/types'
 import { analyzePuzzleCompletion, type CompletionReport } from '../../domain/rules/completion'
 import { applyRuleDiffs, rewindPuzzleByStep, runNextRule } from '../../domain/rules/engine'
 import type { RuleStep } from '../../domain/rules/types'
 
 export const DEFAULT_SLITHERLINK_SAMPLE_URL = 'https://puzz.link/p?slither/18/10/c82chcdgcbgd63c173ah6aibi81b71cdjcdcb123ddbcbjb37d16didi8dh161c36cdgcagdbh28bb'
-export const DEFAULT_MASYU_SAMPLE_URL = 'https://puzz.link/p?mashu/5/5/001390360'
+export const DEFAULT_MASYU_SAMPLE_URL = 'https://puzz.link/p?mashu/18/10/0130a0331000i0119110633i090001i09399963003000o3163909i093003'
 export const DEFAULT_SOLVE_CHUNK_SIZE = 50
 export const MAX_SOLVE_CHUNK_SIZE = 1000
 export const REPLAY_CHECKPOINT_INTERVAL = 50
@@ -30,6 +31,8 @@ export type SolveProgress = {
   current: number
   total: number
 }
+
+export type DisplaySettings = Record<string, boolean>
 
 type ReplayCheckpoint = {
   pointer: number
@@ -55,7 +58,7 @@ type SolverStore = {
   solveProgress: SolveProgress | null
   solveChunkSize: number
   terminalReport: TerminalSolveReport | null
-  includeVertexNumbers: boolean
+  displaySettings: DisplaySettings
   loadPuzzle: (puzzle: PuzzleIR, options?: LoadPuzzleOptions) => void
   importFromUrl: (url: string, pluginId?: string) => void
   setSourceUrl: (url: string) => void
@@ -66,7 +69,7 @@ type SolverStore = {
   setSolveChunkSize: (value: number) => void
   solveAll: (limit?: number) => Promise<void>
   resetTimeline: () => void
-  setIncludeVertexNumbers: (enabled: boolean) => void
+  setDisplayOption: (optionId: string, enabled: boolean) => void
 }
 
 export type LoadPuzzleOptions = {
@@ -185,6 +188,25 @@ const clampSolveChunkSize = (value: number, fallback = DEFAULT_SOLVE_CHUNK_SIZE)
   return Math.min(MAX_SOLVE_CHUNK_SIZE, Math.max(1, Math.floor(value)))
 }
 
+const getDisplayOptions = (pluginId: string): PuzzleDisplayOption[] =>
+  puzzleRegistry.get(pluginId)?.displayOptions ?? []
+
+const buildDisplayDefaults = (pluginId: string): DisplaySettings =>
+  Object.fromEntries(
+    getDisplayOptions(pluginId).map((option) => [option.id, option.enabledByDefault]),
+  )
+
+const mergeDisplaySettings = (
+  pluginId: string,
+  previousSettings: DisplaySettings = {},
+): DisplaySettings =>
+  Object.fromEntries(
+    getDisplayOptions(pluginId).map((option) => [
+      option.id,
+      previousSettings[option.id] ?? option.enabledByDefault,
+    ]),
+  )
+
 export const sumRuleStepDurationMs = (steps: RuleStep[]): number =>
   steps.reduce((sum, step) => sum + (step.durationMs ?? 0), 0)
 
@@ -235,6 +257,7 @@ const getSamplePuzzle = (): PuzzleIR => {
 const initialPuzzle = getSamplePuzzle()
 const initialTraceStatsCache = createTraceStatsCache(initialPuzzle)
 const initialReplayCheckpoints = createInitialReplayCheckpoints(initialPuzzle)
+const initialDisplaySettings = buildDisplayDefaults('slitherlink')
 
 export const useSolverStore = create<SolverStore>((set, get) => ({
   pluginId: 'slitherlink',
@@ -254,14 +277,27 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
   solveProgress: null,
   solveChunkSize: DEFAULT_SOLVE_CHUNK_SIZE,
   terminalReport: null,
-  includeVertexNumbers: false,
-  setPluginId: (pluginId) => set({ pluginId, solveProgress: null, terminalReport: null }),
+  displaySettings: initialDisplaySettings,
+  setPluginId: (pluginId) =>
+    set((state) => ({
+      pluginId,
+      displaySettings: mergeDisplaySettings(pluginId, state.displaySettings),
+      solveProgress: null,
+      terminalReport: null,
+    })),
   setSourceUrl: (sourceUrl) => set({ sourceUrl }),
-  setIncludeVertexNumbers: (includeVertexNumbers) => set({ includeVertexNumbers }),
+  setDisplayOption: (optionId, enabled) =>
+    set((state) => ({
+      displaySettings: {
+        ...state.displaySettings,
+        [optionId]: enabled,
+      },
+    })),
   loadPuzzle: (puzzle, options) => {
     const nextInitial = clonePuzzle(puzzle)
+    const nextPluginId = options?.pluginId ?? puzzle.puzzleType
     set({
-      pluginId: options?.pluginId ?? puzzle.puzzleType,
+      pluginId: nextPluginId,
       sourceUrl: options?.sourceUrl ?? '',
       importError: undefined,
       initialPuzzle: nextInitial,
@@ -277,6 +313,7 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       highlightedLines: [],
       solveProgress: null,
       terminalReport: null,
+      displaySettings: mergeDisplaySettings(nextPluginId, get().displaySettings),
     })
   },
   importFromUrl: (url, pluginId) => {

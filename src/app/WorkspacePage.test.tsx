@@ -37,12 +37,24 @@ const renderWorkspace = () =>
     </BrowserRouter>,
   )
 
+const resetSlitherDisplayDefaults = (): void => {
+  const store = useSolverStore.getState()
+  store.setDisplayOption('showCoordinates', false)
+  store.setDisplayOption('showCellColors', true)
+  store.setDisplayOption('showEdgeCrosses', true)
+  store.setDisplayOption('showSectorMarks', true)
+  store.setDisplayOption('showVertices', true)
+  store.setDisplayOption('showHighlights', true)
+  store.setDisplayOption('showGridLabels', true)
+}
+
 describe('WorkspacePage', () => {
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
     useSolverStore.getState().importFromUrl(SAMPLE_URL, 'slitherlink')
     useSolverStore.getState().setSolveChunkSize(DEFAULT_SOLVE_CHUNK_SIZE)
+    resetSlitherDisplayDefaults()
   })
 
   it('renders workspace key sections', () => {
@@ -53,6 +65,19 @@ describe('WorkspacePage', () => {
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/solver board scroll area/i)).toHaveClass('board-scroll-shell')
+    expect(screen.getByRole('link', { name: /^puzz\.link$/i })).toHaveAttribute(
+      'href',
+      'https://puzz.link/list.html',
+    )
+    expect(screen.getByRole('link', { name: /^pzplus$/i })).toHaveAttribute(
+      'href',
+      'https://pzplus.tck.mn/list.html',
+    )
+    expect(screen.getByRole('link', { name: /^pzv$/i })).toHaveAttribute('href', 'http://pzv.jp/')
+    expect(screen.getByRole('link', { name: /^penpa\+$/i })).toHaveAttribute(
+      'href',
+      'https://swaroopg92.github.io/penpa-edit/',
+    )
     const zoom = screen.getByLabelText(/board zoom/i)
     expect(zoom).toHaveValue('100')
     expect(zoom).toHaveAttribute('min', '20')
@@ -80,8 +105,8 @@ describe('WorkspacePage', () => {
       expect(state.pluginId).toBe('masyu')
       expect(state.sourceUrl).toBe(DEFAULT_MASYU_SAMPLE_URL)
       expect(state.currentPuzzle.puzzleType).toBe('masyu')
-      expect(state.currentPuzzle.rows).toBe(5)
-      expect(state.currentPuzzle.cols).toBe(5)
+      expect(state.currentPuzzle.rows).toBe(10)
+      expect(state.currentPuzzle.cols).toBe(18)
     })
     expect(screen.getByDisplayValue(DEFAULT_MASYU_SAMPLE_URL)).toBeInTheDocument()
   })
@@ -134,6 +159,33 @@ describe('WorkspacePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /show slitherlink legend/i }))
     fireEvent.click(screen.getByRole('button', { name: /close slitherlink legend/i }))
     expect(screen.queryByRole('dialog', { name: /slitherlink legend/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps rules and legend popovers exclusive in the puzzle type row', () => {
+    renderWorkspace()
+
+    const rulesButton = screen.getByRole('button', { name: /show slitherlink rules/i })
+    const legendButton = screen.getByRole('button', { name: /show slitherlink legend/i })
+
+    fireEvent.click(rulesButton)
+    expect(screen.getByRole('dialog', { name: /slitherlink rules/i })).toBeInTheDocument()
+    expect(rulesButton).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(legendButton)
+    expect(screen.queryByRole('dialog', { name: /slitherlink rules/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: /slitherlink legend/i })).toBeInTheDocument()
+    expect(rulesButton).toHaveAttribute('aria-expanded', 'false')
+    expect(legendButton).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(rulesButton)
+    expect(screen.queryByRole('dialog', { name: /slitherlink legend/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: /slitherlink rules/i })).toBeInTheDocument()
+    expect(rulesButton).toHaveAttribute('aria-expanded', 'true')
+    expect(legendButton).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(rulesButton)
+    expect(screen.queryByRole('dialog', { name: /slitherlink rules/i })).not.toBeInTheDocument()
+    expect(rulesButton).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('shows import errors in a closeable dialog with expandable details', () => {
@@ -517,15 +569,75 @@ describe('WorkspacePage', () => {
     expect(screen.getByLabelText(/replay timeline/i)).toHaveValue('0')
   })
 
-  it('keeps vertex numbering as a solver-only display toggle', () => {
+  it('shows Slitherlink display options in the board display popover', () => {
     renderWorkspace()
 
-    const vertexToggle = screen.getByLabelText(/show vertex numbering overlay/i)
-    expect(vertexToggle).toBeInTheDocument()
-    fireEvent.click(vertexToggle)
+    expect(screen.queryByLabelText(/show vertex numbering overlay/i)).not.toBeInTheDocument()
 
-    expect(vertexToggle).toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink display options/i }))
+    const displayDialog = screen.getByRole('dialog', { name: /display/i })
+
+    const coordinatesToggle = within(displayDialog).getByLabelText(/show coordinates/i)
+    expect(coordinatesToggle).not.toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show cell colors/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show edge crosses/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show sector marks/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show vertices/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show highlights/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show grid labels/i)).toBeChecked()
+    expect(within(displayDialog).queryByLabelText(/show tiles/i)).not.toBeInTheDocument()
+    expect(within(displayDialog).queryByLabelText(/show line crosses/i)).not.toBeInTheDocument()
+
+    fireEvent.click(coordinatesToggle)
+
+    expect(coordinatesToggle).toBeChecked()
+    expect(useSolverStore.getState().displaySettings.showCoordinates).toBe(true)
     expect(screen.queryByRole('button', { name: /custom grid/i })).not.toBeInTheDocument()
+  })
+
+  it('shows Masyu display options without Slitherlink-only controls', async () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByDisplayValue('Slitherlink'), { target: { value: 'masyu' } })
+
+    await waitFor(() => expect(useSolverStore.getState().pluginId).toBe('masyu'))
+    fireEvent.click(screen.getByRole('button', { name: /show masyu display options/i }))
+    const displayDialog = screen.getByRole('dialog', { name: /display/i })
+
+    const tilesToggle = within(displayDialog).getByLabelText(/show tiles/i)
+    expect(tilesToggle).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show line crosses/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show highlights/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/show grid labels/i)).toBeChecked()
+    expect(within(displayDialog).getByLabelText(/^show grid$/i)).toBeChecked()
+    expect(within(displayDialog).queryByLabelText(/show cell colors/i)).not.toBeInTheDocument()
+    expect(within(displayDialog).queryByLabelText(/show edge crosses/i)).not.toBeInTheDocument()
+    expect(within(displayDialog).queryByLabelText(/show sector marks/i)).not.toBeInTheDocument()
+    expect(within(displayDialog).queryByLabelText(/show vertices/i)).not.toBeInTheDocument()
+
+    fireEvent.click(tilesToggle)
+
+    expect(tilesToggle).not.toBeChecked()
+    expect(useSolverStore.getState().displaySettings.showTiles).toBe(false)
+  })
+
+  it('applies plugin defaults while preserving shared display choices across puzzle types', async () => {
+    renderWorkspace()
+
+    fireEvent.click(screen.getByRole('button', { name: /show slitherlink display options/i }))
+    fireEvent.click(screen.getByLabelText(/show highlights/i))
+    expect(useSolverStore.getState().displaySettings.showHighlights).toBe(false)
+
+    fireEvent.change(screen.getByDisplayValue('Slitherlink'), { target: { value: 'masyu' } })
+
+    await waitFor(() => {
+      const state = useSolverStore.getState()
+      expect(state.pluginId).toBe('masyu')
+      expect(state.displaySettings.showTiles).toBe(true)
+      expect(state.displaySettings.showLineCrosses).toBe(true)
+      expect(state.displaySettings.showHighlights).toBe(false)
+      expect(state.displaySettings.showCoordinates).toBeUndefined()
+    })
   })
 
   it('does not expose clue editing on the solver board', () => {

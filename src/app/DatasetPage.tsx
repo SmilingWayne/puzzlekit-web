@@ -16,6 +16,8 @@ type DatasetPuzzleCard = BenchmarkDatasetItem & {
   description: string
 }
 
+type ActivePuzzlePopover = 'rules' | 'legend' | null
+
 const DATASET_PREVIEW_SIZE = 136
 
 const datasetCards: DatasetPuzzleCard[] = publicDatasetManifests.flatMap((manifest) =>
@@ -72,6 +74,7 @@ export const DatasetPage = () => {
   const [query, setQuery] = useState('')
   const [sizeFilter, setSizeFilter] = useState('all')
   const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [activePuzzlePopover, setActivePuzzlePopover] = useState<ActivePuzzlePopover>(null)
   const [actionError, setActionError] = useState('')
 
   const tags = useMemo(
@@ -214,15 +217,35 @@ export const DatasetPage = () => {
             <div className="label-row type-row-wrap">
               <span className="type-row-label">Puzzle Type</span>
               <div className="type-row-controls">
-                <select value={pluginId} onChange={(event) => setPluginId(event.target.value)}>
+                <select
+                  value={pluginId}
+                  onChange={(event) => {
+                    setActivePuzzlePopover(null)
+                    setPluginId(event.target.value)
+                  }}
+                >
                   {puzzleRegistry.all().map((plugin) => (
                     <option key={plugin.id} value={plugin.id} disabled={plugin.id !== 'slitherlink'}>
                       {plugin.id === 'slitherlink' ? plugin.displayName : `${plugin.displayName} (planned)`}
                     </option>
                   ))}
                 </select>
-                <PuzzleInfoButton pluginId={pluginId} />
-                <BoardLegendButton pluginId={pluginId} />
+                <PuzzleInfoButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'rules'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'rules' ? null : 'rules'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
+                <BoardLegendButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'legend'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'legend' ? null : 'legend'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
               </div>
             </div>
             <label className="label-row">

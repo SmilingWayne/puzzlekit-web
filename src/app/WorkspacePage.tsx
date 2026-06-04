@@ -19,7 +19,8 @@ export const WorkspacePage = () => {
     highlightedColorTiles,
     highlightedEdges,
     highlightedLines,
-    includeVertexNumbers,
+    displaySettings,
+    setDisplayOption,
     solveProgress,
     goToStep,
     isRunning,
@@ -51,7 +52,8 @@ export const WorkspacePage = () => {
             highlightedColorTiles={highlightedColorTiles}
             highlightedEdges={highlightedEdges}
             highlightedLines={highlightedLines}
-            showVertexNumbers={includeVertexNumbers}
+            displaySettings={displaySettings}
+            onSetDisplayOption={setDisplayOption}
           />
           <StatsPanel
             traceStatsCache={traceStatsCache}

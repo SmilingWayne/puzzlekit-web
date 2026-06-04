@@ -435,8 +435,8 @@ describe('solver puzzle loading', () => {
     expect(loaded.pluginId).toBe('masyu')
     expect(loaded.sourceUrl).toBe(DEFAULT_MASYU_SAMPLE_URL)
     expect(loaded.currentPuzzle.puzzleType).toBe('masyu')
-    expect(loaded.currentPuzzle.rows).toBe(5)
-    expect(loaded.currentPuzzle.cols).toBe(5)
+    expect(loaded.currentPuzzle.rows).toBe(10)
+    expect(loaded.currentPuzzle.cols).toBe(18)
 
     useSolverStore.getState().nextStep()
     const afterStep = useSolverStore.getState()
