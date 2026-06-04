@@ -1,8 +1,16 @@
-import { decodeMasyuFromPuzzlink, encodeMasyuToPuzzlink } from '../parsers/puzzlink'
+import { decodeMasyuFromPenpa } from '../parsers/penpa'
+import {
+  decodeMasyuFromPuzzlink,
+  encodeMasyuToPuzzlink,
+} from '../parsers/puzzlink'
 import { masyuRules } from '../rules/masyu/rules'
 import type { PuzzleIR } from '../ir/types'
 import type { PuzzlePlugin } from './types'
-import type { PuzzleHelpContent, PuzzleLegendContent, PuzzleStatsContent } from './types'
+import type {
+  PuzzleHelpContent,
+  PuzzleLegendContent,
+  PuzzleStatsContent,
+} from './types'
 
 const formatPercent = (count: number, total: number): string => {
   if (total <= 0) {
@@ -11,9 +19,30 @@ const formatPercent = (count: number, total: number): string => {
   return `${((count / total) * 100).toFixed(1)}%`
 }
 
+const parseMasyuInput = (input: string) => {
+  try {
+    return decodeMasyuFromPuzzlink(input)
+  } catch (puzzlinkError) {
+    try {
+      return decodeMasyuFromPenpa(input)
+    } catch (penpaError) {
+      const puzzlinkMessage =
+        puzzlinkError instanceof Error
+          ? puzzlinkError.message
+          : String(puzzlinkError)
+      const penpaMessage =
+        penpaError instanceof Error ? penpaError.message : String(penpaError)
+      throw new Error(
+        `Unsupported Masyu URL. Paste a puzz.link, pzplus.tck.mn, pzprxs.vercel.app, pzv.jp, or Penpa+ Masyu URL. puzz.link-compatible: ${puzzlinkMessage} Penpa+: ${penpaMessage}`,
+      )
+    }
+  }
+}
+
 const masyuHelp: PuzzleHelpContent = {
   title: 'Masyu Rules',
-  summary: 'Draw lines through orthogonally adjacent cells to form a loop that goes through every pearl.',
+  summary:
+    'Draw lines through orthogonally adjacent cells to form a loop that goes through every pearl.',
   rules: [
     'The loop cannot branch off or cross itself.',
     'The loop must turn on black pearls and travel straight through the cells before and after the pearl.',
@@ -35,7 +64,8 @@ const masyuLegend: PuzzleLegendContent = {
     },
     {
       label: 'Lines and Crosses',
-      description: 'Lines connect cell centers. Crosses mark center connections that cannot be used.',
+      description:
+        'Lines connect cell centers. Crosses mark center connections that cannot be used.',
       example: {
         rows: 3,
         cols: 3,
@@ -100,7 +130,7 @@ export const masyuPlugin: PuzzlePlugin = {
   help: masyuHelp,
   legend: masyuLegend,
   getStats: getMasyuStats,
-  parse: decodeMasyuFromPuzzlink,
+  parse: parseMasyuInput,
   encode: encodeMasyuToPuzzlink,
   getRules: () => masyuRules,
 }

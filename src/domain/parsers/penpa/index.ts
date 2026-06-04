@@ -1,5 +1,6 @@
-import { inflateSync, strFromU8 } from 'fflate'
+import { decompressSync, strFromU8 } from 'fflate'
 import { cellKey } from '../../ir/keys'
+import { createMasyuPuzzle } from '../../ir/masyu'
 import { createSlitherPuzzle } from '../../ir/slither'
 import type { NumberClueValue, PuzzleIR } from '../../ir/types'
 import type { PuzzleFormatAdapter } from '../types'
@@ -16,6 +17,27 @@ type PenpaInput = {
 
 type PenpaBoard = {
   number?: Record<string, [unknown, unknown, unknown]>
+  symbol?: Record<string, [unknown, unknown, unknown]>
+}
+
+type PenpaDimensions = {
+  rows: number
+  cols: number
+  rowsWithMargins: number
+  colsWithMargins: number
+  realRows: number
+  realCols: number
+  margins: [number, number, number, number]
+}
+
+type PenpaDecodedPuzzle = {
+  input: string
+  penpaInput: PenpaInput
+  parts: string[]
+  header: string[]
+  genre: string
+  dimensions: PenpaDimensions
+  board: PenpaBoard
 }
 
 const COMPRESS_SUB: [string, string][] = [
@@ -190,6 +212,13 @@ const normalizePuzzleType = (raw: string): string => {
   if (normalized === 'slither' || normalized === 'slitherlink') {
     return 'slitherlink'
   }
+  if (
+    normalized === 'masyu' ||
+    normalized === 'mashu' ||
+    normalized === 'pearl'
+  ) {
+    return 'masyu'
+  }
   return raw.toLowerCase()
 }
 
@@ -205,10 +234,12 @@ const indexToCellCoord = (
 
 const decodePenpaPayload = (payload: string): string[] => {
   try {
-    return strFromU8(inflateSync(base64ToBytes(payload))).split('\n')
+    return strFromU8(decompressSync(base64ToBytes(payload))).split('\n')
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Invalid Penpa URL: unable to decode compressed payload (${message}).`)
+    throw new Error(
+      `Invalid Penpa URL: unable to decode compressed payload (${message}).`,
+    )
   }
 }
 
@@ -220,11 +251,48 @@ const decodePenpaBoard = (rawBoard: string | undefined): PenpaBoard => {
     return JSON.parse(expandPenpaJson(rawBoard)) as PenpaBoard
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`Invalid Penpa payload: board data is not readable JSON (${message}).`)
+    throw new Error(
+      `Invalid Penpa payload: board data is not readable JSON (${message}).`,
+    )
   }
 }
 
-export const decodeSlitherFromPenpa = (input: string): PuzzleIR => {
+const parsePenpaDimensions = (
+  header: string[],
+  rawMargins: string | undefined,
+): PenpaDimensions => {
+  const margins = JSON.parse(rawMargins ?? '[0,0,0,0]') as [
+    number,
+    number,
+    number,
+    number,
+  ]
+  const [topMargin, bottomMargin, leftMargin, rightMargin] = margins
+  const rowsWithMargins = Number(header[2])
+  const colsWithMargins = Number(header[1])
+  const rows = rowsWithMargins - topMargin - bottomMargin
+  const cols = colsWithMargins - leftMargin - rightMargin
+  if (
+    !Number.isInteger(rows) ||
+    !Number.isInteger(cols) ||
+    rows <= 0 ||
+    cols <= 0
+  ) {
+    throw new Error('Invalid Penpa payload: grid dimensions are not valid.')
+  }
+
+  return {
+    rows,
+    cols,
+    rowsWithMargins,
+    colsWithMargins,
+    realRows: rowsWithMargins + 4,
+    realCols: colsWithMargins + 4,
+    margins,
+  }
+}
+
+const decodePenpaPuzzle = (input: string): PenpaDecodedPuzzle => {
   const penpaInput = parsePenpaInput(input)
   const parts = decodePenpaPayload(penpaInput.pPayload)
   const header = parts[0]?.split(',') ?? []
@@ -233,35 +301,54 @@ export const decodeSlitherFromPenpa = (input: string): PuzzleIR => {
   }
 
   const genre = normalizePuzzleType(parseGenreTag(parts[17]))
-  if (genre !== 'slitherlink') {
-    throw new Error(`Unsupported Penpa puzzle type: ${genre}. Only Slitherlink import is supported.`)
-  }
-
-  const margins = JSON.parse(parts[1] ?? '[0,0,0,0]') as [number, number, number, number]
-  const [topMargin, bottomMargin, leftMargin, rightMargin] = margins
-  const rowsWithMargins = Number(header[2])
-  const colsWithMargins = Number(header[1])
-  const rows = rowsWithMargins - topMargin - bottomMargin
-  const cols = colsWithMargins - leftMargin - rightMargin
-  if (!Number.isInteger(rows) || !Number.isInteger(cols) || rows <= 0 || cols <= 0) {
-    throw new Error('Invalid Penpa payload: grid dimensions are not valid.')
-  }
-
-  const realRows = rowsWithMargins + 4
-  const realCols = colsWithMargins + 4
-  const puzzle = createSlitherPuzzle(rows, cols)
-  puzzle.gridType = 'square'
-  puzzle.puzzleType = 'slitherlink'
-  puzzle.title = header[15]?.replace(/^Title: /, '') ?? 'slitherlink'
-  puzzle.author = header[16]?.replace(/^Author: /, '') ?? ''
-  puzzle.source = 'penpa'
-  puzzle.metadata.originalUrl = input
-  puzzle.metadata.penpaMode = penpaInput.mode
-  puzzle.metadata.penpaParams = penpaInput.rawParams
-  puzzle.metadata.penpaExtraParams = penpaInput.extraParams
-  puzzle.metadata.penpaNormalizedFragment = penpaInput.normalizedFragment
-
+  const dimensions = parsePenpaDimensions(header, parts[1])
   const board = decodePenpaBoard(parts[3])
+
+  return {
+    input,
+    penpaInput,
+    parts,
+    header,
+    genre,
+    dimensions,
+    board,
+  }
+}
+
+const applyPenpaMetadata = (
+  puzzle: PuzzleIR,
+  decoded: PenpaDecodedPuzzle,
+  puzzleType: 'slitherlink' | 'masyu',
+): void => {
+  puzzle.gridType = 'square'
+  puzzle.puzzleType = puzzleType
+  puzzle.title = decoded.header[15]?.replace(/^Title: /, '') ?? puzzleType
+  puzzle.author = decoded.header[16]?.replace(/^Author: /, '') ?? ''
+  puzzle.source = 'penpa'
+  puzzle.metadata.originalUrl = decoded.input
+  puzzle.metadata.penpaMode = decoded.penpaInput.mode
+  puzzle.metadata.penpaParams = decoded.penpaInput.rawParams
+  puzzle.metadata.penpaExtraParams = decoded.penpaInput.extraParams
+  puzzle.metadata.penpaNormalizedFragment =
+    decoded.penpaInput.normalizedFragment
+}
+
+export const decodeSlitherFromPenpa = (input: string): PuzzleIR => {
+  const decoded = decodePenpaPuzzle(input)
+  const {
+    genre,
+    dimensions: { rows, cols, realRows, realCols },
+    board,
+  } = decoded
+  if (genre !== 'slitherlink') {
+    throw new Error(
+      `Unsupported Penpa puzzle type: ${genre}. Only Slitherlink import is supported.`,
+    )
+  }
+
+  const puzzle = createSlitherPuzzle(rows, cols)
+  applyPenpaMetadata(puzzle, decoded, 'slitherlink')
+
   for (const [index, numberData] of Object.entries(board.number ?? {})) {
     const rawValue = String(numberData[0] ?? '')
     if (!rawValue) {
@@ -289,8 +376,84 @@ export const decodeSlitherFromPenpa = (input: string): PuzzleIR => {
   return puzzle
 }
 
+const classifyMasyuSymbol = (
+  symbolIndex: number,
+  symbolType: string,
+): 'white' | 'black' | null => {
+  if (
+    (symbolType === 'circle_L' || symbolType === 'circle') &&
+    (symbolIndex === 0 || symbolIndex === 1)
+  ) {
+    return 'white'
+  }
+  if (symbolType === 'circle_M' && symbolIndex === 8) {
+    return 'white'
+  }
+  if (
+    (symbolType === 'circle_L' ||
+      symbolType === 'circle' ||
+      symbolType === 'circle_M') &&
+    symbolIndex === 2
+  ) {
+    return 'black'
+  }
+  return null
+}
+
+export const decodeMasyuFromPenpa = (input: string): PuzzleIR => {
+  const decoded = decodePenpaPuzzle(input)
+  const {
+    genre,
+    dimensions: { rows, cols, realRows, realCols },
+    board,
+  } = decoded
+  if (genre !== 'masyu') {
+    throw new Error(
+      `Unsupported Penpa puzzle type: ${genre}. Only Masyu import is supported.`,
+    )
+  }
+
+  const puzzle = createMasyuPuzzle(rows, cols)
+  applyPenpaMetadata(puzzle, decoded, 'masyu')
+
+  for (const [index, symbolData] of Object.entries(board.symbol ?? {})) {
+    const symbolIndex = Number(symbolData[0])
+    const symbolType = String(symbolData[1] ?? '')
+    if (!Number.isInteger(symbolIndex) || !symbolType) {
+      continue
+    }
+
+    const pearlColor = classifyMasyuSymbol(symbolIndex, symbolType)
+    if (!pearlColor) {
+      continue
+    }
+
+    const [r, c] = indexToCellCoord(Number(index), realRows, realCols)
+    if (r < 0 || r >= rows || c < 0 || c >= cols) {
+      continue
+    }
+    puzzle.cells[cellKey(r, c)] = {
+      clue: {
+        kind: 'pearl',
+        color: pearlColor,
+      },
+    }
+  }
+
+  return puzzle
+}
+
 export const penpaAdapter: PuzzleFormatAdapter = {
-  decode: decodeSlitherFromPenpa,
+  decode: (input: string): PuzzleIR => {
+    const decoded = decodePenpaPuzzle(input)
+    if (decoded.genre === 'slitherlink') {
+      return decodeSlitherFromPenpa(input)
+    }
+    if (decoded.genre === 'masyu') {
+      return decodeMasyuFromPenpa(input)
+    }
+    throw new Error(`Unsupported Penpa puzzle type: ${decoded.genre}.`)
+  },
   encode: (): string => {
     throw new Error('Penpa URL encoding is reserved and not implemented yet.')
   },
