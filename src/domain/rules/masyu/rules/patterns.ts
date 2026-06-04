@@ -1,10 +1,15 @@
-import { cellKey, parseCellKey } from '../../../ir/keys'
-import type { LineMark, PuzzleIR } from '../../../ir/types'
+import { cellKey, lineKey, parseCellKey } from '../../../ir/keys'
+import type { PuzzleIR } from '../../../ir/types'
 import type { Rule, RuleApplication } from '../../types'
 import {
+  createMasyuLineDecisionCollector,
+  type MasyuLineDecisionCollector,
+} from './decisionCollector'
+import { getMasyuBlackPearlKeys, isMasyuPearl } from './pearlSelectors'
+import { getMasyuKnownLineComponents } from './lineGraph'
+import {
   MASYU_DIRECTIONS,
-  buildMasyuLineDiffs,
-  collectMasyuLineDecision,
+  canMasyuLineBeAddedWithoutDegreeOverflow,
   formatMasyuCellKeyLabel,
   formatMasyuLineLabel,
   getMasyuDirectionOffset,
@@ -26,48 +31,52 @@ const offsetCellKey = (
   const [row, col] = parseCellKey(originKey)
   const targetRow = row + rowDelta * distance
   const targetCol = col + colDelta * distance
-  return isInBounds(puzzle, targetRow, targetCol) ? cellKey(targetRow, targetCol) : null
-}
-
-const getPearlCellKeys = (puzzle: PuzzleIR, color: 'white' | 'black'): string[] =>
-  Object.entries(puzzle.cells).flatMap(([key, cell]) =>
-    cell.clue?.kind === 'pearl' && cell.clue.color === color ? [key] : [],
-  )
-
-const isPearl = (puzzle: PuzzleIR, key: string | null, color: 'white' | 'black'): boolean =>
-  key !== null && puzzle.cells[key]?.clue?.kind === 'pearl' && puzzle.cells[key]?.clue?.color === color
-
-const rememberLine = (
-  decisions: Map<string, LineMark>,
-  puzzle: PuzzleIR,
-  lineKey: string,
-  mark: LineMark,
-): boolean => {
-  const beforeSize = decisions.size
-  return collectMasyuLineDecision(decisions, puzzle, lineKey, mark) && decisions.size > beforeSize
+  return isInBounds(puzzle, targetRow, targetCol)
+    ? cellKey(targetRow, targetCol)
+    : null
 }
 
 export const createBlackFacingConsecutiveWhitesRule = (): Rule => ({
   id: 'masyu-black-facing-consecutive-whites',
   name: 'Black Facing Consecutive Whites',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const decisions = new Map<string, LineMark>()
+    const decisions = createMasyuLineDecisionCollector(puzzle)
     const affectedCells = new Set<string>()
     let firstPearl: string | null = null
     let firstLine: string | null = null
 
-    for (const pearlKey of getPearlCellKeys(puzzle, 'black')) {
+    for (const pearlKey of getMasyuBlackPearlKeys(puzzle)) {
       for (const direction of MASYU_DIRECTIONS) {
         const [rowDelta, colDelta] = getMasyuDirectionOffset(direction)
         const gap = offsetCellKey(puzzle, pearlKey, rowDelta, colDelta)
-        const firstWhite = offsetCellKey(puzzle, pearlKey, rowDelta, colDelta, 2)
-        const secondWhite = offsetCellKey(puzzle, pearlKey, rowDelta, colDelta, 3)
-        if (!gap || !isPearl(puzzle, firstWhite, 'white') || !isPearl(puzzle, secondWhite, 'white')) {
+        const firstWhite = offsetCellKey(
+          puzzle,
+          pearlKey,
+          rowDelta,
+          colDelta,
+          2,
+        )
+        const secondWhite = offsetCellKey(
+          puzzle,
+          pearlKey,
+          rowDelta,
+          colDelta,
+          3,
+        )
+        if (
+          !gap ||
+          !isMasyuPearl(puzzle, firstWhite, 'white') ||
+          !isMasyuPearl(puzzle, secondWhite, 'white')
+        ) {
           continue
         }
 
-        const forced = getMasyuDirectionalLine(puzzle, pearlKey, oppositeMasyuDirection(direction))
-        if (!forced || !rememberLine(decisions, puzzle, forced.lineKey, 'line')) {
+        const forced = getMasyuDirectionalLine(
+          puzzle,
+          pearlKey,
+          oppositeMasyuDirection(direction),
+        )
+        if (!forced || !decisions.addNew(forced.lineKey, 'line')) {
           continue
         }
         affectedCells.add(pearlKey)
@@ -78,11 +87,11 @@ export const createBlackFacingConsecutiveWhitesRule = (): Rule => ({
       }
     }
 
-    if (decisions.size === 0) {
+    if (!decisions.hasChanges()) {
       return null
     }
 
-    const diffs = buildMasyuLineDiffs(decisions, puzzle)
+    const diffs = decisions.diffs()
     return {
       message:
         firstPearl && firstLine
@@ -112,7 +121,12 @@ const getSideDiagonalKeys = (
           [1, 0],
         ]
   return perpendicularOffsets.map(([rowDelta, colDelta]) =>
-    offsetCellKey(puzzle, originKey, sideRowDelta + rowDelta, sideColDelta + colDelta),
+    offsetCellKey(
+      puzzle,
+      originKey,
+      sideRowDelta + rowDelta,
+      sideColDelta + colDelta,
+    ),
   ) as [string | null, string | null]
 }
 
@@ -120,20 +134,31 @@ export const createBlackDiagonalWhitePinchRule = (): Rule => ({
   id: 'masyu-black-diagonal-white-pinch',
   name: 'Black Diagonal White Pinch',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const decisions = new Map<string, LineMark>()
+    const decisions = createMasyuLineDecisionCollector(puzzle)
     const affectedCells = new Set<string>()
     let firstPearl: string | null = null
     let firstLine: string | null = null
 
-    for (const pearlKey of getPearlCellKeys(puzzle, 'black')) {
+    for (const pearlKey of getMasyuBlackPearlKeys(puzzle)) {
       for (const side of MASYU_DIRECTIONS) {
-        const [leftDiagonal, rightDiagonal] = getSideDiagonalKeys(puzzle, pearlKey, side)
-        if (!isPearl(puzzle, leftDiagonal, 'white') || !isPearl(puzzle, rightDiagonal, 'white')) {
+        const [leftDiagonal, rightDiagonal] = getSideDiagonalKeys(
+          puzzle,
+          pearlKey,
+          side,
+        )
+        if (
+          !isMasyuPearl(puzzle, leftDiagonal, 'white') ||
+          !isMasyuPearl(puzzle, rightDiagonal, 'white')
+        ) {
           continue
         }
 
-        const forced = getMasyuDirectionalLine(puzzle, pearlKey, oppositeMasyuDirection(side))
-        if (!forced || !rememberLine(decisions, puzzle, forced.lineKey, 'line')) {
+        const forced = getMasyuDirectionalLine(
+          puzzle,
+          pearlKey,
+          oppositeMasyuDirection(side),
+        )
+        if (!forced || !decisions.addNew(forced.lineKey, 'line')) {
           continue
         }
         affectedCells.add(pearlKey)
@@ -144,16 +169,210 @@ export const createBlackDiagonalWhitePinchRule = (): Rule => ({
       }
     }
 
-    if (decisions.size === 0) {
+    if (!decisions.hasChanges()) {
       return null
     }
 
-    const diffs = buildMasyuLineDiffs(decisions, puzzle)
+    const diffs = decisions.diffs()
     return {
       message:
         firstPearl && firstLine
           ? `Two diagonal white pearls pinch black pearl ${formatMasyuCellKeyLabel(firstPearl)}, so ${formatMasyuLineLabel(firstLine)} is forced${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
           : 'Black diagonal white pinch pattern applied.',
+      diffs,
+      affectedCells: [...affectedCells],
+      affectedLines: diffs.map((diff) => diff.lineKey),
+    }
+  },
+})
+
+type MasyuLocalBasis = {
+  right: [rowDelta: number, colDelta: number]
+  down: [rowDelta: number, colDelta: number]
+}
+
+const whiteCorridorBases: MasyuLocalBasis[] = [
+  { right: [0, 1], down: [1, 0] },
+  { right: [1, 0], down: [0, -1] },
+  { right: [0, -1], down: [-1, 0] },
+  { right: [-1, 0], down: [0, 1] },
+]
+
+const offsetLocalPoint = (
+  row: number,
+  col: number,
+  x: number,
+  y: number,
+  basis: MasyuLocalBasis,
+): [row: number, col: number] => [
+  row + basis.right[0] * x + basis.down[0] * y,
+  col + basis.right[1] * x + basis.down[1] * y,
+]
+
+const offsetLocalCellKey = (
+  puzzle: PuzzleIR,
+  originKey: string,
+  x: number,
+  y: number,
+  basis: MasyuLocalBasis,
+): string | null => {
+  const [row, col] = parseCellKey(originKey)
+  const [targetRow, targetCol] = offsetLocalPoint(row, col, x, y, basis)
+  if (!Number.isInteger(targetRow) || !Number.isInteger(targetCol)) {
+    return null
+  }
+  return isInBounds(puzzle, targetRow, targetCol)
+    ? cellKey(targetRow, targetCol)
+    : null
+}
+
+const offsetLocalLineKey = (
+  puzzle: PuzzleIR,
+  originKey: string,
+  x: number,
+  y: number,
+  basis: MasyuLocalBasis,
+): string | null => {
+  const hasHalfX = !Number.isInteger(x)
+  const hasHalfY = !Number.isInteger(y)
+  if (hasHalfX === hasHalfY) {
+    return null
+  }
+
+  const first = hasHalfX
+    ? offsetLocalCellKey(puzzle, originKey, x - 0.5, y, basis)
+    : offsetLocalCellKey(puzzle, originKey, x, y - 0.5, basis)
+  const second = hasHalfX
+    ? offsetLocalCellKey(puzzle, originKey, x + 0.5, y, basis)
+    : offsetLocalCellKey(puzzle, originKey, x, y + 0.5, basis)
+  if (!first || !second) {
+    return null
+  }
+
+  return lineKey(parseCellKey(first), parseCellKey(second))
+}
+
+const canAddMasyuLineBatch = (
+  puzzle: PuzzleIR,
+  lineKeys: string[],
+): boolean => {
+  const decisions = new Map<string, 'line'>()
+  for (const key of lineKeys) {
+    const current = puzzle.lines[key]?.mark ?? 'unknown'
+    if (current === 'blank') {
+      return false
+    }
+    if (
+      current === 'unknown' &&
+      !canMasyuLineBeAddedWithoutDegreeOverflow(puzzle, key, decisions)
+    ) {
+      return false
+    }
+    decisions.set(key, 'line')
+  }
+  return true
+}
+
+export const createWhiteCorridorRule = (): Rule => ({
+  id: 'masyu-white-corridor',
+  name: 'White Corridor',
+  apply: (puzzle: PuzzleIR): RuleApplication | null => {
+    if (getMasyuKnownLineComponents(puzzle).length <= 1) {
+      return null
+    }
+
+    const decisions = createMasyuLineDecisionCollector(puzzle, {
+      guardLineDegree: true,
+    })
+    const affectedCells = new Set<string>()
+    let firstAnchor: string | null = null
+    let firstWhite: string | null = null
+    let firstLine: string | null = null
+
+    for (let row = 0; row < puzzle.rows; row += 1) {
+      for (let col = 0; col < puzzle.cols; col += 1) {
+        const anchorKey = cellKey(row, col)
+        for (const basis of whiteCorridorBases) {
+          const corridorLines = [
+            offsetLocalLineKey(puzzle, anchorKey, 0, 0.5, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 0, 1.5, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 0.5, 0, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 1.5, 0, basis),
+          ]
+          if (
+            corridorLines.some(
+              (key) => !key || puzzle.lines[key]?.mark !== 'line',
+            )
+          ) {
+            continue
+          }
+
+          const firstWhiteKey = offsetLocalCellKey(
+            puzzle,
+            anchorKey,
+            2,
+            1,
+            basis,
+          )
+          const secondWhiteKey = offsetLocalCellKey(
+            puzzle,
+            anchorKey,
+            1,
+            2,
+            basis,
+          )
+          if (
+            !firstWhiteKey ||
+            !secondWhiteKey ||
+            !isMasyuPearl(puzzle, firstWhiteKey, 'white') ||
+            !isMasyuPearl(puzzle, secondWhiteKey, 'white')
+          ) {
+            continue
+          }
+
+          const forcedLines = [
+            offsetLocalLineKey(puzzle, anchorKey, 1.5, 1, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 2.5, 1, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 1, 1.5, basis),
+            offsetLocalLineKey(puzzle, anchorKey, 1, 2.5, basis),
+          ]
+          if (
+            forcedLines.some((key): key is null => key === null) ||
+            !canAddMasyuLineBatch(puzzle, forcedLines as string[])
+          ) {
+            continue
+          }
+
+          const beforeSize = decisions.decisions.size
+          for (const key of forcedLines as string[]) {
+            decisions.add(key, 'line')
+          }
+          if (decisions.decisions.size === beforeSize) {
+            continue
+          }
+
+          affectedCells.add(anchorKey)
+          affectedCells.add(firstWhiteKey)
+          affectedCells.add(secondWhiteKey)
+          if (firstAnchor === null) {
+            firstAnchor = anchorKey
+            firstWhite = firstWhiteKey
+            firstLine = decisions.firstLine()
+          }
+        }
+      }
+    }
+
+    if (!decisions.hasChanges()) {
+      return null
+    }
+
+    const diffs = decisions.diffs()
+    return {
+      message:
+        firstAnchor && firstWhite && firstLine
+          ? `An L-shaped corridor at ${formatMasyuCellKeyLabel(firstAnchor)} forces nearby white pearl ${formatMasyuCellKeyLabel(firstWhite)} to go straight, so ${formatMasyuLineLabel(firstLine)} is a line${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`
+          : 'White corridor pattern applied.',
       diffs,
       affectedCells: [...affectedCells],
       affectedLines: diffs.map((diff) => diff.lineKey),
@@ -173,7 +392,7 @@ const collectWhitePearlRun = (
   let col = startCol
   while (isInBounds(puzzle, row, col)) {
     const key = cellKey(row, col)
-    if (!isPearl(puzzle, key, 'white')) {
+    if (!isMasyuPearl(puzzle, key, 'white')) {
       break
     }
     run.push(key)
@@ -185,7 +404,7 @@ const collectWhitePearlRun = (
 
 const forceWhitePearlRunLines = (
   puzzle: PuzzleIR,
-  decisions: Map<string, LineMark>,
+  decisions: MasyuLineDecisionCollector,
   affectedCells: Set<string>,
   run: string[],
   forcedDirections: [MasyuDirection, MasyuDirection],
@@ -195,7 +414,7 @@ const forceWhitePearlRunLines = (
     let addedForCell = false
     for (const direction of forcedDirections) {
       const line = getMasyuDirectionalLine(puzzle, pearlKey, direction)
-      if (!line || !rememberLine(decisions, puzzle, line.lineKey, 'line')) {
+      if (!line || !decisions.addNew(line.lineKey, 'line')) {
         continue
       }
       addedForCell = true
@@ -214,7 +433,7 @@ export const createConsecutiveWhitePearlsStraightRule = (): Rule => ({
   id: 'masyu-consecutive-white-pearls-straight',
   name: 'Consecutive White Pearls Straight',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const decisions = new Map<string, LineMark>()
+    const decisions = createMasyuLineDecisionCollector(puzzle)
     const affectedCells = new Set<string>()
     let firstPearl: string | null = null
     let firstLine: string | null = null
@@ -224,7 +443,13 @@ export const createConsecutiveWhitePearlsStraightRule = (): Rule => ({
       while (col < puzzle.cols) {
         const run = collectWhitePearlRun(puzzle, row, col, 0, 1)
         if (run.length >= 3) {
-          const line = forceWhitePearlRunLines(puzzle, decisions, affectedCells, run, ['N', 'S'])
+          const line = forceWhitePearlRunLines(
+            puzzle,
+            decisions,
+            affectedCells,
+            run,
+            ['N', 'S'],
+          )
           if (firstPearl === null && line) {
             firstPearl = run[0]
             firstLine = line
@@ -239,7 +464,13 @@ export const createConsecutiveWhitePearlsStraightRule = (): Rule => ({
       while (row < puzzle.rows) {
         const run = collectWhitePearlRun(puzzle, row, col, 1, 0)
         if (run.length >= 3) {
-          const line = forceWhitePearlRunLines(puzzle, decisions, affectedCells, run, ['E', 'W'])
+          const line = forceWhitePearlRunLines(
+            puzzle,
+            decisions,
+            affectedCells,
+            run,
+            ['E', 'W'],
+          )
           if (firstPearl === null && line) {
             firstPearl = run[0]
             firstLine = line
@@ -249,11 +480,11 @@ export const createConsecutiveWhitePearlsStraightRule = (): Rule => ({
       }
     }
 
-    if (decisions.size === 0) {
+    if (!decisions.hasChanges()) {
       return null
     }
 
-    const diffs = buildMasyuLineDiffs(decisions, puzzle)
+    const diffs = decisions.diffs()
     return {
       message:
         firstPearl && firstLine
@@ -282,20 +513,40 @@ const squeezeAxes: {
 
 const collectDoubleBlackSqueeze = (
   puzzle: PuzzleIR,
-  decisions: Map<string, LineMark>,
+  decisions: MasyuLineDecisionCollector,
   middleKey: string,
   perpendicularDirections: [MasyuDirection, MasyuDirection],
 ): string | null => {
-  const first = getMasyuDirectionalLine(puzzle, middleKey, perpendicularDirections[0])
-  const second = getMasyuDirectionalLine(puzzle, middleKey, perpendicularDirections[1])
-  if (!first || !second) {
+  const first = getMasyuDirectionalLine(
+    puzzle,
+    middleKey,
+    perpendicularDirections[0],
+  )
+  const second = getMasyuDirectionalLine(
+    puzzle,
+    middleKey,
+    perpendicularDirections[1],
+  )
+  if (!first && !second) {
     return null
   }
+  if (!first) {
+    const onlyExit = second
+    return onlyExit?.mark === 'unknown' &&
+      decisions.addNew(onlyExit.lineKey, 'blank')
+      ? onlyExit.lineKey
+      : null
+  }
+  if (!second) {
+    return first.mark === 'unknown' && decisions.addNew(first.lineKey, 'blank')
+      ? first.lineKey
+      : null
+  }
   if (first.mark === 'blank') {
-    return rememberLine(decisions, puzzle, second.lineKey, 'blank') ? second.lineKey : null
+    return decisions.addNew(second.lineKey, 'blank') ? second.lineKey : null
   }
   if (second.mark === 'blank') {
-    return rememberLine(decisions, puzzle, first.lineKey, 'blank') ? first.lineKey : null
+    return decisions.addNew(first.lineKey, 'blank') ? first.lineKey : null
   }
   return null
 }
@@ -304,7 +555,7 @@ export const createDoubleBlackSqueezeRule = (): Rule => ({
   id: 'masyu-double-black-squeeze',
   name: 'Double Black Squeeze',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const decisions = new Map<string, LineMark>()
+    const decisions = createMasyuLineDecisionCollector(puzzle)
     const affectedCells = new Set<string>()
     let firstMiddle: string | null = null
     let firstLine: string | null = null
@@ -312,15 +563,23 @@ export const createDoubleBlackSqueezeRule = (): Rule => ({
     for (let row = 0; row < puzzle.rows; row += 1) {
       for (let col = 0; col < puzzle.cols; col += 1) {
         const middleKey = cellKey(row, col)
-        for (const { blackDirections, perpendicularDirections } of squeezeAxes) {
+        for (const {
+          blackDirections,
+          perpendicularDirections,
+        } of squeezeAxes) {
           const blackCells = blackDirections.map((direction) => {
             const [rowDelta, colDelta] = getMasyuDirectionOffset(direction)
             return offsetCellKey(puzzle, middleKey, rowDelta, colDelta)
           })
-          if (!blackCells.every((key) => isPearl(puzzle, key, 'black'))) {
+          if (!blackCells.every((key) => isMasyuPearl(puzzle, key, 'black'))) {
             continue
           }
-          const line = collectDoubleBlackSqueeze(puzzle, decisions, middleKey, perpendicularDirections)
+          const line = collectDoubleBlackSqueeze(
+            puzzle,
+            decisions,
+            middleKey,
+            perpendicularDirections,
+          )
           if (!line) {
             continue
           }
@@ -333,11 +592,11 @@ export const createDoubleBlackSqueezeRule = (): Rule => ({
       }
     }
 
-    if (decisions.size === 0) {
+    if (!decisions.hasChanges()) {
       return null
     }
 
-    const diffs = buildMasyuLineDiffs(decisions, puzzle)
+    const diffs = decisions.diffs()
     return {
       message:
         firstMiddle && firstLine

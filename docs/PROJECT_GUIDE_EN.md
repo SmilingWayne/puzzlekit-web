@@ -1,128 +1,126 @@
 # PuzzleKit Web Project Guide
 
+This guide is the compact maintainer and AI-agent reference for PuzzleKit Web. The README explains the project at a public level; this file records the working architecture, repo contracts, and current capability boundaries.
+
 ## 1. Project Intent
 
-PuzzleKit Web is a frontend-first, rule-based logic puzzle solver focused on
-machine reasoning quality rather than maximum solve rate.
+PuzzleKit Web is a frontend-first, rule-based logic puzzle solver. It values reasoning quality over maximum solve rate.
 
 Core principles:
 
-- Prefer explicit deduction over black-box search or SAT solving.
-- Make every step replayable, inspectable, and explainable.
-- Accept that some puzzles may stop at a stable incomplete state.
-- Grow solver strength incrementally by adding deterministic, human-readable
-  inference rules.
-
-In short: this project is a logic reasoning engine with a UI, not a UI-first
-puzzle editor.
+- Prefer explicit deductions over black-box search.
+- Keep every step replayable, inspectable, and explainable.
+- Accept stable incomplete states when the current rules cannot continue.
+- Grow solver strength through deterministic, human-readable rules plus bounded, explainable assumption rules.
 
 ## 2. Architecture Map
 
 ```text
 src/
-  app/              # page composition and top-level routing/layout
+  app/              # routes, pages, and top-level layout
   domain/           # puzzle logic source of truth
-    benchmark/      # dataset validation and solver benchmark runner
+    benchmark/      # dataset validation and benchmark runner
     difficulty/     # trace statistics and difficulty snapshots
     exporters/      # export adapters
-    ir/             # puzzle IR schemas, key utilities, normalize/clone
-    parsers/        # puzz.link/penpa adapters
+    ir/             # PuzzleIR schemas, key helpers, normalize/clone
+    parsers/        # puzz.link-compatible and Penpa+ adapters
     plugins/        # plugin contracts and registry
-    rules/          # rule contracts, step engine, puzzle-specific rules
-  features/         # board rendering, solver controls, editor, stats, explanation
+    rules/          # rule contracts, rule engine, puzzle-specific rules
+  features/         # board rendering, solver controls, editor, stats, explanations
   test/             # test setup/runtime helpers
 dataset/
-  public/           # committed benchmark/dataset manifests
+  public/           # committed curated manifests
   private/          # local-only manifests, ignored by git
 scripts/
   benchmark-solve.ts
 docs/
-  techniques/       # puzzle-specific solving technique notes
+  techniques/       # puzzle-specific technique notes
+  legacy/           # old plans and research notes
 ```
 
 Boundary rule:
 
 - UI renders and orchestrates.
-- Domain code owns parsing, IR, rules, replay semantics, and exports.
-- Solver and editor are separate product surfaces that exchange normalized
-  `PuzzleIR`.
-- Puzzle-family behavior enters through `PuzzlePlugin`, puzzle-specific domain
-  modules, or explicit renderer branches.
+- Domain code owns parsing, IR, rules, replay semantics, completion analysis, and exports.
+- Solver and editor are separate product surfaces that exchange normalized `PuzzleIR`.
+- Puzzle-family behavior enters through `PuzzlePlugin`, puzzle-specific domain modules, or explicit renderer/editor branches.
 
-## 3. Data Flow
+## 3. Core Data Flow
 
-1. Parser converts URL/input into `PuzzleIR`.
-2. Optional editor tooling creates or modifies initial IR.
-3. Solver store loads the initial IR and resets replay state.
-4. Rule engine runs ordered rules and returns one step at a time.
-5. Each step stores rule metadata plus explicit diffs.
+1. Parser or editor creates a normalized `PuzzleIR`.
+2. Solver store loads the initial IR and resets replay state.
+3. The plugin supplies an ordered rule list.
+4. The rule engine returns one `RuleApplication` at a time.
+5. Each step stores rule metadata, explanation text, highlights, and explicit diffs.
 6. Replay applies or reverts diffs, with checkpoints for large timeline jumps.
 7. Board, stats, and explanation panels render the active replay state.
 
-This contract is the heart of the app: solver output must remain deterministic,
-replay-safe, and explainable.
+This contract is central: solver output must remain deterministic, replay-safe, and explainable.
 
 ## 4. Plugin Contract
 
 Puzzle families are registered in `src/domain/plugins/registry.ts`.
 
-Each `PuzzlePlugin` owns its family boundary:
+Each `PuzzlePlugin` may provide:
 
-- `parse(input)` converts supported input into normalized `PuzzleIR`.
-- `encode(puzzle)` exports a puzzle to a supported URL/string format.
-- `getRules()` returns the ordered rule list used by the solver.
-- `help` powers the puzzle rules popout.
-- `legend` powers board legend examples.
-- `getStats(puzzle)` powers compact board-title puzzle stats.
+- `parse(input)` for supported URLs or strings.
+- `encode(puzzle)` for supported exports.
+- `getRules()` for the ordered solver rule list.
+- `help` for the puzzle rules popout.
+- `legend` for board legend examples.
+- `getStats(puzzle)` for compact board-title stats.
+- `displayOptions` for puzzle-specific board toggles.
 
 Current families:
 
-- Slitherlink: parser, renderer, editor, rules, stats, completion analysis, and
-  export support are implemented.
-- Masyu: puzz.link import, IR, renderer, stats, help, and replay plumbing are
-  implemented; solving rules and export are still planned.
-- Nonogram: visible as a planned plugin stub.
+- **Slitherlink**: parser, Penpa+ import, renderer, editor, rules, stats, completion analysis, puzz.link export, datasets, and benchmark flow are implemented.
+- **Masyu**: puzz.link-compatible import/export, Penpa+ import, renderer, editor, stats, help/legend, replay plumbing, completion analysis, deterministic rules, tile-color topology, and bounded strong inference are implemented. Solver strength is still evolving.
+- **Nonogram**: planned plugin stub only.
 
 ## 5. IR And Diff Conventions
 
-`PuzzleIR` is the shared normalized state between parser, rules, replay, board,
-editor, and exporters.
+`PuzzleIR` is the shared state between parser, editor, solver, rules, board rendering, exporters, and datasets.
 
 Important state buckets:
 
-- `cells`: cell clues and cell-local visual state.
+- `cells`: clues and cell-local visual state.
 - `edges`: Slitherlink-style vertex-to-vertex grid-edge decisions.
-- `lines`: Masyu-style cell-center-to-cell-center line decisions.
+- `lines`: Masyu-style center-to-center line decisions.
 - `sectors`: Slitherlink corner-sector constraints.
-- `tiles`: future vertex-centered coloring units, currently introduced for
-  Masyu.
-- `vertices`: vertex candidate state for Slitherlink inference.
+- `tiles`: vertex-centered coloring units used by Masyu inside/outside reasoning.
+- `vertices`: Slitherlink vertex candidate state.
 
-`RuleDiff` is the replay contract. If a rule mutates a new IR bucket, add a diff
-type and update both:
+`RuleDiff` is the replay contract. If a rule mutates a new IR bucket, update both:
 
 - `src/domain/rules/engine.ts`
 - `src/features/solver/solverStore.ts`
 
-Keep forward and reverse replay behavior aligned. Timeline replay must not
-diverge from direct rule execution.
+Forward and reverse replay behavior must stay aligned. Timeline replay must not diverge from direct rule execution.
 
-## 6. Puzzle Techniques
+## 6. Current Capability Snapshot
 
-Do not put puzzle-specific solving techniques in this project guide. Use the
-technique notes instead:
+Implemented:
 
-- `docs/techniques/masyu.md`
-- `docs/techniques/slitherlink.md`
+- Solver workspace for import, step solving, replay, explanations, live stats, terminal reports, and export.
+- Editor workspace for Slitherlink and Masyu custom boards, URL import, and load-to-solver flow.
+- Dataset page with filters, previews, and load-to-Solver/Editor actions.
+- Plugin-powered rules help, board legend, board display toggles, and compact puzzle stats.
+- Slitherlink puzz.link-compatible parse/encode, Penpa+ import, deterministic rules, branch-based inference, completion analysis, editor tools, and public dataset example.
+- Masyu puzz.link-compatible parse/encode, Penpa+ import, renderer, editor, deterministic rules, completion analysis, tile-color propagation, candidate pruning, bridge reasoning, premature-loop prevention, and bounded strong inference.
+- Public/private benchmark manifest workflow.
+- GitHub Pages release workflow for tagged builds.
 
-That file points to the current Slitherlink rule modules, the Masyu changelog,
-the Masyu URL encoding reference, and the Masyu strategy research document:
+Partial or planned:
 
+- Public Masyu dataset manifests are not yet committed to `dataset/public`.
+- Penpa+ support is import-oriented; export completeness is not a current guarantee.
+- Puzzle-specific Live Stats wording can still be refined.
+- Difficulty modeling is draft-level.
+- Nonogram remains planned.
 
 ## 7. Benchmark And Dataset Flow
 
-Benchmarks evaluate solver behavior across JSON dataset manifests. They are for
-solver quality and rule-usage analysis, not for unit-test correctness.
+Benchmarks evaluate solver behavior across JSON dataset manifests. They are for solver-quality and rule-usage analysis, not unit-test correctness.
 
 Data locations:
 
@@ -136,93 +134,47 @@ Run:
 pnpm benchmark:solve
 ```
 
-The benchmark runner scans public/private manifests, runs each puzzle with the
-default plugin rule order, and writes reports to
-`benchmark-results/<dataset-id>.report.json`.
+The benchmark runner scans public/private manifests, runs each puzzle with the default plugin rule order, and writes reports to `benchmark-results/<dataset-id>.report.json`.
 
-Current defaults:
+Default benchmark settings:
 
 - `maxSteps = 2000`
 - `timeoutMs = 60000`
 - `ruleProfile = "default"`
 
-Report intent:
+Reports include per-puzzle status, step count, duration, terminal completion report, `ruleUsage`, and compact `ruleSteps`. Full `steps` are intentionally omitted to keep reports small.
 
-- Per puzzle: status, step count, duration, terminal completion report,
-  `ruleUsage`, and compact `ruleSteps`.
-- `steps` is intentionally empty for now to keep reports small.
-- `ruleSteps[ruleId] = [stepNumbers...]` records where each rule fired.
+## 8. AI Agent Quick Start
 
-## 8. Current Capability Snapshot
+Read in this order for broad context:
 
-Implemented:
-
-- Solver workspace for import, solving, replay, explanation, live stats,
-  terminal reports, and export.
-- Editor workspace for constructing Slitherlink puzzles before loading into the
-  solver.
-- Public Dataset page with filters, previews, and load-to-Solver/Editor actions.
-- Plugin-powered rule help, board legend, and compact board-title stats.
-- Slitherlink puzz.link parse/encode and Penpa import.
-- Slitherlink editor tools for clues, line edges, crosses, erasing, custom sizes,
-  and built-in presets.
-- Slitherlink deterministic and branch-based inference pipeline.
-- Slitherlink completion analysis.
-- Masyu puzz.link import for `masyu`, `mashu`, and `pearl`.
-- Masyu IR support through `lines`, `tiles`, and pearl clues.
-- Masyu solver-board rendering for dashed grids, pearls, center lines, and
-  crosses.
-- Replay support for both edge diffs and line diffs.
-- Live Stats trace cache for step-prefix summaries, chart progress, and rule
-  usage.
-- Public/private benchmark manifest workflow.
-- GitHub Pages release workflow for tagged builds.
-
-Planned or partial:
-
-- Masyu deterministic solving rules.
-- Masyu editor, dataset flow, completion analysis, and URL export.
-- Nonogram parser, renderer, editor, and rules.
-- Puzzle-specific Live Stats wording beyond the current shared labels.
-- Penpa adapter/export completeness.
-- Better calibrated difficulty modeling.
-
-## 9. AI Agent Quick Start
-
-If you are an AI agent onboarding this repository, read in this order:
-
-1. `src/domain/rules/types.ts`
-2. `src/domain/rules/engine.ts`
-3. `src/domain/ir/types.ts`
+1. `src/domain/ir/types.ts`
+2. `src/domain/rules/types.ts`
+3. `src/domain/rules/engine.ts`
 4. `src/domain/plugins/types.ts`
 5. `src/domain/plugins/registry.ts`
 6. `src/features/solver/solverStore.ts`
-7. `docs/techniques/PUZZLE_TECHNIQUES_EN.md` for puzzle-specific rule work
+7. The relevant note in `docs/techniques/`
 
 For targeted work:
 
 - Slitherlink rules: start at `src/domain/rules/slither/rules.ts`.
-- Masyu import/display: start at `docs/MASYU_CHANGELOG.md`.
-- Masyu future rules: start at `docs/MASYU_ASSIST_STRATEGIES_CN.md`.
-- Editor/UI work: inspect the relevant `src/features/*` component and page test.
-- Benchmark work: read `src/domain/benchmark/runner.ts` and
-  `scripts/benchmark-solve.ts`.
+- Masyu rules: start at `docs/MASYU_AGENT_BRIEF.md`, then inspect `src/domain/rules/masyu/rules.ts`.
+- Editor/UI work: inspect the relevant `src/features/*` component plus page tests.
+- Benchmark work: read `src/domain/benchmark/runner.ts` and `scripts/benchmark-solve.ts`.
+- Historical Masyu plans: check `docs/legacy/` only when old design context is useful.
 
 When editing:
 
 - Keep changes domain-first and minimally scoped.
 - Preserve deterministic replay semantics.
-- Preserve explainable rule messages and explicit diffs.
-- Add or adjust tests alongside parser, IR, replay, or rule changes.
+- Preserve explicit diffs and explainable rule messages.
+- Add or adjust tests beside parser, IR, replay, or rule changes.
 - Do not commit private datasets or generated benchmark reports.
 
-## 10. Development Commands
+## 9. Commands And Release Flow
 
-Use a modern Node runtime. Local Node `v24.13.1` is suitable for current
-development. Older Node versions may fail before project scripts start because
-the configured pnpm version requires a newer runtime.
-
-Commands:
+Use Node.js 20 from `.nvmrc` and pnpm 10.33.0 from `package.json`.
 
 ```bash
 pnpm install
@@ -234,13 +186,6 @@ pnpm benchmark:solve
 pnpm test:e2e
 ```
 
-## 11. Deployment And Release Flow
+CI runs linting, unit tests, and build on pushes and pull requests targeting `main`.
 
-- Package management is standardized on pnpm 10.33.0 via `packageManager` in
-  `package.json`.
-- CI runs on pushes and pull requests targeting `main`.
-- CI installs with `pnpm install --frozen-lockfile`, then runs linting, unit
-  tests, and build.
-- GitHub Pages deployment is triggered by pushing a `v*` tag.
-- The deployment workflow builds `dist/`, copies `dist/index.html` to
-  `dist/404.html` for SPA fallback, then publishes `dist/`.
+GitHub Pages deployment is triggered by pushing a `v*` tag. The deployment workflow builds `dist/`, copies `dist/index.html` to `dist/404.html` for SPA fallback, then publishes `dist/`.

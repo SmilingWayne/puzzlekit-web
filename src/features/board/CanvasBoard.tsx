@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  getCellEdgeKeys,
   getCornerEdgeKeys,
   parseCellKey,
   parseEdgeKey,
@@ -16,6 +15,8 @@ import {
 } from '../../domain/ir/types'
 import type { PuzzleIR } from '../../domain/ir/types'
 import { PuzzleStatsInfoButton } from '../puzzleStats/PuzzleStatsInfoButton'
+import type { DisplaySettings } from '../solver/solverStore'
+import { BoardDisplayButton } from './BoardDisplayButton'
 
 type Props = {
   puzzle: PuzzleIR
@@ -25,7 +26,8 @@ type Props = {
   highlightedCells: string[]
   highlightedColorCells: string[]
   highlightedColorTiles?: string[]
-  showVertexNumbers: boolean
+  displaySettings: DisplaySettings
+  onSetDisplayOption: (optionId: string, enabled: boolean) => void
 }
 
 const CELL_SIZE = 52
@@ -60,6 +62,7 @@ const drawDecisionMark = (
   y1: number,
   x2: number,
   y2: number,
+  showBlankCross: boolean,
 ): void => {
   if (mark === 'line') {
     ctx.strokeStyle = highlighted ? '#22d3ee' : '#38bdf8'
@@ -70,7 +73,7 @@ const drawDecisionMark = (
     ctx.stroke()
     return
   }
-  if (mark === 'blank') {
+  if (mark === 'blank' && showBlankCross) {
     const [mx, my] = midpoint([x1, y1], [x2, y2])
     ctx.strokeStyle = highlighted ? '#f472b6' : '#94a3b8'
     ctx.lineWidth = 2
@@ -101,7 +104,8 @@ export const CanvasBoard = ({
   highlightedCells,
   highlightedColorCells,
   highlightedColorTiles = [],
-  showVertexNumbers,
+  displaySettings,
+  onSetDisplayOption,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [zoomPercent, setZoomPercent] = useState(100)
@@ -131,21 +135,33 @@ export const CanvasBoard = ({
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
     const isMasyu = puzzle.puzzleType === 'masyu'
+    const showGridLabels = displaySettings.showGridLabels ?? true
+    const showHighlights = displaySettings.showHighlights ?? true
+    const showCellColors = displaySettings.showCellColors ?? true
+    const showTiles = displaySettings.showTiles ?? true
+    const showEdgeCrosses = displaySettings.showEdgeCrosses ?? true
+    const showLineCrosses = displaySettings.showLineCrosses ?? true
+    const showSectorMarks = displaySettings.showSectorMarks ?? true
+    const showVertices = displaySettings.showVertices ?? true
+    const showCoordinates = displaySettings.showCoordinates ?? false
+    const showGrid = displaySettings.showGrid ?? true
 
-    ctx.fillStyle = '#64748b'
-    ctx.font = '600 12px Inter, sans-serif'
-    ctx.textAlign = 'right'
-    ctx.textBaseline = 'middle'
-    for (let r = 0; r < puzzle.rows; r += 1) {
-      ctx.fillText(`R${r + 1}`, PADDING - 12, PADDING + r * CELL_SIZE + CELL_SIZE / 2)
-    }
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'alphabetic'
-    for (let c = 0; c < puzzle.cols; c += 1) {
-      ctx.fillText(`C${c + 1}`, PADDING + c * CELL_SIZE + CELL_SIZE / 2, PADDING - 14)
+    if (showGridLabels) {
+      ctx.fillStyle = '#64748b'
+      ctx.font = '600 12px Inter, sans-serif'
+      ctx.textAlign = 'right'
+      ctx.textBaseline = 'middle'
+      for (let r = 0; r < puzzle.rows; r += 1) {
+        ctx.fillText(`R${r + 1}`, PADDING - 12, PADDING + r * CELL_SIZE + CELL_SIZE / 2)
+      }
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'alphabetic'
+      for (let c = 0; c < puzzle.cols; c += 1) {
+        ctx.fillText(`C${c + 1}`, PADDING + c * CELL_SIZE + CELL_SIZE / 2, PADDING - 14)
+      }
     }
 
-    if (!isMasyu) {
+    if (!isMasyu && showCellColors) {
       for (const [key, cell] of Object.entries(puzzle.cells)) {
         const fill = cell.fill
         const fillStyle = getColorFillStyle(fill, 0.24)
@@ -156,7 +172,7 @@ export const CanvasBoard = ({
         ctx.fillStyle = fillStyle
         ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
       }
-    } else {
+    } else if (isMasyu && showTiles) {
       const tileSize = CELL_SIZE
       for (const [key, tile] of Object.entries(puzzle.tiles ?? {})) {
         const fillStyle = getColorFillStyle(tile.fill, 0.24)
@@ -174,20 +190,22 @@ export const CanvasBoard = ({
       }
     }
 
-    for (const cell of highlightedCells) {
-      const [r, c] = parseCellKey(cell)
-      ctx.fillStyle = 'rgba(99, 102, 241, 0.25)'
-      ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    if (showHighlights) {
+      for (const cell of highlightedCells) {
+        const [r, c] = parseCellKey(cell)
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.25)'
+        ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+      }
     }
 
-    if (!isMasyu) {
+    if (!isMasyu && showHighlights && showCellColors) {
       for (const cell of highlightedColorCells) {
         const fill = puzzle.cells[cell]?.fill
         const [r, c] = parseCellKey(cell)
         ctx.fillStyle = getColorFillStyle(fill, 0.44) ?? 'rgba(99, 102, 241, 0.2)'
         ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
       }
-    } else {
+    } else if (isMasyu && showHighlights && showTiles) {
       const tileSize = CELL_SIZE
       for (const tile of highlightedColorTiles) {
         const fill = puzzle.tiles[tile]?.fill
@@ -202,22 +220,24 @@ export const CanvasBoard = ({
       }
     }
 
-    ctx.strokeStyle = isMasyu ? '#94a3b8' : '#cbd5e1'
-    ctx.lineWidth = 1
-    ctx.setLineDash(isMasyu ? [4, 4] : [])
-    for (let r = 0; r <= puzzle.rows; r += 1) {
-      ctx.beginPath()
-      ctx.moveTo(PADDING, PADDING + r * CELL_SIZE)
-      ctx.lineTo(PADDING + puzzle.cols * CELL_SIZE, PADDING + r * CELL_SIZE)
-      ctx.stroke()
+    if (!isMasyu || showGrid) {
+      ctx.strokeStyle = isMasyu ? '#94a3b8' : '#cbd5e1'
+      ctx.lineWidth = 1
+      ctx.setLineDash(isMasyu ? [4, 4] : [])
+      for (let r = 0; r <= puzzle.rows; r += 1) {
+        ctx.beginPath()
+        ctx.moveTo(PADDING, PADDING + r * CELL_SIZE)
+        ctx.lineTo(PADDING + puzzle.cols * CELL_SIZE, PADDING + r * CELL_SIZE)
+        ctx.stroke()
+      }
+      for (let c = 0; c <= puzzle.cols; c += 1) {
+        ctx.beginPath()
+        ctx.moveTo(PADDING + c * CELL_SIZE, PADDING)
+        ctx.lineTo(PADDING + c * CELL_SIZE, PADDING + puzzle.rows * CELL_SIZE)
+        ctx.stroke()
+      }
+      ctx.setLineDash([])
     }
-    for (let c = 0; c <= puzzle.cols; c += 1) {
-      ctx.beginPath()
-      ctx.moveTo(PADDING + c * CELL_SIZE, PADDING)
-      ctx.lineTo(PADDING + c * CELL_SIZE, PADDING + puzzle.rows * CELL_SIZE)
-      ctx.stroke()
-    }
-    ctx.setLineDash([])
 
     if (isMasyu) {
       ctx.strokeStyle = '#111827'
@@ -253,62 +273,62 @@ export const CanvasBoard = ({
       }
     }
 
-    if (!isMasyu) {
-    const sectorRadii = {
-      notZero: CELL_SIZE * 0.19,
-      notOne: CELL_SIZE * 0.24,
-      notTwo: CELL_SIZE * 0.29,
-      single: CELL_SIZE * 0.34,
-    }
-    for (const [key, sector] of Object.entries(puzzle.sectors)) {
-      const mask = sector.constraintsMask ?? SECTOR_MASK_ALL
-      if (mask === SECTOR_MASK_ALL) {
-        continue
+    if (!isMasyu && showSectorMarks) {
+      const sectorRadii = {
+        notZero: CELL_SIZE * 0.19,
+        notOne: CELL_SIZE * 0.24,
+        notTwo: CELL_SIZE * 0.29,
+        single: CELL_SIZE * 0.34,
       }
-      const [r, c, corner] = parseSectorKey(key)
-      const cornerEdges = getCornerEdgeKeys(r, c, corner)
-      const isCornerResolved = cornerEdges.every(
-        (edge) => (puzzle.edges[edge]?.mark ?? 'unknown') !== 'unknown',
-      )
-      if (isCornerResolved) {
-        continue
-      }
-      const baseX = PADDING + c * CELL_SIZE
-      const baseY = PADDING + r * CELL_SIZE
-      const cornerX = corner === 'ne' || corner === 'se' ? baseX + CELL_SIZE : baseX
-      const cornerY = corner === 'sw' || corner === 'se' ? baseY + CELL_SIZE : baseY
-      const [start, end] = getSectorArcAngles(corner)
+      for (const [key, sector] of Object.entries(puzzle.sectors)) {
+        const mask = sector.constraintsMask ?? SECTOR_MASK_ALL
+        if (mask === SECTOR_MASK_ALL) {
+          continue
+        }
+        const [r, c, corner] = parseSectorKey(key)
+        const cornerEdges = getCornerEdgeKeys(r, c, corner)
+        const isCornerResolved = cornerEdges.every(
+          (edge) => (puzzle.edges[edge]?.mark ?? 'unknown') !== 'unknown',
+        )
+        if (isCornerResolved) {
+          continue
+        }
+        const baseX = PADDING + c * CELL_SIZE
+        const baseY = PADDING + r * CELL_SIZE
+        const cornerX = corner === 'ne' || corner === 'se' ? baseX + CELL_SIZE : baseX
+        const cornerY = corner === 'sw' || corner === 'se' ? baseY + CELL_SIZE : baseY
+        const [start, end] = getSectorArcAngles(corner)
 
-      ctx.save()
-      const drawArc = (
-        radius: number,
-        strokeStyle: string,
-        lineWidth: number,
-        lineDash: number[] = [],
-      ): void => {
-        ctx.strokeStyle = strokeStyle
-        ctx.lineWidth = lineWidth
-        ctx.setLineDash(lineDash)
-        ctx.beginPath()
-        ctx.arc(cornerX, cornerY, radius, start, end)
-        ctx.stroke()
-      }
+        ctx.save()
+        const drawArc = (
+          radius: number,
+          strokeStyle: string,
+          lineWidth: number,
+          lineDash: number[] = [],
+        ): void => {
+          ctx.strokeStyle = strokeStyle
+          ctx.lineWidth = lineWidth
+          ctx.setLineDash(lineDash)
+          ctx.beginPath()
+          ctx.arc(cornerX, cornerY, radius, start, end)
+          ctx.stroke()
+        }
 
-      if (!sectorMaskAllows(mask, 0)) {
-        drawArc(sectorRadii.notZero, '#22c55e', 1.8, [4, 3])
-      }
-      if (!sectorMaskAllows(mask, 1)) {
-        drawArc(sectorRadii.notOne, '#3b82f6', 1.8)
-      }
-      if (!sectorMaskAllows(mask, 2)) {
-        drawArc(sectorRadii.notTwo, '#f59e0b', 1.8, [4, 3])
-      }
+        if (!sectorMaskAllows(mask, 0)) {
+          drawArc(sectorRadii.notZero, '#22c55e', 1.8, [4, 3])
+        }
+        if (!sectorMaskAllows(mask, 1)) {
+          drawArc(sectorRadii.notOne, '#3b82f6', 1.8)
+        }
+        if (!sectorMaskAllows(mask, 2)) {
+          drawArc(sectorRadii.notTwo, '#f59e0b', 1.8, [4, 3])
+        }
 
-      if (mask === SECTOR_MASK_ONLY_1) {
-        drawArc(sectorRadii.single, '#ef4444', 2.4)
+        if (mask === SECTOR_MASK_ONLY_1) {
+          drawArc(sectorRadii.single, '#ef4444', 2.4)
+        }
+        ctx.restore()
       }
-      ctx.restore()
-    }
     }
 
     if (isMasyu) {
@@ -318,7 +338,16 @@ export const CanvasBoard = ({
         const y1 = PADDING + v1[0] * CELL_SIZE + CELL_SIZE / 2
         const x2 = PADDING + v2[1] * CELL_SIZE + CELL_SIZE / 2
         const y2 = PADDING + v2[0] * CELL_SIZE + CELL_SIZE / 2
-        drawDecisionMark(ctx, state.mark, highlightedLines.includes(line), x1, y1, x2, y2)
+        drawDecisionMark(
+          ctx,
+          state.mark,
+          showHighlights && highlightedLines.includes(line),
+          x1,
+          y1,
+          x2,
+          y2,
+          showLineCrosses,
+        )
       }
     } else {
       for (const [edge, state] of Object.entries(puzzle.edges)) {
@@ -327,24 +356,33 @@ export const CanvasBoard = ({
         const y1 = PADDING + v1[0] * CELL_SIZE
         const x2 = PADDING + v2[1] * CELL_SIZE
         const y2 = PADDING + v2[0] * CELL_SIZE
-        drawDecisionMark(ctx, state.mark, highlightedEdges.includes(edge), x1, y1, x2, y2)
+        drawDecisionMark(
+          ctx,
+          state.mark,
+          showHighlights && highlightedEdges.includes(edge),
+          x1,
+          y1,
+          x2,
+          y2,
+          showEdgeCrosses,
+        )
       }
     }
 
-    if (!isMasyu) {
-    ctx.fillStyle = '#111827'
-    for (let r = 0; r <= puzzle.rows; r += 1) {
-      for (let c = 0; c <= puzzle.cols; c += 1) {
-        const vertex = PADDING + c * CELL_SIZE
-        const vertY = PADDING + r * CELL_SIZE
-        ctx.beginPath()
-        ctx.arc(vertex, vertY, 2.3, 0, Math.PI * 2)
-        ctx.fill()
+    if (!isMasyu && showVertices) {
+      ctx.fillStyle = '#111827'
+      for (let r = 0; r <= puzzle.rows; r += 1) {
+        for (let c = 0; c <= puzzle.cols; c += 1) {
+          const vertex = PADDING + c * CELL_SIZE
+          const vertY = PADDING + r * CELL_SIZE
+          ctx.beginPath()
+          ctx.arc(vertex, vertY, 2.3, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
     }
-    }
 
-    if (showVertexNumbers && !isMasyu) {
+    if (showCoordinates && !isMasyu) {
       ctx.fillStyle = '#64748b'
       ctx.font = '12px ui-monospace, monospace'
       ctx.textAlign = 'left'
@@ -370,8 +408,8 @@ export const CanvasBoard = ({
     highlightedColorTiles,
     highlightedEdges,
     highlightedLines,
+    displaySettings,
     puzzle,
-    showVertexNumbers,
     width,
     zoom,
   ])
@@ -398,6 +436,11 @@ export const CanvasBoard = ({
             {puzzle.rows} × {puzzle.cols}
           </span>
           <PuzzleStatsInfoButton pluginId={pluginId} puzzle={puzzle} />
+          <BoardDisplayButton
+            pluginId={pluginId}
+            displaySettings={displaySettings}
+            onSetDisplayOption={onSetDisplayOption}
+          />
         </h2>
         <div className="board-header-tools">
           <small>
@@ -430,20 +473,6 @@ export const CanvasBoard = ({
         Use the slider to zoom. Scroll to move around large grids. Highlight syncs with reasoning
         steps.
       </p>
-      {puzzle.puzzleType !== 'masyu' ? (
-        <details>
-          <summary>Cell to edge mapping helper</summary>
-          <pre>
-            {Object.keys(puzzle.cells)
-              .slice(0, 5)
-              .map((key) => {
-                const [r, c] = parseCellKey(key)
-                return `${key} -> ${getCellEdgeKeys(r, c).join(' | ')}`
-              })
-              .join('\n')}
-          </pre>
-        </details>
-      ) : null}
     </section>
   )
 }

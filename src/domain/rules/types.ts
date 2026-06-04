@@ -1,4 +1,10 @@
-import type { EdgeMark, LineMark, PuzzleIR, SectorConstraintMask, VertexCandidate } from '../ir/types'
+import type {
+  EdgeMark,
+  LineMark,
+  PuzzleIR,
+  SectorConstraintMask,
+  VertexCandidate,
+} from '../ir/types'
 
 export type EdgeDiff = {
   kind: 'edge'
@@ -42,7 +48,13 @@ export type VertexDiff = {
   toCandidates: VertexCandidate[]
 }
 
-export type RuleDiff = EdgeDiff | LineDiff | SectorDiff | CellDiff | TileDiff | VertexDiff
+export type RuleDiff =
+  | EdgeDiff
+  | LineDiff
+  | SectorDiff
+  | CellDiff
+  | TileDiff
+  | VertexDiff
 
 export type RuleStep = {
   id: string
@@ -57,6 +69,9 @@ export type RuleStep = {
   affectedSectors: string[]
   timestamp: number
   durationMs: number
+  chainDurationMs?: number
+  ruleApplyMs?: number
+  ruleAttempts?: RuleAttempt[]
 }
 
 export type RuleApplication = {
@@ -68,8 +83,22 @@ export type RuleApplication = {
   affectedSectors?: string[]
 }
 
+export type RuleAttempt = {
+  ruleId: string
+  ruleName: string
+  durationMs: number
+  hit: boolean
+}
+
+export type RuleRuntimeContext = {
+  cache: Map<string, unknown>
+}
+
 export type Rule = {
   id: string
   name: string
-  apply: (puzzle: PuzzleIR) => RuleApplication | null
+  apply: (
+    puzzle: PuzzleIR,
+    runtimeContext?: RuleRuntimeContext,
+  ) => RuleApplication | null
 }

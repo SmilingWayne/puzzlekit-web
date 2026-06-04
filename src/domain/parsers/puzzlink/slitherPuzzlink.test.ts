@@ -35,7 +35,7 @@ describe('slither puzzlink parser', () => {
   it('decodes pzplus.tck.mn urls with the same data as puzz.link', () => {
     const fromPuzzlink = decodeSlitherFromPuzzlink(complexSlitherUrl)
     const fromPzplus = decodeSlitherFromPuzzlink(
-      complexSlitherUrl.replace('https://puzz.link', 'https://pzplus.tck.mn'),
+      complexSlitherUrl.replace('https://puzz.link/p?', 'https://pzplus.tck.mn/p.html?'),
     )
 
     expect(fromPzplus.rows).toBe(fromPuzzlink.rows)
@@ -43,9 +43,20 @@ describe('slither puzzlink parser', () => {
     expect(fromPzplus.cells).toEqual(fromPuzzlink.cells)
   })
 
+  it('decodes pzprxs.vercel.app urls with the same data as puzz.link', () => {
+    const fromPuzzlink = decodeSlitherFromPuzzlink(complexSlitherUrl)
+    const fromPzprxs = decodeSlitherFromPuzzlink(
+      complexSlitherUrl.replace('https://puzz.link', 'https://pzprxs.vercel.app'),
+    )
+
+    expect(fromPzprxs.rows).toBe(fromPuzzlink.rows)
+    expect(fromPzprxs.cols).toBe(fromPuzzlink.cols)
+    expect(fromPzprxs.cells).toEqual(fromPuzzlink.cells)
+  })
+
   it('rejects unsupported url hosts', () => {
     expect(() => decodeSlitherFromPuzzlink('https://example.com/p?slither/3/3/g0h')).toThrow(
-      /Only puzz\.link, pzplus\.tck\.mn, and pzv\.jp URLs are supported/,
+      /Only puzz\.link, pzplus\.tck\.mn, pzprxs\.vercel\.app, and pzv\.jp URLs are supported/,
     )
   })
 

@@ -26,8 +26,12 @@ const makeStep = (
   message: `step ${index}`,
   diffs,
   affectedCells: [],
-  affectedEdges: diffs.flatMap((diff) => (diff.kind === 'edge' ? [diff.edgeKey] : [])),
-  affectedSectors: diffs.flatMap((diff) => (diff.kind === 'sector' ? [diff.sectorKey] : [])),
+  affectedEdges: diffs.flatMap((diff) =>
+    diff.kind === 'edge' ? [diff.edgeKey] : [],
+  ),
+  affectedSectors: diffs.flatMap((diff) =>
+    diff.kind === 'sector' ? [diff.sectorKey] : [],
+  ),
   timestamp: index,
   durationMs,
 })
@@ -51,7 +55,14 @@ describe('buildRuleTraceStats', () => {
     expect(stats.ruleUsage).toEqual({ 'rule-a': 2, 'rule-b': 1 })
     expect(stats.ruleSteps).toEqual({ 'rule-a': [1, 3], 'rule-b': [2] })
     expect(stats.totalDurationMs).toBe(10)
-    expect(stats.diffCounts).toEqual({ edge: 1, line: 0, sector: 1, cell: 1, tile: 0, vertex: 0 })
+    expect(stats.diffCounts).toEqual({
+      edge: 1,
+      line: 0,
+      sector: 1,
+      cell: 1,
+      tile: 0,
+      vertex: 0,
+    })
   })
 
   it('keeps all full-trace rules visible when the active prefix has not used them yet', () => {
@@ -77,6 +88,21 @@ describe('buildRuleTraceStats', () => {
     expect(buildRuleTraceStats(steps, -10).pointer).toBe(0)
     expect(buildRuleTraceStats(steps, 99).pointer).toBe(2)
     expect(buildRuleTraceStats(steps, 1).traceProgressRatio).toBe(0.5)
+  })
+
+  it('uses rule apply time for per-rule timing and chain time for total timing', () => {
+    const steps: RuleStep[] = [
+      {
+        ...makeStep(1, 'late-rule', 'Late Rule', 50, []),
+        chainDurationMs: 50,
+        ruleApplyMs: 7,
+      },
+    ]
+
+    const stats = buildRuleTraceStats(steps, 1)
+
+    expect(stats.totalDurationMs).toBe(50)
+    expect(stats.rules[0].durationMs).toBe(7)
   })
 })
 
@@ -108,7 +134,9 @@ describe('buildTraceChartStats', () => {
 
     const stats = buildTraceChartStats(puzzle, steps, 2)
 
-    expect(stats.points.map((point) => point.edgeCoverageRatio)).toEqual([0, 0.25, 0.5])
+    expect(stats.points.map((point) => point.edgeCoverageRatio)).toEqual([
+      0, 0.25, 0.5,
+    ])
     expect(stats.current.boardProgressRatio).toBe(0.5)
   })
 
@@ -132,7 +160,12 @@ describe('buildTraceChartStats', () => {
     const puzzle = createSlitherPuzzle(2, 2)
     const steps: RuleStep[] = [
       makeStep(1, 'cell-rule', 'Cell Rule', 1, [
-        { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'green' },
+        {
+          kind: 'cell',
+          cellKey: cellKey(0, 0),
+          fromFill: null,
+          toFill: 'green',
+        },
       ]),
     ]
 
@@ -192,8 +225,18 @@ describe('incremental trace stats cache', () => {
     const targetVertex = vertexKey(0, 0)
     const initialCandidates = puzzle.vertices[targetVertex].candidateEdgeSets
     const step = makeStep(1, 'mixed-rule', 'Mixed Rule', 4, [
-      { kind: 'edge', edgeKey: edgeKey([0, 0], [0, 1]), from: 'unknown', to: 'line' },
-      { kind: 'cell', cellKey: cellKey(0, 0), fromFill: null, toFill: 'yellow' },
+      {
+        kind: 'edge',
+        edgeKey: edgeKey([0, 0], [0, 1]),
+        from: 'unknown',
+        to: 'line',
+      },
+      {
+        kind: 'cell',
+        cellKey: cellKey(0, 0),
+        fromFill: null,
+        toFill: 'yellow',
+      },
       {
         kind: 'vertex',
         vertexKey: targetVertex,
@@ -233,10 +276,20 @@ describe('incremental trace stats cache', () => {
   it('truncates a future branch and rebuilds prefix totals', () => {
     const puzzle = createSlitherPuzzle(1, 1)
     const first = makeStep(1, 'rule-a', 'Rule A', 2, [
-      { kind: 'edge', edgeKey: edgeKey([0, 0], [0, 1]), from: 'unknown', to: 'line' },
+      {
+        kind: 'edge',
+        edgeKey: edgeKey([0, 0], [0, 1]),
+        from: 'unknown',
+        to: 'line',
+      },
     ])
     const second = makeStep(2, 'rule-b', 'Rule B', 3, [
-      { kind: 'edge', edgeKey: edgeKey([1, 0], [1, 1]), from: 'unknown', to: 'blank' },
+      {
+        kind: 'edge',
+        edgeKey: edgeKey([1, 0], [1, 1]),
+        from: 'unknown',
+        to: 'blank',
+      },
     ])
     const cache = rebuildTraceStatsCache(puzzle, [first, second])
 

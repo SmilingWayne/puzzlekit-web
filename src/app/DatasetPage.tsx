@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import type { BenchmarkDatasetItem } from '../domain/benchmark/types'
 import { puzzleRegistry } from '../domain/plugins/registry'
 import { BoardLegendButton } from '../features/board/BoardLegendButton'
@@ -8,6 +8,7 @@ import { useEditorStore } from '../features/editor/editorStore'
 import { PuzzleInfoButton } from '../features/puzzleInfo/PuzzleInfoButton'
 import { PuzzlePreviewBoard } from '../features/puzzlePreview/PuzzlePreviewBoard'
 import { useSolverStore } from '../features/solver/solverStore'
+import { WorkspaceHeader } from './WorkspaceHeader'
 import './workspace.css'
 
 type DatasetPuzzleCard = BenchmarkDatasetItem & {
@@ -15,6 +16,8 @@ type DatasetPuzzleCard = BenchmarkDatasetItem & {
   datasetTitle: string
   description: string
 }
+
+type ActivePuzzlePopover = 'rules' | 'legend' | null
 
 const DATASET_PREVIEW_SIZE = 136
 
@@ -72,6 +75,7 @@ export const DatasetPage = () => {
   const [query, setQuery] = useState('')
   const [sizeFilter, setSizeFilter] = useState('all')
   const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [activePuzzlePopover, setActivePuzzlePopover] = useState<ActivePuzzlePopover>(null)
   const [actionError, setActionError] = useState('')
 
   const tags = useMemo(
@@ -136,19 +140,11 @@ export const DatasetPage = () => {
     <main className="workspace">
       <section className="workspace-grid dataset-workspace-grid">
         <div className="left-column">
-          <header className="workspace-title">
-            <div>
-              <h1>PuzzleKit Dataset</h1>
-              <p>Browse public Slitherlink puzzles and load them into the workspace.</p>
-            </div>
-            <nav className="workspace-nav" aria-label="Workspace navigation">
-              <Link to="/">Solver</Link>
-              <Link aria-current="page" to="/dataset">
-                Dataset
-              </Link>
-              <Link to="/editor">Editor</Link>
-            </nav>
-          </header>
+          <WorkspaceHeader
+            title="PuzzleKit Dataset"
+            description="Browse public Slitherlink puzzles and load them into the workspace."
+            activePage="dataset"
+          />
           <section className="panel-card dataset-list-card" aria-labelledby="dataset-list-title">
             <header className="panel-header dataset-list-header">
               <div>
@@ -214,15 +210,35 @@ export const DatasetPage = () => {
             <div className="label-row type-row-wrap">
               <span className="type-row-label">Puzzle Type</span>
               <div className="type-row-controls">
-                <select value={pluginId} onChange={(event) => setPluginId(event.target.value)}>
+                <select
+                  value={pluginId}
+                  onChange={(event) => {
+                    setActivePuzzlePopover(null)
+                    setPluginId(event.target.value)
+                  }}
+                >
                   {puzzleRegistry.all().map((plugin) => (
                     <option key={plugin.id} value={plugin.id} disabled={plugin.id !== 'slitherlink'}>
                       {plugin.id === 'slitherlink' ? plugin.displayName : `${plugin.displayName} (planned)`}
                     </option>
                   ))}
                 </select>
-                <PuzzleInfoButton pluginId={pluginId} />
-                <BoardLegendButton pluginId={pluginId} />
+                <PuzzleInfoButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'rules'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'rules' ? null : 'rules'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
+                <BoardLegendButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'legend'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'legend' ? null : 'legend'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
               </div>
             </div>
             <label className="label-row">

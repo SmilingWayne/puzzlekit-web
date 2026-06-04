@@ -91,6 +91,12 @@ export const addRuleUsage = (
   ruleSteps[step.ruleId] = [...(ruleSteps[step.ruleId] ?? []), stepNumber]
 }
 
+const getStepChainDurationMs = (step: RuleStep): number =>
+  step.chainDurationMs ?? step.durationMs ?? 0
+
+const getStepRuleApplyMs = (step: RuleStep): number =>
+  step.ruleApplyMs ?? step.durationMs ?? 0
+
 const clampPointer = (pointer: number, totalSteps: number): number => {
   if (!Number.isFinite(pointer)) {
     return 0
@@ -98,7 +104,10 @@ const clampPointer = (pointer: number, totalSteps: number): number => {
   return Math.min(totalSteps, Math.max(0, Math.floor(pointer)))
 }
 
-export const buildRuleTraceStats = (steps: RuleStep[], pointer: number): RuleTraceStats => {
+export const buildRuleTraceStats = (
+  steps: RuleStep[],
+  pointer: number,
+): RuleTraceStats => {
   const currentPointer = clampPointer(pointer, steps.length)
   const activeSteps = steps.slice(0, currentPointer)
   const ruleOrder: string[] = []
@@ -120,9 +129,9 @@ export const buildRuleTraceStats = (steps: RuleStep[], pointer: number): RuleTra
   activeSteps.forEach((step, index) => {
     const stepNumber = index + 1
     addRuleUsage(ruleUsage, ruleSteps, step, stepNumber)
-    const durationMs = step.durationMs ?? 0
-    ruleDurations[step.ruleId] = (ruleDurations[step.ruleId] ?? 0) + durationMs
-    totalDurationMs += durationMs
+    const ruleApplyMs = getStepRuleApplyMs(step)
+    ruleDurations[step.ruleId] = (ruleDurations[step.ruleId] ?? 0) + ruleApplyMs
+    totalDurationMs += getStepChainDurationMs(step)
 
     for (const diff of step.diffs) {
       diffCounts[diff.kind] += 1
@@ -157,13 +166,16 @@ export const buildRuleTraceStats = (steps: RuleStep[], pointer: number): RuleTra
   }
 }
 
-const ratio = (count: number, total: number): number => (total <= 0 ? 0 : count / total)
+const ratio = (count: number, total: number): number =>
+  total <= 0 ? 0 : count / total
 
 const vertexSignature = (candidates: VertexCandidate[] | undefined): string =>
   JSON.stringify(
     (candidates ?? [])
       .map((candidate) => [...candidate].sort())
-      .sort((a, b) => a.length - b.length || a.join('|').localeCompare(b.join('|'))),
+      .sort(
+        (a, b) => a.length - b.length || a.join('|').localeCompare(b.join('|')),
+      ),
   )
 
 const makeChartPoint = (
@@ -186,12 +198,14 @@ const makeChartPoint = (
 })
 
 const countInitialFilledCells = (puzzle: PuzzleIR): number =>
-  Object.values(puzzle.cells).filter((cell) => cell.fill !== undefined && cell.fill !== null).length
+  Object.values(puzzle.cells).filter(
+    (cell) => cell.fill !== undefined && cell.fill !== null,
+  ).length
 
 const countInitialDecidedEdges = (puzzle: PuzzleIR): number =>
-  Object.values(puzzle.puzzleType === 'masyu' ? puzzle.lines ?? {} : puzzle.edges).filter(
-    (edge) => (edge?.mark ?? 'unknown') !== 'unknown',
-  ).length
+  Object.values(
+    puzzle.puzzleType === 'masyu' ? (puzzle.lines ?? {}) : puzzle.edges,
+  ).filter((edge) => (edge?.mark ?? 'unknown') !== 'unknown').length
 
 const upperBound = (values: number[], target: number): number => {
   let low = 0
@@ -207,8 +221,13 @@ const upperBound = (values: number[], target: number): number => {
   return low
 }
 
-export const createTraceStatsCache = (initialPuzzle: PuzzleIR): TraceStatsCache => {
-  const decisionMarks = initialPuzzle.puzzleType === 'masyu' ? initialPuzzle.lines ?? {} : initialPuzzle.edges
+export const createTraceStatsCache = (
+  initialPuzzle: PuzzleIR,
+): TraceStatsCache => {
+  const decisionMarks =
+    initialPuzzle.puzzleType === 'masyu'
+      ? (initialPuzzle.lines ?? {})
+      : initialPuzzle.edges
   const totalEdges = Object.keys(decisionMarks).length
   const totalCells = initialPuzzle.rows * initialPuzzle.cols
   const totalVertices = Object.keys(initialPuzzle.vertices).length
@@ -267,7 +286,10 @@ export const createTraceStatsCache = (initialPuzzle: PuzzleIR): TraceStatsCache 
   }
 }
 
-export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): TraceStatsCache => {
+export const appendTraceStatsStep = (
+  cache: TraceStatsCache,
+  step: RuleStep,
+): TraceStatsCache => {
   const stepNumber = cache.points.length
   const next: TraceStatsCache = {
     ...cache,
@@ -313,10 +335,14 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
     } else if (diff.kind === 'vertex') {
       vertexDiffs += 1
       const signature = vertexSignature(diff.toCandidates)
-      const initialCount = next.initialVertexCandidateCounts[diff.vertexKey] ?? 0
-      const initialSignature = next.initialVertexCandidateSignatures[diff.vertexKey] ?? '[]'
+      const initialCount =
+        next.initialVertexCandidateCounts[diff.vertexKey] ?? 0
+      const initialSignature =
+        next.initialVertexCandidateSignatures[diff.vertexKey] ?? '[]'
       const wasNarrowed = next.narrowedVertexKeys[diff.vertexKey] ?? false
-      const isNarrowed = diff.toCandidates.length < initialCount || signature !== initialSignature
+      const isNarrowed =
+        diff.toCandidates.length < initialCount ||
+        signature !== initialSignature
       if (!wasNarrowed && isNarrowed) {
         next.narrowedVertexCount += 1
       } else if (wasNarrowed && !isNarrowed) {
@@ -341,21 +367,42 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
   const occurrence = next.ruleOccurrences[step.ruleId]
   occurrence.steps.push(stepNumber)
   occurrence.durationPrefixMs.push(
-    occurrence.durationPrefixMs[occurrence.durationPrefixMs.length - 1] + (step.durationMs ?? 0),
+    occurrence.durationPrefixMs[occurrence.durationPrefixMs.length - 1] +
+      getStepRuleApplyMs(step),
   )
 
   next.totalDurationPrefixMs.push(
-    next.totalDurationPrefixMs[next.totalDurationPrefixMs.length - 1] + (step.durationMs ?? 0),
+    next.totalDurationPrefixMs[next.totalDurationPrefixMs.length - 1] +
+      getStepChainDurationMs(step),
   )
   next.totalDiffPrefixCounts.push(
-    next.totalDiffPrefixCounts[next.totalDiffPrefixCounts.length - 1] + step.diffs.length,
+    next.totalDiffPrefixCounts[next.totalDiffPrefixCounts.length - 1] +
+      step.diffs.length,
   )
-  next.diffPrefixCounts.edge.push(next.diffPrefixCounts.edge[next.diffPrefixCounts.edge.length - 1] + edgeDiffs)
-  next.diffPrefixCounts.line.push(next.diffPrefixCounts.line[next.diffPrefixCounts.line.length - 1] + lineDiffs)
-  next.diffPrefixCounts.sector.push(next.diffPrefixCounts.sector[next.diffPrefixCounts.sector.length - 1] + sectorDiffs)
-  next.diffPrefixCounts.cell.push(next.diffPrefixCounts.cell[next.diffPrefixCounts.cell.length - 1] + cellDiffs)
-  next.diffPrefixCounts.tile.push(next.diffPrefixCounts.tile[next.diffPrefixCounts.tile.length - 1] + tileDiffs)
-  next.diffPrefixCounts.vertex.push(next.diffPrefixCounts.vertex[next.diffPrefixCounts.vertex.length - 1] + vertexDiffs)
+  next.diffPrefixCounts.edge.push(
+    next.diffPrefixCounts.edge[next.diffPrefixCounts.edge.length - 1] +
+      edgeDiffs,
+  )
+  next.diffPrefixCounts.line.push(
+    next.diffPrefixCounts.line[next.diffPrefixCounts.line.length - 1] +
+      lineDiffs,
+  )
+  next.diffPrefixCounts.sector.push(
+    next.diffPrefixCounts.sector[next.diffPrefixCounts.sector.length - 1] +
+      sectorDiffs,
+  )
+  next.diffPrefixCounts.cell.push(
+    next.diffPrefixCounts.cell[next.diffPrefixCounts.cell.length - 1] +
+      cellDiffs,
+  )
+  next.diffPrefixCounts.tile.push(
+    next.diffPrefixCounts.tile[next.diffPrefixCounts.tile.length - 1] +
+      tileDiffs,
+  )
+  next.diffPrefixCounts.vertex.push(
+    next.diffPrefixCounts.vertex[next.diffPrefixCounts.vertex.length - 1] +
+      vertexDiffs,
+  )
   next.points.push(makeChartPoint(stepNumber, next))
 
   return { ...next }
@@ -364,7 +411,8 @@ export const appendTraceStatsStep = (cache: TraceStatsCache, step: RuleStep): Tr
 export const rebuildTraceStatsCache = (
   initialPuzzle: PuzzleIR,
   steps: RuleStep[] = [],
-): TraceStatsCache => steps.reduce(appendTraceStatsStep, createTraceStatsCache(initialPuzzle))
+): TraceStatsCache =>
+  steps.reduce(appendTraceStatsStep, createTraceStatsCache(initialPuzzle))
 
 export const truncateTraceStatsCache = (
   initialPuzzle: PuzzleIR,
@@ -373,7 +421,10 @@ export const truncateTraceStatsCache = (
   pointer: number,
 ): TraceStatsCache => {
   const clampedPointer = clampPointer(pointer, steps.length)
-  if (clampedPointer === steps.length && cache.points.length === steps.length + 1) {
+  if (
+    clampedPointer === steps.length &&
+    cache.points.length === steps.length + 1
+  ) {
     return cache
   }
   return rebuildTraceStatsCache(initialPuzzle, steps.slice(0, clampedPointer))
@@ -441,7 +492,10 @@ export const buildTraceChartStats = (
   pointer: number,
 ): TraceChartStats => {
   const currentPointer = clampPointer(pointer, steps.length)
-  const decisionMarks = initialPuzzle.puzzleType === 'masyu' ? initialPuzzle.lines ?? {} : initialPuzzle.edges
+  const decisionMarks =
+    initialPuzzle.puzzleType === 'masyu'
+      ? (initialPuzzle.lines ?? {})
+      : initialPuzzle.edges
   const totalEdges = Object.keys(decisionMarks).length
   const totalCells = initialPuzzle.rows * initialPuzzle.cols
   const totalVertices = Object.keys(initialPuzzle.vertices).length
@@ -466,12 +520,21 @@ export const buildTraceChartStats = (
   }
 
   const makePoint = (step: number): TraceChartPoint => {
-    const decidedEdges = Object.values(edgeMarks).filter((mark) => mark !== 'unknown').length
-    const filledCells = Object.values(cellFills).filter((fill) => fill !== null).length
-    const narrowedVertices = Object.entries(vertexCandidates).filter(([key, candidates]) => {
-      const initialCount = initialVertexCandidateCounts[key] ?? 0
-      return candidates.length < initialCount || vertexSignature(candidates) !== initialVertexSignatures[key]
-    }).length
+    const decidedEdges = Object.values(edgeMarks).filter(
+      (mark) => mark !== 'unknown',
+    ).length
+    const filledCells = Object.values(cellFills).filter(
+      (fill) => fill !== null,
+    ).length
+    const narrowedVertices = Object.entries(vertexCandidates).filter(
+      ([key, candidates]) => {
+        const initialCount = initialVertexCandidateCounts[key] ?? 0
+        return (
+          candidates.length < initialCount ||
+          vertexSignature(candidates) !== initialVertexSignatures[key]
+        )
+      },
+    ).length
 
     return {
       step,
@@ -492,7 +555,9 @@ export const buildTraceChartStats = (
       } else if (diff.kind === 'tile') {
         continue
       } else if (diff.kind === 'vertex') {
-        vertexCandidates[diff.vertexKey] = diff.toCandidates.map((candidate) => [...candidate])
+        vertexCandidates[diff.vertexKey] = diff.toCandidates.map(
+          (candidate) => [...candidate],
+        )
       }
     }
     points.push(makePoint(index + 1))

@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   SLITHER_CUSTOM_GRID_MAX,
   SLITHER_CUSTOM_GRID_MIN,
 } from '../domain/ir/slither'
 import { puzzleRegistry } from '../domain/plugins/registry'
 import { BoardLegendButton } from '../features/board/BoardLegendButton'
+import { MasyuEditorBoard } from '../features/editor/MasyuEditorBoard'
 import { SlitherlinkEditorBoard } from '../features/editor/SlitherlinkEditorBoard'
-import { useEditorStore } from '../features/editor/editorStore'
+import { useEditorStore, type MasyuPearlDraft } from '../features/editor/editorStore'
 import { PuzzleInfoButton } from '../features/puzzleInfo/PuzzleInfoButton'
 import { useSolverStore } from '../features/solver/solverStore'
+import { WorkspaceHeader } from './WorkspaceHeader'
 import './workspace.css'
+
+type ActivePuzzlePopover = 'rules' | 'legend' | null
 
 export const EditorPage = () => {
   const navigate = useNavigate()
@@ -20,15 +24,19 @@ export const EditorPage = () => {
     sourceUrl,
     importError,
     setPluginId,
-    createBlankSlither,
+    createBlankPuzzle,
     importFromUrl,
     setSlitherCellClue,
     setSlitherEdgeMark,
+    setMasyuCellPearl,
+    cycleMasyuCellPearl,
   } = useEditorStore()
   const loadPuzzle = useSolverStore((state) => state.loadPuzzle)
   const [localUrl, setLocalUrl] = useState(sourceUrl)
   const [rows, setRows] = useState(String(puzzle.rows))
   const [cols, setCols] = useState(String(puzzle.cols))
+  const [activePuzzlePopover, setActivePuzzlePopover] = useState<ActivePuzzlePopover>(null)
+  const [masyuPearlTool, setMasyuPearlTool] = useState<MasyuPearlDraft>(null)
 
   useEffect(() => {
     setRows(String(puzzle.rows))
@@ -38,6 +46,12 @@ export const EditorPage = () => {
   useEffect(() => {
     setLocalUrl(sourceUrl)
   }, [sourceUrl])
+
+  useEffect(() => {
+    if (pluginId !== 'masyu') {
+      setMasyuPearlTool(null)
+    }
+  }, [pluginId])
 
   const solveCurrentPuzzle = () => {
     loadPuzzle(puzzle, {
@@ -51,25 +65,27 @@ export const EditorPage = () => {
     <main className="workspace">
       <section className="workspace-grid editor-workspace-grid">
         <div className="left-column">
-          <header className="workspace-title">
-            <div>
-              <h1>PuzzleKit Editor</h1>
-              <p>Create a puzzle, then hand it to the explainable solver.</p>
-            </div>
-            <nav className="workspace-nav" aria-label="Workspace navigation">
-              <Link to="/">Solver</Link>
-              <Link to="/dataset">Dataset</Link>
-              <Link aria-current="page" to="/editor">
-                Editor
-              </Link>
-            </nav>
-          </header>
-          <SlitherlinkEditorBoard
-            puzzle={puzzle}
-            pluginId={pluginId}
-            onCellClueChange={setSlitherCellClue}
-            onEdgeMarkChange={setSlitherEdgeMark}
+          <WorkspaceHeader
+            title="PuzzleKit Editor"
+            description="Create a puzzle, then hand it to the explainable solver."
+            activePage="editor"
           />
+          {pluginId === 'masyu' ? (
+            <MasyuEditorBoard
+              puzzle={puzzle}
+              pluginId={pluginId}
+              pearlTool={masyuPearlTool}
+              onCellPearlChange={setMasyuCellPearl}
+              onCellPearlCycle={cycleMasyuCellPearl}
+            />
+          ) : (
+            <SlitherlinkEditorBoard
+              puzzle={puzzle}
+              pluginId={pluginId}
+              onCellClueChange={setSlitherCellClue}
+              onEdgeMarkChange={setSlitherEdgeMark}
+            />
+          )}
         </div>
         <div className="right-column">
           <section className="panel-card control-panel-card">
@@ -79,19 +95,40 @@ export const EditorPage = () => {
             <div className="label-row type-row-wrap">
               <span className="type-row-label">Puzzle Type</span>
               <div className="type-row-controls">
-                <select value={pluginId} onChange={(event) => setPluginId(event.target.value)}>
+                <select
+                  value={pluginId}
+                  onChange={(event) => {
+                    setActivePuzzlePopover(null)
+                    setMasyuPearlTool(null)
+                    setPluginId(event.target.value)
+                  }}
+                >
                   {puzzleRegistry.all().map((plugin) => (
                     <option
                       key={plugin.id}
                       value={plugin.id}
-                      disabled={plugin.id !== 'slitherlink'}
+                      disabled={plugin.id === 'nonogram'}
                     >
                       {plugin.id === 'nonogram' ? 'Nonogram (planned)' : plugin.displayName}
                     </option>
                   ))}
                 </select>
-                <PuzzleInfoButton pluginId={pluginId} />
-                <BoardLegendButton pluginId={pluginId} />
+                <PuzzleInfoButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'rules'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'rules' ? null : 'rules'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
+                <BoardLegendButton
+                  pluginId={pluginId}
+                  isOpen={activePuzzlePopover === 'legend'}
+                  onToggle={() =>
+                    setActivePuzzlePopover((current) => (current === 'legend' ? null : 'legend'))
+                  }
+                  onClose={() => setActivePuzzlePopover(null)}
+                />
               </div>
             </div>
             <div className="control-group compact-control-group">
@@ -120,20 +157,53 @@ export const EditorPage = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    createBlankSlither(Number(rows), Number(cols))
+                    createBlankPuzzle(Number(rows), Number(cols))
                   }}
                 >
                   New Grid
                 </button>
               </div>
             </div>
+            {pluginId === 'masyu' ? (
+              <div className="control-group compact-control-group editor-pearl-group">
+                <span className="control-group-title">Pearls</span>
+                <div className="editor-pearl-tool-row">
+                  <button
+                    type="button"
+                    aria-pressed={masyuPearlTool === 'black'}
+                    data-active={masyuPearlTool === 'black'}
+                    onClick={() =>
+                      setMasyuPearlTool((current) => (current === 'black' ? null : 'black'))
+                    }
+                  >
+                    Set Black Pearl
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={masyuPearlTool === 'white'}
+                    data-active={masyuPearlTool === 'white'}
+                    onClick={() =>
+                      setMasyuPearlTool((current) => (current === 'white' ? null : 'white'))
+                    }
+                  >
+                    Set White Pearl
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <label className="label-row editor-url-field">
-              URL (puzz.link, pzplus, pzv, or Penpa+ Slitherlink)
+              {pluginId === 'masyu'
+                ? 'URL (puzz.link, pzplus, pzv, or Penpa+ Masyu)'
+                : 'URL (puzz.link, pzplus, pzv, or Penpa+ Slitherlink)'}
               <textarea
                 rows={3}
                 value={localUrl}
                 onChange={(event) => setLocalUrl(event.target.value)}
-                placeholder="Paste puzz.link, pzplus, pzv, or penpa URL"
+                placeholder={
+                  pluginId === 'masyu'
+                    ? 'Paste puzz.link, pzplus, pzv, or Penpa+ Masyu URL'
+                    : 'Paste puzz.link, pzplus, pzv, or Penpa+ Slitherlink URL'
+                }
               />
             </label>
             <div className="button-row">

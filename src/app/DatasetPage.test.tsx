@@ -40,6 +40,18 @@ describe('DatasetPage', () => {
     expect(within(nav).getByRole('link', { name: /dataset/i })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('link', { name: /solver/i })).toHaveAttribute('href', '/')
     expect(within(nav).getByRole('link', { name: /editor/i })).toHaveAttribute('href', '/editor')
+    expect(within(nav).getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'href',
+      'https://github.com/SmilingWayne/puzzlekit-web',
+    )
+    expect(within(nav).getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'target',
+      '_blank',
+    )
+    expect(within(nav).getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'rel',
+      'noreferrer',
+    )
     expect(screen.getByRole('heading', { name: /dataset controls/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'slitherlink-10x10-0001' })).toBeInTheDocument()
     expect(screen.getByLabelText(/slitherlink-10x10-0001 dataset preview/i)).toHaveClass(

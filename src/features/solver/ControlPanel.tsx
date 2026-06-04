@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { exportPuzzle, exporters, tryEncodePuzzlink } from '../../domain/exporters'
+import {
+  exportPuzzle,
+  exporters,
+  isPuzzleUrlExportFormat,
+  tryEncodePuzzleUrl,
+} from '../../domain/exporters'
 import type { ExportFormat } from '../../domain/exporters/types'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import { BoardLegendButton } from '../board/BoardLegendButton'
@@ -11,6 +16,8 @@ import {
   MAX_SOLVE_CHUNK_SIZE,
   useSolverStore,
 } from './solverStore'
+
+type ActivePuzzlePopover = 'rules' | 'legend' | null
 
 export const ControlPanel = () => {
   const {
@@ -27,8 +34,6 @@ export const ControlPanel = () => {
     resetTimeline,
     solveChunkSize,
     setSolveChunkSize,
-    includeVertexNumbers,
-    setIncludeVertexNumbers,
     isRunning,
     currentPuzzle,
     terminalReport,
@@ -44,6 +49,7 @@ export const ControlPanel = () => {
   const [showImportErrorDialog, setShowImportErrorDialog] = useState(false)
   const [showTerminalReport, setShowTerminalReport] = useState(false)
   const [timelinePreviewStep, setTimelinePreviewStep] = useState<number | null>(null)
+  const [activePuzzlePopover, setActivePuzzlePopover] = useState<ActivePuzzlePopover>(null)
   const activeSteps = useMemo(() => steps.slice(0, pointer), [steps, pointer])
   const difficulty = useMemo(() => buildDifficultySnapshot(activeSteps), [activeSteps])
   const ruleUsageEntries = useMemo(
@@ -87,6 +93,7 @@ export const ControlPanel = () => {
             value={pluginId}
             onChange={(event) => {
               const nextPluginId = event.target.value
+              setActivePuzzlePopover(null)
               if (nextPluginId === 'masyu') {
                 setLocalUrl(DEFAULT_MASYU_SAMPLE_URL)
                 importFromUrl(DEFAULT_MASYU_SAMPLE_URL, nextPluginId)
@@ -106,12 +113,44 @@ export const ControlPanel = () => {
               </option>
             ))}
           </select>
-          <PuzzleInfoButton pluginId={pluginId} />
-          <BoardLegendButton pluginId={pluginId} />
+          <PuzzleInfoButton
+            pluginId={pluginId}
+            isOpen={activePuzzlePopover === 'rules'}
+            onToggle={() =>
+              setActivePuzzlePopover((current) => (current === 'rules' ? null : 'rules'))
+            }
+            onClose={() => setActivePuzzlePopover(null)}
+          />
+          <BoardLegendButton
+            pluginId={pluginId}
+            isOpen={activePuzzlePopover === 'legend'}
+            onToggle={() =>
+              setActivePuzzlePopover((current) => (current === 'legend' ? null : 'legend'))
+            }
+            onClose={() => setActivePuzzlePopover(null)}
+          />
         </div>
       </div>
       <label className="label-row">
-        URL (puzz.link, pzplus, pzv, or Penpa+ where supported)
+        <span className="url-format-links">
+          URL (
+          <a href="https://puzz.link/list.html" target="_blank" rel="noreferrer">
+            puzz.link
+          </a>
+          ,{' '}
+          <a href="https://pzplus.tck.mn/list.html" target="_blank" rel="noreferrer">
+            pzplus
+          </a>
+          ,{' '}
+          <a href="http://pzv.jp/" target="_blank" rel="noreferrer">
+            pzv
+          </a>
+          , or{' '}
+          <a href="https://swaroopg92.github.io/penpa-edit/" target="_blank" rel="noreferrer">
+            penpa+
+          </a>
+          {' formats supported)'}
+        </span>
         <textarea
           rows={2}
           value={localUrl}
@@ -144,14 +183,6 @@ export const ControlPanel = () => {
               {showExportPanel ? 'Close Export' : 'Export…'}
             </button>
           </div>
-          <label className="check-row solver-check-row">
-            <input
-              type="checkbox"
-              checked={includeVertexNumbers}
-              onChange={(event) => setIncludeVertexNumbers(event.target.checked)}
-            />
-            Show vertex numbering overlay
-          </label>
         </div>
         <div className="control-group compact-control-group">
           <span className="control-group-title">Replay</span>
@@ -359,8 +390,8 @@ export const ControlPanel = () => {
             <button
               onClick={() => {
                 setCopyFeedback('')
-                if (exportFormat === 'puzzlink') {
-                  const result = tryEncodePuzzlink({ puzzle: currentPuzzle, pluginId })
+                if (isPuzzleUrlExportFormat(exportFormat)) {
+                  const result = tryEncodePuzzleUrl({ puzzle: currentPuzzle, pluginId }, exportFormat)
                   if (result.ok === false) {
                     setExportGenerateError(result.message)
                     return

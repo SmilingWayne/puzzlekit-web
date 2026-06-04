@@ -20,7 +20,7 @@ const parseSlitherInput = (input: string) => {
         puzzlinkError instanceof Error ? puzzlinkError.message : String(puzzlinkError)
       const penpaMessage = penpaError instanceof Error ? penpaError.message : String(penpaError)
       throw new Error(
-        `Unsupported Slitherlink URL. Paste a puzz.link, pzplus.tck.mn, pzv.jp, or Penpa+ Slitherlink URL. puzz.link-compatible: ${puzzlinkMessage} Penpa+: ${penpaMessage}`,
+        `Unsupported Slitherlink URL. Paste a puzz.link, pzplus.tck.mn, pzprxs.vercel.app, pzv.jp, or Penpa+ Slitherlink URL. puzz.link-compatible: ${puzzlinkMessage} Penpa+: ${penpaMessage}`,
       )
     }
   }
@@ -263,6 +263,15 @@ export const slitherPlugin: PuzzlePlugin = {
   displayName: 'Slitherlink',
   help: slitherHelp,
   legend: slitherLegend,
+  displayOptions: [
+    { id: 'showCoordinates', label: 'Show Coordinates', enabledByDefault: false },
+    { id: 'showCellColors', label: 'Show Cell Colors', enabledByDefault: true },
+    { id: 'showEdgeCrosses', label: 'Show Edge Crosses', enabledByDefault: true },
+    { id: 'showSectorMarks', label: 'Show Sector Marks', enabledByDefault: true },
+    { id: 'showVertices', label: 'Show Vertices', enabledByDefault: true },
+    { id: 'showHighlights', label: 'Show Highlights', enabledByDefault: true },
+    { id: 'showGridLabels', label: 'Show Grid Labels', enabledByDefault: true },
+  ],
   getStats: getSlitherStats,
   parse: parseSlitherInput,
   encode: encodeSlitherToPuzzlink,

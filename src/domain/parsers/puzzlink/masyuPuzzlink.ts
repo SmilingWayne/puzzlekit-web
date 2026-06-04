@@ -1,10 +1,10 @@
 import { z } from 'zod'
-import { cellKey } from '../../ir/keys'
+import { cellKey, parseCellKey } from '../../ir/keys'
 import { createMasyuPuzzle } from '../../ir/masyu'
 import type { PuzzleIR } from '../../ir/types'
 import type { PuzzleFormatAdapter } from '../types'
 
-const PUZZLINK_HOSTS = new Set(['puzz.link', 'pzplus.tck.mn', 'pzv.jp'])
+const PUZZLINK_HOSTS = new Set(['puzz.link', 'pzplus.tck.mn', 'pzprxs.vercel.app', 'pzv.jp'])
 const typeAlias: Record<string, string> = {
   masyu: 'masyu',
   mashu: 'masyu',
@@ -22,7 +22,9 @@ const parsePuzzlinkPath = (input: string) => {
   if (input.includes('://')) {
     const url = new URL(input)
     if (!PUZZLINK_HOSTS.has(url.hostname.toLowerCase())) {
-      throw new Error('Only puzz.link, pzplus.tck.mn, and pzv.jp URLs are supported in this adapter.')
+      throw new Error(
+        'Only puzz.link, pzplus.tck.mn, pzprxs.vercel.app, and pzv.jp URLs are supported in this adapter.',
+      )
     }
     const q = decodeURIComponent(url.search.replace(/^\?/, '')).split('&')[0] ?? ''
     if (q.length > 0) {
@@ -70,6 +72,20 @@ export const number3Decode = (body: string): number[] => {
   return result
 }
 
+export const number3Encode = (values: number[], totalCells: number): string => {
+  let result = ''
+  for (let idx = 0; idx < totalCells; idx += 3) {
+    const a = values[idx] ?? 0
+    const b = values[idx + 1] ?? 0
+    const c = values[idx + 2] ?? 0
+    if (a < 0 || a > 2 || b < 0 || b > 2 || c < 0 || c > 2) {
+      throw new Error('number3 values must be trits between 0 and 2.')
+    }
+    result += (a * 9 + b * 3 + c).toString(36)
+  }
+  return result
+}
+
 export const decodeMasyuFromPuzzlink = (input: string): PuzzleIR => {
   const path = parsePuzzlinkPath(input)
   const header = parseHeader(path)
@@ -103,8 +119,33 @@ export const decodeMasyuFromPuzzlink = (input: string): PuzzleIR => {
   return puzzle
 }
 
-export const encodeMasyuToPuzzlink = (): string => {
-  throw new Error('Masyu puzz.link export is not implemented yet.')
+export const encodeMasyuToPuzzlink = (puzzle: PuzzleIR): string => {
+  if (puzzle.puzzleType !== 'masyu') {
+    throw new Error('puzz.link export only supports Masyu puzzles.')
+  }
+
+  const rows = puzzle.rows - puzzle.margins[0] - puzzle.margins[1]
+  const cols = puzzle.cols - puzzle.margins[2] - puzzle.margins[3]
+  const totalCells = rows * cols
+  const values = Array<number>(totalCells).fill(0)
+
+  for (const [key, cell] of Object.entries(puzzle.cells)) {
+    if (cell.clue?.kind !== 'pearl') {
+      continue
+    }
+    const [row, col] = parseCellKey(key)
+    if (!Number.isInteger(row) || !Number.isInteger(col)) {
+      continue
+    }
+    const rr = row - puzzle.margins[0]
+    const cc = col - puzzle.margins[2]
+    if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) {
+      continue
+    }
+    values[rr * cols + cc] = cell.clue.color === 'white' ? 1 : 2
+  }
+
+  return `https://puzz.link/p?mashu/${cols}/${rows}/${number3Encode(values, totalCells)}`
 }
 
 export const masyuPuzzlinkAdapter: PuzzleFormatAdapter = {

@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import type { PuzzleHelpExample, PuzzleHelpExampleEdge } from '../../domain/plugins/types'
 
 type Props = {
   pluginId: string
+  isOpen: boolean
+  onToggle: () => void
+  onClose: () => void
 }
 
 const EXAMPLE_WIDTH = 142
@@ -129,12 +132,10 @@ const PuzzleInfoExampleCanvas = ({ example }: { example: PuzzleHelpExample }) =>
   )
 }
 
-export const PuzzleInfoButton = ({ pluginId }: Props) => {
-  const [openPluginId, setOpenPluginId] = useState<string | null>(null)
+export const PuzzleInfoButton = ({ pluginId, isOpen, onToggle, onClose }: Props) => {
   const plugin = puzzleRegistry.get(pluginId)
   const help = plugin?.help
   const titleId = `${pluginId}-puzzle-info-title`
-  const isOpen = openPluginId === pluginId
 
   useEffect(() => {
     if (!isOpen) {
@@ -142,12 +143,12 @@ export const PuzzleInfoButton = ({ pluginId }: Props) => {
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setOpenPluginId(null)
+        onClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen])
+  }, [isOpen, onClose])
 
   if (!plugin || !help) {
     return null
@@ -161,7 +162,7 @@ export const PuzzleInfoButton = ({ pluginId }: Props) => {
         aria-label={`Show ${plugin.displayName} rules`}
         aria-expanded={isOpen}
         data-active={isOpen}
-        onClick={() => setOpenPluginId((current) => (current === pluginId ? null : pluginId))}
+        onClick={onToggle}
       >
         ?
       </button>
@@ -178,7 +179,7 @@ export const PuzzleInfoButton = ({ pluginId }: Props) => {
               type="button"
               className="panel-icon-close"
               aria-label={`Close ${plugin.displayName} rules`}
-              onClick={() => setOpenPluginId(null)}
+              onClick={onClose}
             >
               ×
             </button>

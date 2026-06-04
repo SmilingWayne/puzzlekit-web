@@ -1,6 +1,7 @@
 import type { PuzzleIR } from '../ir/types'
 
-export type ExportFormat = 'puzzlink' | 'penpa' | 'json'
+export type PuzzleUrlExportFormat = 'puzzlink' | 'pzplus' | 'pzprxs'
+export type ExportFormat = PuzzleUrlExportFormat | 'penpa' | 'json'
 
 export type ExportContext = {
   puzzle: PuzzleIR

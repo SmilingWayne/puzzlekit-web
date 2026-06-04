@@ -1,29 +1,40 @@
 import type { Rule } from '../types'
 import { createBlackPearlStrongInferenceRule } from './rules/blackPearlStrongInference'
 import { createMasyuCandidateBridgeLineRule } from './rules/bridges'
-import { createBlackPearlCandidatePruningRule } from './rules/candidates'
+import {
+  createAdjacentWhitePearlsLookaheadRule,
+  createBlackPearlCandidatePruningRule,
+  createWhitePearlCandidatePruningRule,
+} from './rules/candidates'
 import {
   createMasyuColorLinePropagationRule,
   createMasyuColorPearlPropagationRule,
   createMasyuTileColorPropagationRule,
 } from './rules/color'
 import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
-import { createCellCompletionRule, createPearlCompletionRule } from './rules/completion'
-import { createPreventPrematureLoopRule } from './rules/loop'
+import { createCellExitCompletionRule } from './rules/completion'
+import { createEmptyCellStrongInferenceRule } from './rules/emptyCellStrongInference'
+import {
+  createMasyuEmptyCellPrematureLoopRule,
+  createPreventPrematureLoopRule,
+} from './rules/loop'
 import {
   createBlackDiagonalWhitePinchRule,
   createBlackFacingConsecutiveWhitesRule,
   createConsecutiveWhitePearlsStraightRule,
   createDoubleBlackSqueezeRule,
+  createWhiteCorridorRule,
 } from './rules/patterns'
-import { createBlackCircleRule, createWhiteCircleRule } from './rules/pearls'
+import { createBlackPearlRule, createWhitePearlRule } from './rules/pearls'
+import { createWhitePearlStrongInferenceRule } from './rules/whitePearlStrongInference'
 
 export const deterministicMasyuRules: Rule[] = [
-  createWhiteCircleRule(),
-  createBlackCircleRule(),
+  createWhitePearlRule(),
+  createBlackPearlRule(),
   createBlackFacingConsecutiveWhitesRule(),
   createBlackDiagonalWhitePinchRule(),
   createConsecutiveWhitePearlsStraightRule(),
+  createWhiteCorridorRule(),
   createDoubleBlackSqueezeRule(),
   createMasyuTileColorPropagationRule(),
   createMasyuColorPearlPropagationRule(),
@@ -31,12 +42,16 @@ export const deterministicMasyuRules: Rule[] = [
   createMasyuTileConnectivityCutColoringRule(),
   createMasyuCandidateBridgeLineRule(),
   createPreventPrematureLoopRule(),
+  createMasyuEmptyCellPrematureLoopRule(),
   createBlackPearlCandidatePruningRule(),
-  createPearlCompletionRule(),
-  createCellCompletionRule(),
+  createWhitePearlCandidatePruningRule(),
+  createAdjacentWhitePearlsLookaheadRule(),
+  createCellExitCompletionRule(),
 ]
 
 export const masyuRules: Rule[] = [
   ...deterministicMasyuRules,
   createBlackPearlStrongInferenceRule(() => deterministicMasyuRules),
+  createWhitePearlStrongInferenceRule(() => deterministicMasyuRules),
+  createEmptyCellStrongInferenceRule(() => deterministicMasyuRules),
 ]

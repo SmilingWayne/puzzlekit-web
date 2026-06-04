@@ -71,11 +71,19 @@ export type PuzzleStatsContent = {
   groups: PuzzleStatsGroup[]
 }
 
+export type PuzzleDisplayOption = {
+  id: string
+  label: string
+  enabledByDefault: boolean
+  description?: string
+}
+
 export interface PuzzlePlugin {
   id: string
   displayName: string
   help?: PuzzleHelpContent
   legend?: PuzzleLegendContent
+  displayOptions?: PuzzleDisplayOption[]
   getStats?: (puzzle: PuzzleIR) => PuzzleStatsContent | null
   parse: (input: string) => PuzzleIR
   encode: (puzzle: PuzzleIR) => string
