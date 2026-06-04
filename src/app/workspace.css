@@ -31,6 +31,8 @@
 .workspace-nav {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -49,6 +51,18 @@
   border-color: #22d3ee;
   background: #e0f2fe;
   color: #0f172a;
+}
+
+.workspace-nav .workspace-nav-source {
+  border-color: #94a3b8;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.workspace-nav .workspace-nav-source:hover,
+.workspace-nav .workspace-nav-source:focus-visible {
+  border-color: #475569;
+  background: #f1f5f9;
 }
 
 .workspace-grid {

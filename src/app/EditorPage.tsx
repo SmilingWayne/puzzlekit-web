@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   SLITHER_CUSTOM_GRID_MAX,
   SLITHER_CUSTOM_GRID_MIN,
@@ -11,6 +11,7 @@ import { SlitherlinkEditorBoard } from '../features/editor/SlitherlinkEditorBoar
 import { useEditorStore, type MasyuPearlDraft } from '../features/editor/editorStore'
 import { PuzzleInfoButton } from '../features/puzzleInfo/PuzzleInfoButton'
 import { useSolverStore } from '../features/solver/solverStore'
+import { WorkspaceHeader } from './WorkspaceHeader'
 import './workspace.css'
 
 type ActivePuzzlePopover = 'rules' | 'legend' | null
@@ -64,19 +65,11 @@ export const EditorPage = () => {
     <main className="workspace">
       <section className="workspace-grid editor-workspace-grid">
         <div className="left-column">
-          <header className="workspace-title">
-            <div>
-              <h1>PuzzleKit Editor</h1>
-              <p>Create a puzzle, then hand it to the explainable solver.</p>
-            </div>
-            <nav className="workspace-nav" aria-label="Workspace navigation">
-              <Link to="/">Solver</Link>
-              <Link to="/dataset">Dataset</Link>
-              <Link aria-current="page" to="/editor">
-                Editor
-              </Link>
-            </nav>
-          </header>
+          <WorkspaceHeader
+            title="PuzzleKit Editor"
+            description="Create a puzzle, then hand it to the explainable solver."
+            activePage="editor"
+          />
           {pluginId === 'masyu' ? (
             <MasyuEditorBoard
               puzzle={puzzle}

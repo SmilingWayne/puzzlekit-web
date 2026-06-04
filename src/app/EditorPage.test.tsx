@@ -309,7 +309,21 @@ describe('EditorPage', () => {
       </MemoryRouter>,
     )
 
+    const nav = screen.getByRole('navigation', { name: /workspace navigation/i })
     expect(document.querySelector('.workspace-grid.editor-workspace-grid')).not.toBeNull()
+    expect(within(nav).getByRole('link', { name: /editor/i })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'href',
+      'https://github.com/SmilingWayne/puzzlekit-web',
+    )
+    expect(within(nav).getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'target',
+      '_blank',
+    )
+    expect(within(nav).getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'rel',
+      'noreferrer',
+    )
     expect(screen.queryByRole('button', { name: /load preset/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /import url/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /solve it/i })).toBeInTheDocument()

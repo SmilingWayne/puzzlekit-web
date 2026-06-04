@@ -15,7 +15,7 @@ The goal is not only to produce a final answer. The app shows each deduction ste
 
 Slitherlink has the more mature rule stack. Masyu is now a first-class puzzle family with editor, import/export, rendering, replay, completion analysis, and an actively evolving solver.
 
-![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260514010419047.png)
+![](https://cdn.jsdelivr.net/gh/SmilingWayne/picsrepo/20260604213830574.png)
 
 ## Getting Started
 

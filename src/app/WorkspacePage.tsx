@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import { CanvasBoard } from '../features/board/CanvasBoard'
 import { ExplanationPanel } from '../features/explanation/ExplanationPanel'
 import { ControlPanel } from '../features/solver/ControlPanel'
 import { useSolverStore } from '../features/solver/solverStore'
 import { StatsPanel } from '../features/stats/StatsPanel'
+import { WorkspaceHeader } from './WorkspaceHeader'
 import './workspace.css'
 
 export const WorkspacePage = () => {
@@ -31,19 +31,11 @@ export const WorkspacePage = () => {
     <main className="workspace">
       <section className="workspace-grid">
         <div className="left-column">
-          <header className="workspace-title">
-            <div>
-              <h1>PuzzleKit Web</h1>
-              <p>A Step-wise and Explainable Inference Solver for Logic Puzzles.</p>
-            </div>
-            <nav className="workspace-nav" aria-label="Workspace navigation">
-              <Link aria-current="page" to="/">
-                Solver
-              </Link>
-              <Link to="/dataset">Dataset</Link>
-              <Link to="/editor">Editor</Link>
-            </nav>
-          </header>
+          <WorkspaceHeader
+            title="PuzzleKit Web"
+            description="A Step-wise and Explainable Inference Solver for Logic Puzzles."
+            activePage="solver"
+          />
           <CanvasBoard
             puzzle={currentPuzzle}
             pluginId={pluginId}

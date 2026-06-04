@@ -61,6 +61,18 @@ describe('WorkspacePage', () => {
     renderWorkspace()
     expect(screen.getByRole('heading', { name: /puzzlekit web/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /editor/i })).toHaveAttribute('href', '/editor')
+    expect(screen.getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'href',
+      'https://github.com/SmilingWayne/puzzlekit-web',
+    )
+    expect(screen.getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'target',
+      '_blank',
+    )
+    expect(screen.getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
+      'rel',
+      'noreferrer',
+    )
     expect(screen.getByText(/input & controls/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /reasoning steps/i })).toBeInTheDocument()
     expect(screen.getByText(/live stats/i)).toBeInTheDocument()
