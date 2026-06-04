@@ -1455,6 +1455,28 @@ button[data-active='true'] {
   margin-top: 8px;
 }
 
+.editor-pearl-group {
+  margin-top: 8px;
+}
+
+.editor-pearl-tool-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.editor-pearl-tool-row button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.editor-pearl-tool-row button[data-active='true'] {
+  border-color: #0891b2;
+  background: #cffafe;
+  color: #0f172a;
+  font-weight: 700;
+}
+
 .primary-action {
   border-color: #22d3ee;
   background: #e0f2fe;
