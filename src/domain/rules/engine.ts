@@ -206,6 +206,7 @@ export const runNextRule = (
       chainDurationMs,
       ruleApplyMs,
       ruleAttempts: attempts,
+      inferenceDetails: result.inferenceDetails,
     }
     return {
       nextPuzzle: applyDiffs(puzzle, step),

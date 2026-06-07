@@ -22,7 +22,7 @@ import {
   SECTOR_MASK_ONLY_2,
   type PuzzleIR,
 } from '../../ir/types'
-import { runNextRule } from '../engine'
+import { applyRuleDiffs, runNextRule } from '../engine'
 import type { Rule } from '../types'
 import { deterministicSlitherRules, slitherRules } from './rules'
 import { createColorAssumptionInferenceRule } from './rules/colorAssumptionInference'
@@ -55,6 +55,48 @@ describe('slither deterministic rule order', () => {
     expect(edgePropagationIdx).toBeGreaterThan(vertexDegreeIdx)
     expect(edgePropagationIdx).toBeLessThan(colorOutsideIdx)
     expect(edgePropagationIdx).toBeLessThan(sectorInferenceIdx)
+  })
+})
+
+describe('slither inference branch details', () => {
+  it('records the provided strong inference branch trace without changing the formal conclusion', () => {
+    const url =
+      'https://puzz.link/p?slither/10/10/q2111221ch6212b212611b61262cg1c6bb2121c2bcc621112bo'
+    let puzzle = decodeSlitherFromPuzzlink(url)
+    let targetStep: ReturnType<typeof runNextRule>['step'] = null
+
+    for (let stepNumber = 1; stepNumber <= 3; stepNumber += 1) {
+      const result = runNextRule(puzzle, slitherRules, stepNumber)
+      puzzle = result.nextPuzzle
+      targetStep = result.step
+    }
+
+    expect(targetStep?.ruleId).toBe('strong-inference')
+    expect(targetStep?.diffs).toEqual([
+      { kind: 'edge', edgeKey: edgeKey([1, 2], [1, 3]), from: 'unknown', to: 'blank' },
+    ])
+    expect(targetStep?.inferenceDetails?.defaultBranchId).toBe('a')
+    const failingBranch = targetStep?.inferenceDetails?.branches[0]
+    expect(failingBranch).toMatchObject({
+      status: 'contradiction',
+      assumptionDiffs: [
+        { kind: 'edge', edgeKey: edgeKey([1, 2], [1, 3]), from: 'unknown', to: 'line' },
+      ],
+    })
+    expect(failingBranch?.traceSteps).toHaveLength(9)
+    expect(failingBranch?.contradiction).toMatchObject({
+      kind: 'vertex-degree',
+      vertices: [vertexKey(5, 3)],
+    })
+
+    let rebuilt = applyRuleDiffs(
+      targetStep?.inferenceDetails?.basePuzzle ?? puzzle,
+      failingBranch?.assumptionDiffs ?? [],
+    )
+    for (const traceStep of failingBranch?.traceSteps ?? []) {
+      rebuilt = applyRuleDiffs(rebuilt, traceStep.diffs)
+    }
+    expect(findHardContradictionReason(rebuilt)?.kind).toBe('vertex-degree')
   })
 })
 
@@ -2587,6 +2629,11 @@ describe('slither sector parity inference rule', () => {
     expect(result?.message).toContain('probe budget 24')
     expect(result?.message).toContain('line branch unresolved after 24 steps')
     expect(result?.message).toContain('blank branch contradicted after 1 step')
+    expect(result?.inferenceDetails).toMatchObject({
+      kind: 'slither-sector-parity',
+      defaultBranchId: 'blank',
+    })
+    expect(result?.inferenceDetails?.branches).toHaveLength(2)
   })
 
   it('checks later sector parity candidates at the first probe budget', () => {
@@ -2673,6 +2720,7 @@ describe('slither trial diagnostics', () => {
 
     expect(reason?.kind).toBe('vertex-degree')
     expect(reason?.message).toContain('V(1, 1)')
+    expect(reason?.vertices).toEqual([vertexKey(1, 1)])
   })
 
   it('reports cell-clue contradiction locations', () => {
@@ -2684,6 +2732,7 @@ describe('slither trial diagnostics', () => {
 
     expect(reason?.kind).toBe('cell-clue')
     expect(reason?.message).toContain('(R1, C1)')
+    expect(reason?.cells).toEqual([cellKey(0, 0)])
   })
 
   it('reports sector-mask contradiction locations', () => {
@@ -2695,6 +2744,7 @@ describe('slither trial diagnostics', () => {
 
     expect(reason?.kind).toBe('sector-mask')
     expect(reason?.message).toContain('(R1, C1, NW)')
+    expect(reason?.sectors).toEqual([targetSector])
   })
 
   it('reports vertex-candidates contradiction locations', () => {
@@ -2718,6 +2768,7 @@ describe('slither trial diagnostics', () => {
 
     expect(reason?.kind).toBe('color-edge')
     expect(reason?.message).toContain('edge V(0, 1)-V(1, 1)')
+    expect(reason?.edges).toEqual([shared])
   })
 
   it('reports line-loop contradiction shape', () => {
@@ -2844,6 +2895,11 @@ describe('slither strong inference rule', () => {
     expect(result?.message).toContain('0 trial steps')
     expect(result?.message).toContain('Searched 1 candidate')
     expect(result?.message).toContain('is green')
+    expect(result?.inferenceDetails).toMatchObject({
+      kind: 'slither-color-assumption',
+      defaultBranchId: 'green',
+    })
+    expect(result?.inferenceDetails?.branches).toHaveLength(2)
   })
 
   it('compresses same-color candidate components before searching', () => {
@@ -3085,6 +3141,8 @@ describe('slither strong inference rule', () => {
     ])
     expect(result?.message).toContain('has two possible continuations')
     expect(result?.message).toContain('contradicts the puzzle')
+    expect(result?.inferenceDetails?.kind).toBe('slither-strong')
+    expect(result?.inferenceDetails?.branches).toHaveLength(2)
   })
 
   it('forces an edge branch when the opposite branch contradicts and the survivor reaches the probe budget', () => {

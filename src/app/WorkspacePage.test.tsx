@@ -876,6 +876,40 @@ describe('WorkspacePage', () => {
     expect(screen.getByText('line updates: 1, line crosses: 1')).toBeInTheDocument()
   })
 
+  it('opens and navigates the Slitherlink strong inference branch inspector', () => {
+    const url =
+      'https://puzz.link/p?slither/10/10/q2111221ch6212b212611b61262cg1c6bb2121c2bcc621112bo'
+    const store = useSolverStore.getState()
+    store.importFromUrl(url, 'slitherlink')
+    store.nextStep()
+    store.nextStep()
+    store.nextStep()
+
+    renderWorkspace()
+
+    const reasoningPanel = screen.getByRole('heading', { name: /reasoning steps/i }).closest('section')
+    if (!reasoningPanel) {
+      throw new Error('Expected reasoning panel')
+    }
+    expect(within(reasoningPanel).getAllByRole('button', { name: /view details/i })).toHaveLength(1)
+    fireEvent.click(within(reasoningPanel).getByRole('button', { name: /view details/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /branch inspector/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(within(dialog).getByText(/vertex-degree contradiction at V\(5, 3\)/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText(/branch replay step/i)).toHaveAttribute('max', '10')
+    expect(within(dialog).getByLabelText(/slitherlink branch inspector canvas/i)).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
+    expect(within(dialog).getByText(/apply the branch assumption/i)).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: /branch b unresolved/i }))
+    expect(within(dialog).getByLabelText(/branch replay step/i)).toHaveAttribute('max', '3')
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /branch inspector/i })).not.toBeInTheDocument()
+  })
+
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
     renderWorkspace()
 

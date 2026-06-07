@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { RuleStep } from '../../domain/rules/types'
+import { BranchInspector } from './BranchInspector'
 
 type Props = {
   steps: RuleStep[]
@@ -21,6 +22,7 @@ const buildStepMeta = (step: RuleStep): string => {
 
 export const ExplanationPanel = ({ steps }: Props) => {
   const [showAllSteps, setShowAllSteps] = useState(false)
+  const [inspectedStep, setInspectedStep] = useState<RuleStep | null>(null)
   const visibleEntries = useMemo(
     () =>
       (showAllSteps ? steps : steps.slice(-30))
@@ -66,10 +68,25 @@ export const ExplanationPanel = ({ steps }: Props) => {
               </p>
               <p className="step-message">{step.message}</p>
               <p className="step-meta">{buildStepMeta(step)}</p>
+              {step.inferenceDetails ? (
+                <button
+                  type="button"
+                  className="button-compact step-details-button"
+                  onClick={() => setInspectedStep(step)}
+                >
+                  View Details
+                </button>
+              ) : null}
             </li>
           ))
         )}
       </ol>
+      {inspectedStep?.inferenceDetails ? (
+        <BranchInspector
+          details={inspectedStep.inferenceDetails}
+          onClose={() => setInspectedStep(null)}
+        />
+      ) : null}
     </section>
   )
 }

@@ -6,6 +6,7 @@ import {
   parseLineKey,
   parseSectorKey,
   parseTileKey,
+  parseVertexKey,
 } from '../../domain/ir/keys'
 import {
   SECTOR_MASK_ALL,
@@ -14,6 +15,7 @@ import {
   type SectorCorner,
 } from '../../domain/ir/types'
 import type { PuzzleIR } from '../../domain/ir/types'
+import type { InferenceFocus, RuleDiff } from '../../domain/rules/types'
 import { PuzzleStatsInfoButton } from '../puzzleStats/PuzzleStatsInfoButton'
 import type { DisplaySettings } from '../solver/solverStore'
 import { BoardDisplayButton } from './BoardDisplayButton'
@@ -28,6 +30,10 @@ type Props = {
   highlightedColorTiles?: string[]
   displaySettings: DisplaySettings
   onSetDisplayOption: (optionId: string, enabled: boolean) => void
+  variant?: 'panel' | 'surface'
+  assumptionDiffs?: RuleDiff[]
+  contradictionFocus?: InferenceFocus
+  ariaLabel?: string
 }
 
 const CELL_SIZE = 52
@@ -106,6 +112,10 @@ export const CanvasBoard = ({
   highlightedColorTiles = [],
   displaySettings,
   onSetDisplayOption,
+  variant = 'panel',
+  assumptionDiffs = [],
+  contradictionFocus,
+  ariaLabel,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [zoomPercent, setZoomPercent] = useState(100)
@@ -398,6 +408,65 @@ export const CanvasBoard = ({
       }
     }
 
+    if (!isMasyu && assumptionDiffs.length > 0) {
+      ctx.save()
+      ctx.strokeStyle = '#f97316'
+      ctx.fillStyle = 'rgba(249, 115, 22, 0.16)'
+      ctx.lineWidth = 4
+      ctx.setLineDash([8, 5])
+      for (const diff of assumptionDiffs) {
+        if (diff.kind === 'edge') {
+          const [v1, v2] = parseEdgeKey(diff.edgeKey)
+          ctx.beginPath()
+          ctx.moveTo(PADDING + v1[1] * CELL_SIZE, PADDING + v1[0] * CELL_SIZE)
+          ctx.lineTo(PADDING + v2[1] * CELL_SIZE, PADDING + v2[0] * CELL_SIZE)
+          ctx.stroke()
+        } else if (diff.kind === 'cell') {
+          const [r, c] = parseCellKey(diff.cellKey)
+          ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+          ctx.strokeRect(PADDING + c * CELL_SIZE + 3, PADDING + r * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6)
+        }
+      }
+      ctx.restore()
+    }
+
+    if (!isMasyu && contradictionFocus) {
+      ctx.save()
+      ctx.strokeStyle = '#dc2626'
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.2)'
+      ctx.lineWidth = 5
+      ctx.setLineDash([])
+      for (const key of contradictionFocus.cells ?? []) {
+        const [r, c] = parseCellKey(key)
+        ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+        ctx.strokeRect(PADDING + c * CELL_SIZE + 2, PADDING + r * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4)
+      }
+      for (const key of contradictionFocus.edges ?? []) {
+        const [v1, v2] = parseEdgeKey(key)
+        ctx.beginPath()
+        ctx.moveTo(PADDING + v1[1] * CELL_SIZE, PADDING + v1[0] * CELL_SIZE)
+        ctx.lineTo(PADDING + v2[1] * CELL_SIZE, PADDING + v2[0] * CELL_SIZE)
+        ctx.stroke()
+      }
+      for (const key of contradictionFocus.vertices ?? []) {
+        const [r, c] = parseVertexKey(key)
+        ctx.beginPath()
+        ctx.arc(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, 9, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+      }
+      for (const key of contradictionFocus.sectors ?? []) {
+        const [r, c, corner] = parseSectorKey(key)
+        const x = PADDING + (c + (corner === 'ne' || corner === 'se' ? 1 : 0)) * CELL_SIZE
+        const y = PADDING + (r + (corner === 'sw' || corner === 'se' ? 1 : 0)) * CELL_SIZE
+        ctx.beginPath()
+        ctx.arc(x, y, 13, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
     ctx.restore()
   }, [
     displayHeight,
@@ -410,6 +479,8 @@ export const CanvasBoard = ({
     highlightedLines,
     displaySettings,
     puzzle,
+    assumptionDiffs,
+    contradictionFocus,
     width,
     zoom,
   ])
@@ -426,6 +497,21 @@ export const CanvasBoard = ({
     })
     return { lineCount, blankCount, unknownCount }
   }, [puzzle.edges, puzzle.lines, puzzle.puzzleType])
+
+  const canvasSurface = (
+    <div className="board-scroll-shell" aria-label={variant === 'surface' ? 'Branch inspector board scroll area' : 'Solver board scroll area'}>
+      <canvas
+        ref={canvasRef}
+        className="board-canvas scroll-board-canvas"
+        aria-label={ariaLabel ?? `${puzzle.puzzleType === 'masyu' ? 'Masyu' : 'Slitherlink'} solver canvas`}
+        style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
+      />
+    </div>
+  )
+
+  if (variant === 'surface') {
+    return canvasSurface
+  }
 
   return (
     <section className="board-card">
@@ -461,14 +547,7 @@ export const CanvasBoard = ({
           </label>
         </div>
       </header>
-      <div className="board-scroll-shell" aria-label="Solver board scroll area">
-        <canvas
-          ref={canvasRef}
-          className="board-canvas scroll-board-canvas"
-          aria-label={`${puzzle.puzzleType === 'masyu' ? 'Masyu' : 'Slitherlink'} solver canvas`}
-          style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
-        />
-      </div>
+      {canvasSurface}
       <p className="board-hint">
         Use the slider to zoom. Scroll to move around large grids. Highlight syncs with reasoning
         steps.

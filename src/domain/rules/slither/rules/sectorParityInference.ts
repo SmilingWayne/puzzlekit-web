@@ -1,12 +1,12 @@
 import { clonePuzzle } from '../../../ir/normalize'
 import { cellKey, getCornerEdgeKeys, parseSectorKey } from '../../../ir/keys'
-import type { Rule, RuleApplication } from '../../types'
+import type { InferenceDetails, Rule, RuleApplication } from '../../types'
 import {
   SECTOR_MASK_NOT_1,
   type EdgeMark,
   type PuzzleIR,
 } from '../../../ir/types'
-import { applyEdgeAssumption, runTrialUntilFixpoint, type TrialResult } from './trial'
+import { applyEdgeAssumption, buildSlitherInferenceBranch, runTrialUntilFixpoint, type TrialResult } from './trial'
 import { formatEdgeLabel, formatSectorKeyLabel } from './shared'
 
 const SECTOR_PARITY_MAX_CANDIDATES = 200
@@ -43,6 +43,30 @@ const immediateContradictionResult = (puzzle: PuzzleIR): TrialResult => ({
     kind: 'sector-mask',
     message: 'setup contradiction: this parity branch is already incompatible with the current edge state',
   },
+  traceSteps: [],
+})
+
+const buildInferenceDetails = (
+  puzzle: PuzzleIR,
+  conclusion: InferenceDetails['conclusion'],
+  lineBranch: SectorParityBranch,
+  lineResult: TrialResult,
+  blankBranch: SectorParityBranch,
+  blankResult: TrialResult,
+): InferenceDetails => ({
+  kind: 'slither-sector-parity',
+  conclusion,
+  basePuzzle: clonePuzzle(puzzle),
+  defaultBranchId:
+    lineResult.contradiction !== blankResult.contradiction
+      ? lineResult.contradiction
+        ? 'line'
+        : 'blank'
+      : 'line',
+  branches: [
+    buildSlitherInferenceBranch('line', 'Line parity branch', lineBranch.diffs, lineResult),
+    buildSlitherInferenceBranch('blank', 'Blank parity branch', blankBranch.diffs, blankResult),
+  ],
 })
 
 const deriveProbeBudgets = (maxTrialSteps: number): number[] => {
@@ -206,6 +230,14 @@ export const createSectorParityInferenceRule = (
             diffs: survivingBranch.diffs,
             affectedCells: [cellKey(candidate.row, candidate.col)],
             affectedSectors: [candidate.sectorKey],
+            inferenceDetails: buildInferenceDetails(
+              puzzle,
+              'opposite-branch',
+              lineBranch.info,
+              lineResult,
+              blankBranch.info,
+              blankResult,
+            ),
           }
         }
         if (lineResult.contradiction && blankResult.contradiction) {
@@ -222,6 +254,14 @@ export const createSectorParityInferenceRule = (
           diffs,
           affectedCells: [cellKey(candidate.row, candidate.col)],
           affectedSectors: [candidate.sectorKey],
+          inferenceDetails: buildInferenceDetails(
+            puzzle,
+            'shared-consequence',
+            lineBranch.info,
+            lineResult,
+            blankBranch.info,
+            blankResult,
+          ),
         }
       }
     }
