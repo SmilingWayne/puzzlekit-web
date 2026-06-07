@@ -8,7 +8,7 @@ The goal is not only to produce a final answer. The app shows each deduction ste
 
 - Runs entirely in the browser.
 - Imports Slitherlink and Masyu puzzles from puzz.link-compatible URLs and Penpa+ URLs.
-- Provides an explainable solver workspace with step replay, highlights, rule messages, and live stats.
+- Provides an explainable solver workspace with step replay, highlights, rule messages, strong-inference branch inspection, and live stats.
 - Provides an editor workspace for building Slitherlink and Masyu boards, importing URLs, and loading the result into the solver.
 - Provides a small Dataset page for curated examples and benchmark-oriented puzzle sets.
 - Exports supported puzzle states back to puzz.link-style URLs where available.
@@ -44,7 +44,7 @@ pnpm benchmark:solve
 
 ## App Surfaces
 
-- **Solver** (`/`): import a puzzle, run one deduction at a time, jump through the replay timeline, inspect explanations, view stats, and export supported states.
+- **Solver** (`/`): import a puzzle, run one deduction at a time, jump through the replay timeline, inspect explanations and strong-inference branches, view stats, and export supported states.
 - **Editor** (`/editor`): create custom Slitherlink or Masyu grids, edit clues/pearls and marks, import supported URLs, then hand the puzzle to the solver.
 - **Dataset** (`/dataset`): browse curated public dataset manifests, preview puzzles, and load them into Solver or Editor.
 

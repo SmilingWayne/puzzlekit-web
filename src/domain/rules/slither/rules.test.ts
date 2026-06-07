@@ -79,7 +79,7 @@ describe('slither inference branch details', () => {
     const failingBranch = targetStep?.inferenceDetails?.branches[0]
     expect(failingBranch).toMatchObject({
       status: 'contradiction',
-      assumptionDiffs: [
+      initialDiffs: [
         { kind: 'edge', edgeKey: edgeKey([1, 2], [1, 3]), from: 'unknown', to: 'line' },
       ],
     })
@@ -91,7 +91,7 @@ describe('slither inference branch details', () => {
 
     let rebuilt = applyRuleDiffs(
       targetStep?.inferenceDetails?.basePuzzle ?? puzzle,
-      failingBranch?.assumptionDiffs ?? [],
+      failingBranch?.initialDiffs ?? [],
     )
     for (const traceStep of failingBranch?.traceSteps ?? []) {
       rebuilt = applyRuleDiffs(rebuilt, traceStep.diffs)

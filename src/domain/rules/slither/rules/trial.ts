@@ -44,12 +44,12 @@ export type TrialResult = {
 export const buildSlitherInferenceBranch = (
   id: string,
   label: string,
-  assumptionDiffs: InferenceBranch['assumptionDiffs'],
+  initialDiffs: InferenceBranch['initialDiffs'],
   result: TrialResult,
 ): InferenceBranch => ({
   id,
   label,
-  assumptionDiffs,
+  initialDiffs,
   status: result.contradiction ? 'contradiction' : result.exhausted ? 'exhausted' : 'unresolved',
   traceSteps: result.traceSteps,
   contradiction: result.contradictionReason,

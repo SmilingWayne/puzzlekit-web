@@ -10,7 +10,7 @@ Masyu is a first-class puzzle family with:
 - Penpa+ import.
 - Solver rendering, replay, explanations, stats, legend/help content, and completion analysis.
 - Editor support for blank custom grids, URL import, black/white pearl placement, and load-to-solver flow.
-- Deterministic rules plus bounded, explainable strong-inference rules.
+- Deterministic rules plus bounded strong-inference rules with branch replay and contradiction focus.
 - Tile-color topology support for inside/outside reasoning.
 
 Public Masyu dataset manifests are not yet committed to `dataset/public`; use private manifests for local experiments until curated public examples are added.
@@ -67,6 +67,7 @@ Replay and rendering plumbing:
 - Diff application: `src/domain/rules/engine.ts`
 - Solver timeline/checkpoints: `src/features/solver/solverStore.ts`
 - Board rendering: `src/features/board/CanvasBoard.tsx`
+- Strong-inference inspection: `src/features/explanation/BranchInspector.tsx`
 
 ## Development Direction
 
@@ -74,7 +75,7 @@ Near-term Masyu work should favor small, maintainable rule improvements over bro
 
 - Consolidate repeated line, tile, candidate, and graph primitives when duplication becomes costly.
 - Prefer named deterministic rules before adding broader assumption search.
-- Keep bounded inference explainable through contradiction or common-conclusion messages.
+- Keep bounded inference explainable through structured trial traces, contradiction focus, and formal conclusions.
 - Add focused fixture tests whenever a rule changes.
 
 Historical Masyu planning notes live under `docs/legacy/`. They are reference material, not the current source of truth.

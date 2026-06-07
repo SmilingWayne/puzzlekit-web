@@ -52,7 +52,10 @@ import {
   getMasyuRequiredSources,
 } from './rules/lineGraph'
 import { createMasyuLookaheadContext } from './rules/lookahead'
-import { findMasyuHardContradictionReason } from './rules/trial'
+import {
+  findMasyuHardContradictionReason,
+  runMasyuTrialUntilFixpoint,
+} from './rules/trial'
 
 const markLine = (puzzle: PuzzleIR, key: string, mark: LineMark): void => {
   puzzle.lines[key] = { ...puzzle.lines[key], mark }
@@ -1594,6 +1597,45 @@ describe('Masyu hard contradiction detection', () => {
     expect(reason?.kind).toBe('cell-degree')
     expect(reason?.message).toContain('only one line segment')
   })
+
+  it('records trial steps and structured contradiction focus', () => {
+    const puzzle = createMasyuPuzzle(2, 3)
+    const target = lineKey([0, 0], [0, 1])
+    const overflowA = lineKey([0, 1], [0, 2])
+    const overflowB = lineKey([0, 1], [1, 1])
+    const rule: Rule = {
+      id: 'test-trial-trace',
+      name: 'Test Trial Trace',
+      apply: () => ({
+        message: 'Create a focused contradiction',
+        diffs: [
+          { kind: 'line', lineKey: target, from: 'unknown', to: 'line' },
+          { kind: 'line', lineKey: overflowA, from: 'unknown', to: 'line' },
+          { kind: 'line', lineKey: overflowB, from: 'unknown', to: 'line' },
+        ],
+        affectedCells: [cellKey(0, 1)],
+        affectedLines: [target, overflowA, overflowB],
+      }),
+    }
+
+    const result = runMasyuTrialUntilFixpoint(
+      puzzle,
+      [rule],
+      1,
+      Date.now() + 1000,
+    )
+
+    expect(result.contradictionReason).toMatchObject({
+      kind: 'cell-degree',
+      cells: [cellKey(0, 1)],
+    })
+    expect(result.traceSteps).toMatchObject([
+      {
+        ruleId: 'test-trial-trace',
+        affectedLines: [target, overflowA, overflowB],
+      },
+    ])
+  })
 })
 
 describe('Masyu black pearl strong inference', () => {
@@ -1610,6 +1652,22 @@ describe('Masyu black pearl strong inference', () => {
     expect(result?.affectedCells).toEqual([cellKey(2, 2)])
     expect(result?.affectedLines).toEqual([north])
     expect(result?.message).toContain('cell-degree contradiction')
+    expect(result?.inferenceDetails).toMatchObject({
+      kind: 'masyu-strong',
+      defaultBranchId: 'assumption',
+      branches: [
+        {
+          role: 'trial',
+          status: 'contradiction',
+          contradiction: { kind: 'cell-degree', cells: [cellKey(1, 2)] },
+        },
+        {
+          role: 'forced-conclusion',
+          status: 'forced',
+          initialDiffs: result?.diffs,
+        },
+      ],
+    })
   })
 
   it('uses deterministic downstream rules to find a contradiction', () => {
@@ -1656,6 +1714,12 @@ describe('Masyu black pearl strong inference', () => {
 
     expectLineDiffs(result?.diffs, { [north]: 'blank' })
     expect(result?.message).toContain('after 1 step')
+    expect(result?.inferenceDetails?.branches[0].traceSteps).toMatchObject([
+      {
+        ruleId: 'test-downstream-degree',
+        affectedLines: [westOfNeighbor, eastOfNeighbor],
+      },
+    ])
   })
 
   it('does not copy a solved trial board back into the real puzzle', () => {
@@ -1757,6 +1821,16 @@ describe('Masyu white pearl strong inference', () => {
     expect(result?.affectedLines).toEqual([east, west, north, south])
     expect(result?.message).toContain('tile-color contradiction')
     expect(result?.message).toContain('must go horizontal')
+    expect(result?.inferenceDetails?.branches[0]).toMatchObject({
+      role: 'trial',
+      status: 'contradiction',
+      contradiction: { kind: 'tile-color' },
+    })
+    expect(result?.inferenceDetails?.branches[1]).toMatchObject({
+      role: 'forced-conclusion',
+      status: 'forced',
+      initialDiffs: result?.diffs,
+    })
   })
 
   it('uses deterministic downstream rules to find a white-axis contradiction', () => {
@@ -1921,6 +1995,14 @@ describe('Masyu empty cell strong inference', () => {
     })
     expect(result?.message).toContain('cell-degree contradiction')
     expect(result?.message).toContain('must be the continuation')
+    expect(result?.inferenceDetails?.branches[0]).toMatchObject({
+      status: 'contradiction',
+      contradiction: { kind: 'cell-degree', cells: [cellKey(0, 2)] },
+    })
+    expect(result?.inferenceDetails?.branches[1]).toMatchObject({
+      status: 'forced',
+      initialDiffs: result?.diffs,
+    })
   })
 
   it('crosses out both remaining exits when using both causes a contradiction', () => {

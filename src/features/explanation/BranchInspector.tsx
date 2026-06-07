@@ -22,7 +22,7 @@ const inspectorDisplaySettings: DisplaySettings = {
 const buildBranchPuzzle = (details: InferenceDetails, branch: InferenceBranch, pointer: number) => {
   let puzzle = details.basePuzzle
   if (pointer >= 1) {
-    puzzle = applyRuleDiffs(puzzle, branch.assumptionDiffs)
+    puzzle = applyRuleDiffs(puzzle, branch.initialDiffs)
   }
   for (let index = 0; index < pointer - 1; index += 1) {
     puzzle = applyRuleDiffs(puzzle, branch.traceSteps[index].diffs)
@@ -41,6 +41,7 @@ export const BranchInspector = ({ details, onClose }: Props) => {
   )
   const activeTraceStep = pointer >= 2 ? branch.traceSteps[pointer - 2] : undefined
   const showContradiction = pointer === maxPointer && branch.status === 'contradiction'
+  const isForcedConclusion = branch.role === 'forced-conclusion'
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -61,7 +62,9 @@ export const BranchInspector = ({ details, onClose }: Props) => {
     pointer === 0
       ? 'Base puzzle before the inference'
       : pointer === 1
-        ? 'Apply the branch assumption'
+        ? isForcedConclusion
+          ? 'Apply the conclusion forced by contradiction'
+          : 'Apply the branch assumption'
         : activeTraceStep?.message ?? 'Branch result'
 
   return (
@@ -77,7 +80,9 @@ export const BranchInspector = ({ details, onClose }: Props) => {
             <h2 id="branch-inspector-title">Branch Inspector</h2>
             <p>
               {details.conclusion === 'opposite-branch'
-                ? 'One branch contradicts the puzzle, forcing the alternative.'
+                ? details.kind === 'masyu-strong'
+                  ? 'The trial assumption contradicts the puzzle, forcing the conclusion.'
+                  : 'One branch contradicts the puzzle, forcing the alternative.'
                 : 'Both branches imply the same consequence.'}
             </p>
           </div>
@@ -105,16 +110,23 @@ export const BranchInspector = ({ details, onClose }: Props) => {
           <div className="branch-inspector-board">
             <CanvasBoard
               puzzle={puzzle}
-              pluginId="slitherlink"
+              pluginId={details.basePuzzle.puzzleType}
               highlightedCells={activeTraceStep?.affectedCells ?? []}
-              highlightedColorCells={activeTraceStep?.diffs.flatMap((diff) => diff.kind === 'cell' ? [diff.cellKey] : []) ?? []}
+              highlightedColorCells={
+                activeTraceStep?.diffs.flatMap((diff) =>
+                  diff.kind === 'cell' ? [diff.cellKey] : [],
+                ) ?? []
+              }
+              highlightedColorTiles={activeTraceStep?.affectedTiles ?? []}
               highlightedEdges={activeTraceStep?.affectedEdges ?? []}
+              highlightedLines={activeTraceStep?.affectedLines ?? []}
               displaySettings={inspectorDisplaySettings}
               onSetDisplayOption={() => {}}
               variant="surface"
-              assumptionDiffs={pointer >= 1 ? branch.assumptionDiffs : []}
+              inferenceDiffs={pointer >= 1 ? branch.initialDiffs : []}
+              inferenceDiffRole={isForcedConclusion ? 'conclusion' : 'assumption'}
               contradictionFocus={showContradiction ? branch.contradiction : undefined}
-              ariaLabel="Slitherlink branch inspector canvas"
+              ariaLabel={`${details.basePuzzle.puzzleType === 'masyu' ? 'Masyu' : 'Slitherlink'} branch inspector canvas`}
             />
           </div>
 
@@ -123,7 +135,11 @@ export const BranchInspector = ({ details, onClose }: Props) => {
               <span>Branch result</span>
               <strong data-status={branch.status}>{branch.status}</strong>
             </div>
-            {branch.contradiction ? (
+            {isForcedConclusion ? (
+              <p className="branch-inspector-forced">
+                This conclusion is forced because the trial assumption contradicts the puzzle.
+              </p>
+            ) : branch.contradiction ? (
               <p className="branch-inspector-contradiction">{branch.contradiction.message}</p>
             ) : (
               <p className="branch-inspector-muted">No contradiction was found within the probe budget.</p>
@@ -133,7 +149,10 @@ export const BranchInspector = ({ details, onClose }: Props) => {
               <p>{stageText}</p>
             </section>
             <div className="branch-inspector-legend" aria-label="Branch inspector legend">
-              <span><i data-kind="assumption" /> assumption</span>
+              <span>
+                <i data-kind={isForcedConclusion ? 'conclusion' : 'assumption'} />{' '}
+                {isForcedConclusion ? 'forced conclusion' : 'assumption'}
+              </span>
               <span><i data-kind="step" /> current trial step</span>
               <span><i data-kind="contradiction" /> contradiction focus</span>
             </div>

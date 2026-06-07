@@ -57,6 +57,11 @@ Boundary rule:
 
 This contract is central: solver output must remain deterministic, replay-safe, and explainable.
 
+Bounded inference steps may also store structured branch details: the base
+puzzle, initial branch diffs, trial trace, contradiction focus, and formal
+conclusion. The shared Branch Inspector replays these details for Slitherlink
+and Masyu without changing solver behavior.
+
 ## 4. Plugin Contract
 
 Puzzle families are registered in `src/domain/plugins/registry.ts`.
@@ -106,7 +111,7 @@ Implemented:
 - Dataset page with filters, previews, and load-to-Solver/Editor actions.
 - Plugin-powered rules help, board legend, board display toggles, and compact puzzle stats.
 - Slitherlink puzz.link-compatible parse/encode, Penpa+ import, deterministic rules, branch-based inference, completion analysis, editor tools, and public dataset example.
-- Masyu puzz.link-compatible parse/encode, Penpa+ import, renderer, editor, deterministic rules, completion analysis, tile-color propagation, candidate pruning, bridge reasoning, premature-loop prevention, and bounded strong inference.
+- Masyu puzz.link-compatible parse/encode, Penpa+ import, renderer, editor, deterministic rules, completion analysis, tile-color propagation, candidate pruning, bridge reasoning, premature-loop prevention, and inspectable bounded strong inference.
 - Public/private benchmark manifest workflow.
 - GitHub Pages release workflow for tagged builds.
 

@@ -1279,7 +1279,16 @@ button[data-active='true'] {
   color: #b91c1c;
 }
 
+.branch-inspector-status strong[data-status='forced'],
+.branch-inspector-forced {
+  color: #6d28d9;
+}
+
 .branch-inspector-contradiction {
+  line-height: 1.45;
+}
+
+.branch-inspector-forced {
   line-height: 1.45;
 }
 
@@ -1328,6 +1337,11 @@ button[data-active='true'] {
 
 .branch-inspector-legend i[data-kind='assumption'] {
   border-color: #f97316;
+}
+
+.branch-inspector-legend i[data-kind='conclusion'] {
+  border-color: #7c3aed;
+  background: rgb(124 58 237 / 0.16);
 }
 
 .branch-inspector-legend i[data-kind='step'] {

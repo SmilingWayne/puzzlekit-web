@@ -918,6 +918,104 @@ describe('WorkspacePage', () => {
     expect(screen.queryByRole('dialog', { name: /branch inspector/i })).not.toBeInTheDocument()
   })
 
+  it('opens and navigates a Masyu strong inference branch inspector', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+    const assumed = lineKey([1, 0], [1, 1])
+    const downstream = lineKey([1, 1], [1, 2])
+    const forced = lineKey([0, 1], [1, 1])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'masyu-empty-cell-strong-inference',
+        ruleName: 'Empty Cell Strong Inference',
+        message: 'The assumption contradicts the puzzle, so the alternative is forced.',
+        diffs: [{ kind: 'line', lineKey: forced, from: 'unknown', to: 'line' }],
+        affectedCells: [cellKey(1, 1)],
+        affectedEdges: [],
+        affectedLines: [forced],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+        inferenceDetails: {
+          kind: 'masyu-strong',
+          conclusion: 'opposite-branch',
+          basePuzzle: puzzle,
+          defaultBranchId: 'assumption',
+          branches: [
+            {
+              id: 'assumption',
+              label: 'Assume the east continuation',
+              role: 'trial',
+              initialDiffs: [
+                { kind: 'line', lineKey: assumed, from: 'unknown', to: 'line' },
+              ],
+              status: 'contradiction',
+              traceSteps: [
+                {
+                  ruleId: 'test-downstream',
+                  ruleName: 'Test Downstream',
+                  message: 'Extend the trial line.',
+                  diffs: [
+                    { kind: 'line', lineKey: downstream, from: 'unknown', to: 'line' },
+                  ],
+                  affectedCells: [cellKey(1, 1)],
+                  affectedEdges: [],
+                  affectedLines: [downstream],
+                  affectedSectors: [],
+                },
+              ],
+              contradiction: {
+                kind: 'cell-degree',
+                message: 'cell-degree contradiction at C(2, 2)',
+                cells: [cellKey(1, 1)],
+              },
+            },
+            {
+              id: 'conclusion',
+              label: 'Forced conclusion',
+              role: 'forced-conclusion',
+              initialDiffs: [
+                { kind: 'line', lineKey: forced, from: 'unknown', to: 'line' },
+              ],
+              status: 'forced',
+              traceSteps: [],
+            },
+          ],
+        },
+      },
+    ]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+    const reasoningPanel = screen.getByRole('heading', { name: /reasoning steps/i }).closest('section')
+    if (!reasoningPanel) {
+      throw new Error('Expected reasoning panel')
+    }
+    fireEvent.click(within(reasoningPanel).getByRole('button', { name: /view details/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /branch inspector/i })
+    expect(within(dialog).getByLabelText(/masyu branch inspector canvas/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/cell-degree contradiction at C\(2, 2\)/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '2')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
+    fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
+    expect(within(dialog).getByText('Test Downstream', { exact: true })).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: /forced conclusion forced/i }))
+    expect(within(dialog).getByText(/forced because the trial assumption contradicts/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '1')
+  })
+
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {
     renderWorkspace()
 

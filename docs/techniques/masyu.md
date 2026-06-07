@@ -365,6 +365,14 @@ contradictions include:
 - tile-color parity conflicts;
 - assumptions that conflict with already decided lines.
 
+When a strong-inference step is selected in the reasoning panel, its Branch
+Inspector replays the rejected assumption from the base puzzle through each
+deterministic trial step to the contradiction. The inspector also provides a
+separate **Forced conclusion** tab showing the real deduction produced by the
+proof by contradiction. This conclusion tab is visual only: the solver does not
+run an additional trial branch, so existing inference budgets and behavior stay
+unchanged.
+
 ### Black Pearl Strong Inference
 
 For a black pearl, the solver assumes one possible exit direction together with

@@ -31,7 +31,8 @@ type Props = {
   displaySettings: DisplaySettings
   onSetDisplayOption: (optionId: string, enabled: boolean) => void
   variant?: 'panel' | 'surface'
-  assumptionDiffs?: RuleDiff[]
+  inferenceDiffs?: RuleDiff[]
+  inferenceDiffRole?: 'assumption' | 'conclusion'
   contradictionFocus?: InferenceFocus
   ariaLabel?: string
 }
@@ -113,7 +114,8 @@ export const CanvasBoard = ({
   displaySettings,
   onSetDisplayOption,
   variant = 'panel',
-  assumptionDiffs = [],
+  inferenceDiffs = [],
+  inferenceDiffRole = 'assumption',
   contradictionFocus,
   ariaLabel,
 }: Props) => {
@@ -408,29 +410,51 @@ export const CanvasBoard = ({
       }
     }
 
-    if (!isMasyu && assumptionDiffs.length > 0) {
+    if (inferenceDiffs.length > 0) {
       ctx.save()
-      ctx.strokeStyle = '#f97316'
-      ctx.fillStyle = 'rgba(249, 115, 22, 0.16)'
+      ctx.strokeStyle =
+        inferenceDiffRole === 'conclusion' ? '#7c3aed' : '#f97316'
+      ctx.fillStyle =
+        inferenceDiffRole === 'conclusion'
+          ? 'rgba(124, 58, 237, 0.16)'
+          : 'rgba(249, 115, 22, 0.16)'
       ctx.lineWidth = 4
       ctx.setLineDash([8, 5])
-      for (const diff of assumptionDiffs) {
+      for (const diff of inferenceDiffs) {
         if (diff.kind === 'edge') {
           const [v1, v2] = parseEdgeKey(diff.edgeKey)
           ctx.beginPath()
           ctx.moveTo(PADDING + v1[1] * CELL_SIZE, PADDING + v1[0] * CELL_SIZE)
           ctx.lineTo(PADDING + v2[1] * CELL_SIZE, PADDING + v2[0] * CELL_SIZE)
           ctx.stroke()
+        } else if (diff.kind === 'line') {
+          const [v1, v2] = parseLineKey(diff.lineKey)
+          ctx.beginPath()
+          ctx.moveTo(
+            PADDING + v1[1] * CELL_SIZE + CELL_SIZE / 2,
+            PADDING + v1[0] * CELL_SIZE + CELL_SIZE / 2,
+          )
+          ctx.lineTo(
+            PADDING + v2[1] * CELL_SIZE + CELL_SIZE / 2,
+            PADDING + v2[0] * CELL_SIZE + CELL_SIZE / 2,
+          )
+          ctx.stroke()
         } else if (diff.kind === 'cell') {
           const [r, c] = parseCellKey(diff.cellKey)
           ctx.fillRect(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
           ctx.strokeRect(PADDING + c * CELL_SIZE + 3, PADDING + r * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6)
+        } else if (diff.kind === 'tile') {
+          const [r, c] = parseTileKey(diff.tileKey)
+          ctx.beginPath()
+          ctx.arc(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, 10, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
         }
       }
       ctx.restore()
     }
 
-    if (!isMasyu && contradictionFocus) {
+    if (contradictionFocus) {
       ctx.save()
       ctx.strokeStyle = '#dc2626'
       ctx.fillStyle = 'rgba(220, 38, 38, 0.2)'
@@ -446,6 +470,26 @@ export const CanvasBoard = ({
         ctx.beginPath()
         ctx.moveTo(PADDING + v1[1] * CELL_SIZE, PADDING + v1[0] * CELL_SIZE)
         ctx.lineTo(PADDING + v2[1] * CELL_SIZE, PADDING + v2[0] * CELL_SIZE)
+        ctx.stroke()
+      }
+      for (const key of contradictionFocus.lines ?? []) {
+        const [v1, v2] = parseLineKey(key)
+        ctx.beginPath()
+        ctx.moveTo(
+          PADDING + v1[1] * CELL_SIZE + CELL_SIZE / 2,
+          PADDING + v1[0] * CELL_SIZE + CELL_SIZE / 2,
+        )
+        ctx.lineTo(
+          PADDING + v2[1] * CELL_SIZE + CELL_SIZE / 2,
+          PADDING + v2[0] * CELL_SIZE + CELL_SIZE / 2,
+        )
+        ctx.stroke()
+      }
+      for (const key of contradictionFocus.tiles ?? []) {
+        const [r, c] = parseTileKey(key)
+        ctx.beginPath()
+        ctx.arc(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, 12, 0, Math.PI * 2)
+        ctx.fill()
         ctx.stroke()
       }
       for (const key of contradictionFocus.vertices ?? []) {
@@ -479,7 +523,8 @@ export const CanvasBoard = ({
     highlightedLines,
     displaySettings,
     puzzle,
-    assumptionDiffs,
+    inferenceDiffs,
+    inferenceDiffRole,
     contradictionFocus,
     width,
     zoom,

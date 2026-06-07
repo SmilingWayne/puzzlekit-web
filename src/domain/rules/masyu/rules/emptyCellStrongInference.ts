@@ -11,6 +11,7 @@ import {
 } from './shared'
 import {
   buildMasyuStrongBranch,
+  buildMasyuInferenceDetails,
   deriveMasyuStrongProbeBudgets,
   describeMasyuStrongTrialResult,
   immediateMasyuStrongContradictionResult,
@@ -226,6 +227,13 @@ export const createEmptyCellStrongInferenceRule = (
             diffs,
             affectedCells: [candidate.cell],
             affectedLines: diffs.map((diff) => diff.lineKey),
+            inferenceDetails: buildMasyuInferenceDetails(
+              puzzle,
+              `Assume ${formatMasyuCellKeyLabel(candidate.cell)} is ${trialBranch.label}`,
+              branch,
+              result,
+              diffs,
+            ),
           }
         }
       }
