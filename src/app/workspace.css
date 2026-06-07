@@ -1152,8 +1152,26 @@ button[data-active='true'] {
   font-size: 0.85rem;
 }
 
-.step-details-button {
-  margin-top: 8px;
+.step-details-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #0284c7;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.step-details-link:hover {
+  color: #0369a1;
+}
+
+.step-details-link:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
 }
 
 .branch-inspector-overlay {
@@ -1177,8 +1195,7 @@ button[data-active='true'] {
   padding: 16px;
 }
 
-.branch-inspector-header,
-.branch-inspector-controls {
+.branch-inspector-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1186,8 +1203,7 @@ button[data-active='true'] {
 }
 
 .branch-inspector-header h2,
-.branch-inspector-header p,
-.branch-inspector-controls p {
+.branch-inspector-header p {
   margin: 0;
 }
 
@@ -1197,7 +1213,6 @@ button[data-active='true'] {
 }
 
 .branch-inspector-header p,
-.branch-inspector-controls p,
 .branch-inspector-muted {
   margin-top: 4px;
   color: #64748b;
@@ -1268,6 +1283,28 @@ button[data-active='true'] {
   line-height: 1.45;
 }
 
+.branch-inspector-stage {
+  height: 150px;
+  overflow: auto;
+  margin-top: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.branch-inspector-stage strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.branch-inspector-stage p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .branch-inspector-legend {
   display: grid;
   gap: 8px;
@@ -1303,6 +1340,8 @@ button[data-active='true'] {
 }
 
 .branch-inspector-controls {
+  display: flex;
+  justify-content: flex-end;
   margin-top: 14px;
 }
 
@@ -1329,10 +1368,14 @@ button[data-active='true'] {
     grid-template-columns: 1fr;
   }
 
-  .branch-inspector-header,
-  .branch-inspector-controls {
+  .branch-inspector-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .branch-inspector-navigation {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 

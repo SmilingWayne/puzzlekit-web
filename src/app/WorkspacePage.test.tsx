@@ -891,20 +891,28 @@ describe('WorkspacePage', () => {
     if (!reasoningPanel) {
       throw new Error('Expected reasoning panel')
     }
+    const strongInferenceMessage = within(reasoningPanel).getByText(/Strong inference: edge V\(1, 2\)-V\(1, 3\)/i)
+    expect(strongInferenceMessage.firstChild).toHaveTextContent('[View details]')
     expect(within(reasoningPanel).getAllByRole('button', { name: /view details/i })).toHaveLength(1)
+    expect(within(reasoningPanel).queryByText(/\[View details\].*Apply Vertex Flow/i)).not.toBeInTheDocument()
     fireEvent.click(within(reasoningPanel).getByRole('button', { name: /view details/i }))
 
     const dialog = screen.getByRole('dialog', { name: /branch inspector/i })
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(within(dialog).getByText(/vertex-degree contradiction at V\(5, 3\)/i)).toBeInTheDocument()
-    expect(within(dialog).getByLabelText(/branch replay step/i)).toHaveAttribute('max', '10')
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '10')
     expect(within(dialog).getByLabelText(/slitherlink branch inspector canvas/i)).toBeInTheDocument()
+    const stageDetails = within(dialog).getByLabelText('Current branch replay step', { exact: true })
+    expect(within(stageDetails).getByText('Base puzzle', { exact: true })).toBeInTheDocument()
+    const inspectorFooter = dialog.querySelector('.branch-inspector-controls')
+    expect(inspectorFooter).not.toBeNull()
+    expect(inspectorFooter).not.toHaveTextContent(/base puzzle before the inference/i)
 
     fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
-    expect(within(dialog).getByText(/apply the branch assumption/i)).toBeInTheDocument()
+    expect(within(stageDetails).getByText(/apply the branch assumption/i)).toBeInTheDocument()
 
     fireEvent.click(within(dialog).getByRole('tab', { name: /branch b unresolved/i }))
-    expect(within(dialog).getByLabelText(/branch replay step/i)).toHaveAttribute('max', '3')
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '3')
 
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: /branch inspector/i })).not.toBeInTheDocument()

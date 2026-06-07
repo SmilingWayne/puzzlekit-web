@@ -128,6 +128,10 @@ export const BranchInspector = ({ details, onClose }: Props) => {
             ) : (
               <p className="branch-inspector-muted">No contradiction was found within the probe budget.</p>
             )}
+            <section className="branch-inspector-stage" aria-label="Current branch replay step">
+              <strong>{pointer === 0 ? 'Base puzzle' : pointer === 1 ? 'Assumption' : activeTraceStep?.ruleName}</strong>
+              <p>{stageText}</p>
+            </section>
             <div className="branch-inspector-legend" aria-label="Branch inspector legend">
               <span><i data-kind="assumption" /> assumption</span>
               <span><i data-kind="step" /> current trial step</span>
@@ -137,10 +141,6 @@ export const BranchInspector = ({ details, onClose }: Props) => {
         </div>
 
         <footer className="branch-inspector-controls">
-          <div>
-            <strong>{pointer === 0 ? 'Base puzzle' : pointer === 1 ? 'Assumption' : activeTraceStep?.ruleName}</strong>
-            <p>{stageText}</p>
-          </div>
           <div className="branch-inspector-navigation">
             <button type="button" className="button-compact" disabled={pointer === 0} onClick={() => setPointer((value) => value - 1)}>
               Previous

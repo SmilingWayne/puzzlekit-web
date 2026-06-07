@@ -66,17 +66,21 @@ export const ExplanationPanel = ({ steps }: Props) => {
               <p className="step-title">
                 {sequence}. {step.ruleName}
               </p>
-              <p className="step-message">{step.message}</p>
+              <p className="step-message">
+                {step.inferenceDetails ? (
+                  <>
+                    <button
+                      type="button"
+                      className="step-details-link"
+                      onClick={() => setInspectedStep(step)}
+                    >
+                      [View details]
+                    </button>{' '}
+                  </>
+                ) : null}
+                {step.message}
+              </p>
               <p className="step-meta">{buildStepMeta(step)}</p>
-              {step.inferenceDetails ? (
-                <button
-                  type="button"
-                  className="button-compact step-details-button"
-                  onClick={() => setInspectedStep(step)}
-                >
-                  View Details
-                </button>
-              ) : null}
             </li>
           ))
         )}
