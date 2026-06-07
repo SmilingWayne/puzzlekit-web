@@ -59,7 +59,7 @@ Use these files first:
 - Lookahead helpers: `src/domain/rules/masyu/rules/lookahead*.ts`
 - Masyu parser/exporter: `src/domain/parsers/puzzlink/masyuPuzzlink.ts`, `src/domain/parsers/penpa/index.ts`
 - Masyu editor: `src/features/editor/MasyuEditorBoard.tsx`, `src/features/editor/editorStore.ts`
-- Tests: `src/domain/rules/masyu/rules.test.ts`, `src/domain/ir/masyu.test.ts`, parser tests
+- Tests: `src/domain/rules/masyu/tests/`, `src/domain/rules/masyu/completion.test.ts`, `src/domain/ir/masyu.test.ts`, parser tests
 
 Replay and rendering plumbing:
 
@@ -91,7 +91,7 @@ Historical Masyu planning notes live under `docs/legacy/`. They are reference ma
 Useful commands:
 
 ```bash
-pnpm test:run src/domain/rules/masyu/rules.test.ts
+pnpm test:run src/domain/rules/masyu/tests
 pnpm test:run src/domain/rules/engine.test.ts src/features/solver/solverStore.test.ts
 pnpm build
 ```
