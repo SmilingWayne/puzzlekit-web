@@ -60,6 +60,7 @@ type SolverStore = {
   terminalReport: TerminalSolveReport | null
   displaySettings: DisplaySettings
   loadPuzzle: (puzzle: PuzzleIR, options?: LoadPuzzleOptions) => void
+  loadDefaultPuzzle: (importError?: string) => void
   importFromUrl: (url: string, pluginId?: string) => void
   setSourceUrl: (url: string) => void
   setPluginId: (pluginId: string) => void
@@ -315,6 +316,16 @@ export const useSolverStore = create<SolverStore>((set, get) => ({
       terminalReport: null,
       displaySettings: mergeDisplaySettings(nextPluginId, get().displaySettings),
     })
+  },
+  loadDefaultPuzzle: (importError) => {
+    const puzzle = getSamplePuzzle()
+    get().loadPuzzle(puzzle, {
+      pluginId: 'slitherlink',
+      sourceUrl: DEFAULT_SLITHERLINK_SAMPLE_URL,
+    })
+    if (importError) {
+      set({ importError })
+    }
   },
   importFromUrl: (url, pluginId) => {
     const activePluginId = pluginId ?? get().pluginId

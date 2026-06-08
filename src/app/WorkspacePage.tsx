@@ -1,4 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
+import { parsePuzzlinkDeepLink } from '../domain/deepLink/puzzlinkDeepLink'
 import { CanvasBoard } from '../features/board/CanvasBoard'
 import { ExplanationPanel } from '../features/explanation/ExplanationPanel'
 import { ControlPanel } from '../features/solver/ControlPanel'
@@ -8,6 +10,8 @@ import { WorkspaceHeader } from './WorkspaceHeader'
 import './workspace.css'
 
 export const WorkspacePage = () => {
+  const location = useLocation()
+  const didHandleDeepLink = useRef(false)
   const {
     pluginId,
     currentPuzzle,
@@ -24,8 +28,27 @@ export const WorkspacePage = () => {
     solveProgress,
     goToStep,
     isRunning,
+    loadPuzzle,
+    loadDefaultPuzzle,
   } = useSolverStore()
   const activeSteps = useMemo(() => steps.slice(0, pointer), [steps, pointer])
+
+  useEffect(() => {
+    if (didHandleDeepLink.current) {
+      return
+    }
+    didHandleDeepLink.current = true
+
+    const result = parsePuzzlinkDeepLink(location.search)
+    if (result.status === 'valid') {
+      loadPuzzle(result.puzzle, {
+        pluginId: result.pluginId,
+        sourceUrl: result.sourceUrl,
+      })
+    } else if (result.status === 'invalid') {
+      loadDefaultPuzzle(`${result.message} The default puzzle has been loaded instead.`)
+    }
+  }, [loadDefaultPuzzle, loadPuzzle, location.search])
 
   return (
     <main className="workspace">
