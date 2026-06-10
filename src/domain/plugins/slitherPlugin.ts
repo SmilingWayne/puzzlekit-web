@@ -261,6 +261,16 @@ export const getSlitherStats = (puzzle: PuzzleIR): PuzzleStatsContent => {
 export const slitherPlugin: PuzzlePlugin = {
   id: 'slitherlink',
   displayName: 'Slitherlink',
+  liveStats: {
+    coverageTitle: 'Inference Coverage',
+    coverageDescription: 'Decided or narrowed Slitherlink state',
+    coverageSeries: [
+      { source: 'edge', label: 'Edge Decisions', color: '#2563eb' },
+      { source: 'cell', label: 'Cell Colors', color: '#16a34a' },
+      { source: 'vertex', label: 'Vertex Candidates', color: '#d97706' },
+      { source: 'sector', label: 'Sector Constraints', color: '#9333ea' },
+    ],
+  },
   help: slitherHelp,
   legend: slitherLegend,
   displayOptions: [

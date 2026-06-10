@@ -78,12 +78,33 @@ export type PuzzleDisplayOption = {
   description?: string
 }
 
+export type LiveStatsCoverageSource =
+  | 'edge'
+  | 'line'
+  | 'cell'
+  | 'tile'
+  | 'vertex'
+  | 'sector'
+
+export type LiveStatsCoverageSeries = {
+  source: LiveStatsCoverageSource
+  label: string
+  color: string
+}
+
+export type PuzzleLiveStatsConfig = {
+  coverageTitle: string
+  coverageDescription: string
+  coverageSeries: LiveStatsCoverageSeries[]
+}
+
 export interface PuzzlePlugin {
   id: string
   displayName: string
   help?: PuzzleHelpContent
   legend?: PuzzleLegendContent
   displayOptions?: PuzzleDisplayOption[]
+  liveStats?: PuzzleLiveStatsConfig
   getStats?: (puzzle: PuzzleIR) => PuzzleStatsContent | null
   parse: (input: string) => PuzzleIR
   encode: (puzzle: PuzzleIR) => string

@@ -281,11 +281,11 @@ describe('solver timeline behavior', () => {
     useSolverStore.getState().goToStep(0)
 
     expect(useSolverStore.getState().traceStatsCache.points).toHaveLength(2)
-    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 0).current.edgeCoverageRatio).toBe(0)
+    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 0).current.coverageRatios.edge).toBe(0)
 
     useSolverStore.getState().goToStep(1)
 
-    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 1).current.edgeCoverageRatio).toBe(0.25)
+    expect(buildTraceStatsView(useSolverStore.getState().traceStatsCache, 1).current.coverageRatios.edge).toBe(0.25)
   })
 
   it('jumps across a large replay trace and matches a full rebuild', () => {

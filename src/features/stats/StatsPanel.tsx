@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import {
   buildTraceStatsView,
   type TraceStatsCache,
-  type TraceChartPoint,
 } from '../../domain/difficulty/traceStats'
+import { puzzleRegistry } from '../../domain/plugins/registry'
 
 type Props = {
+  pluginId: string
   traceStatsCache: TraceStatsCache
   pointer: number
   isRunning: boolean
@@ -48,7 +49,8 @@ const formatStepSummary = (stepNumbers: number[]): string => {
     : `${stepNumbers.length} hits, steps ${first}-${last}`
 }
 
-const clampRatio = (value: number): number => Math.min(1, Math.max(0, value))
+const clampValue = (value: number, maxValue: number): number =>
+  Math.min(maxValue, Math.max(0, value))
 
 const MAX_RENDERED_POINTS = 400
 
@@ -66,6 +68,7 @@ const sampleChartValues = (values: number[]): Array<{ index: number; value: numb
 
 const makePath = (
   values: number[],
+  maxValue: number,
   width: number,
   height: number,
   padding: { top: number; right: number; bottom: number; left: number },
@@ -78,7 +81,8 @@ const makePath = (
   const plotHeight = height - padding.top - padding.bottom
   const xFor = (index: number): number =>
     padding.left + (values.length <= 1 ? 0 : (index / (values.length - 1)) * plotWidth)
-  const yFor = (value: number): number => padding.top + (1 - clampRatio(value)) * plotHeight
+  const yFor = (value: number): number =>
+    padding.top + (1 - clampValue(value, maxValue) / maxValue) * plotHeight
   return sampled
     .map(({ index, value }, sampledIndex) => `${sampledIndex === 0 ? 'M' : 'L'} ${xFor(index)} ${yFor(value)}`)
     .join(' ')
@@ -89,11 +93,15 @@ const TraceLineChart = ({
   description,
   series,
   currentIndex,
+  maxValue,
+  formatValue,
 }: {
   title: string
   description: string
   series: ChartSeries[]
   currentIndex: number
+  maxValue: number
+  formatValue: (value: number) => string
 }) => {
   const width = 360
   const height = 190
@@ -104,7 +112,9 @@ const TraceLineChart = ({
   const plotHeight = height - padding.top - padding.bottom
   const xFor = (index: number): number =>
     padding.left + (maxLength <= 1 ? 0 : (index / (maxLength - 1)) * plotWidth)
-  const yFor = (value: number): number => padding.top + (1 - clampRatio(value)) * plotHeight
+  const safeMaxValue = Math.max(1, maxValue)
+  const yFor = (value: number): number =>
+    padding.top + (1 - clampValue(value, safeMaxValue) / safeMaxValue) * plotHeight
 
   return (
     <section className="trace-chart-card" aria-label={title}>
@@ -121,10 +131,10 @@ const TraceLineChart = ({
         <line x1={padding.left} y1={padding.top} x2={width - padding.right} y2={padding.top} className="chart-grid-line" />
         <line x1={padding.left} y1={padding.top + plotHeight / 2} x2={width - padding.right} y2={padding.top + plotHeight / 2} className="chart-grid-line" />
         <text x={4} y={padding.top + 4} className="chart-axis-label">
-          100%
+          {formatValue(maxValue)}
         </text>
         <text x={14} y={height - padding.bottom + 4} className="chart-axis-label">
-          0%
+          {formatValue(0)}
         </text>
         <text x={padding.left} y={height - 8} className="chart-axis-label">
           0
@@ -135,7 +145,7 @@ const TraceLineChart = ({
         {series.map((item) => (
           <path
             key={item.label}
-            d={makePath(item.values, width, height, padding)}
+            d={makePath(item.values, safeMaxValue, width, height, padding)}
             fill="none"
             stroke={item.color}
             strokeWidth="2.4"
@@ -169,39 +179,13 @@ const TraceLineChart = ({
         {series.map((item) => (
           <span key={item.label}>
             <i style={{ backgroundColor: item.color }} />
-            {item.label} {formatPercent(item.values[clampedIndex] ?? 0)}
+            {item.label} {formatValue(item.values[clampedIndex] ?? 0)}
           </span>
         ))}
       </div>
     </section>
   )
 }
-
-const getBoardProgressSeries = (points: TraceChartPoint[]): ChartSeries[] => [
-  {
-    label: 'Progress',
-    color: '#0891b2',
-    values: points.map((point) => point.boardProgressRatio),
-  },
-]
-
-const getCoverageSeries = (points: TraceChartPoint[]): ChartSeries[] => [
-  {
-    label: 'Edge',
-    color: '#2563eb',
-    values: points.map((point) => point.edgeCoverageRatio),
-  },
-  {
-    label: 'Cell',
-    color: '#16a34a',
-    values: points.map((point) => point.cellCoverageRatio),
-  },
-  {
-    label: 'Vertex',
-    color: '#d97706',
-    values: points.map((point) => point.vertexCoverageRatio),
-  },
-]
 
 const MAX_RULE_BARS = 8
 
@@ -245,14 +229,35 @@ const RuleUsageBars = ({ rules }: { rules: ReturnType<typeof buildTraceStatsView
   )
 }
 
-export const StatsPanel = ({ traceStatsCache, pointer, isRunning, onGoToStep }: Props) => {
+export const StatsPanel = ({ pluginId, traceStatsCache, pointer, isRunning, onGoToStep }: Props) => {
   const stats = useMemo(() => buildTraceStatsView(traceStatsCache, pointer), [pointer, traceStatsCache])
   const [showRuleDetails, setShowRuleDetails] = useState(false)
-  const boardProgressSeries = useMemo(
-    () => getBoardProgressSeries(traceStatsCache.points),
+  const liveStats = puzzleRegistry.get(pluginId)?.liveStats
+  const coverageSeries = useMemo(
+    () =>
+      (liveStats?.coverageSeries ?? []).map((series) => ({
+        label: series.label,
+        color: series.color,
+        values: traceStatsCache.points.map((point) => point.coverageRatios[series.source]),
+      })),
+    [liveStats, traceStatsCache],
+  )
+  const durationSeries = useMemo<ChartSeries[]>(
+    () => [
+      {
+        label: 'Full Step',
+        color: '#dc2626',
+        values: traceStatsCache.points.map((point) => point.stepDurationMs),
+      },
+      {
+        label: 'Matched Rule',
+        color: '#0891b2',
+        values: traceStatsCache.points.map((point) => point.ruleApplyMs),
+      },
+    ],
     [traceStatsCache],
   )
-  const coverageSeries = useMemo(() => getCoverageSeries(traceStatsCache.points), [traceStatsCache])
+  const maxDurationMs = Math.max(1, ...durationSeries.flatMap((series) => series.values))
 
   return (
     <section className="panel-card stats" aria-label="Live Stats">
@@ -296,16 +301,20 @@ export const StatsPanel = ({ traceStatsCache, pointer, isRunning, onGoToStep }: 
 
       <div className="stats-chart-grid">
         <TraceLineChart
-          title="Board Progress"
-          description="Decided edges over the whole board"
-          series={boardProgressSeries}
-          currentIndex={stats.pointer}
-        />
-        <TraceLineChart
-          title="Inference Coverage"
-          description="State coverage by inferred element type"
+          title={liveStats?.coverageTitle ?? 'Inference Coverage'}
+          description={liveStats?.coverageDescription ?? 'State coverage by inferred element type'}
           series={coverageSeries}
           currentIndex={stats.pointer}
+          maxValue={1}
+          formatValue={formatPercent}
+        />
+        <TraceLineChart
+          title="Step Duration"
+          description="Full rule-chain time and matched rule apply time"
+          series={durationSeries}
+          currentIndex={stats.pointer}
+          maxValue={maxDurationMs}
+          formatValue={formatDuration}
         />
       </div>
 

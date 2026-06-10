@@ -398,8 +398,8 @@ describe('WorkspacePage', () => {
     const statsTimeline = screen.getByLabelText(/trace timeline/i)
     const liveStats = screen.getByLabelText(/live stats/i)
     expect(statsTimeline).toHaveValue('2')
-    expect(within(liveStats).getByText(/board progress/i)).toBeInTheDocument()
     expect(within(liveStats).getByText(/inference coverage/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/step duration/i)).toBeInTheDocument()
 
     fireEvent.change(statsTimeline, { target: { value: '1' } })
 
@@ -423,6 +423,8 @@ describe('WorkspacePage', () => {
         affectedSectors: [],
         timestamp: Date.now(),
         durationMs: 1,
+        chainDurationMs: 5,
+        ruleApplyMs: 2,
       },
       {
         id: 'step-2',
@@ -438,6 +440,8 @@ describe('WorkspacePage', () => {
         affectedSectors: [],
         timestamp: Date.now() + 1,
         durationMs: 1,
+        chainDurationMs: 8,
+        ruleApplyMs: 3,
       },
     ]
     const puzzle = createSlitherPuzzle(1, 2)
@@ -460,17 +464,19 @@ describe('WorkspacePage', () => {
     renderWorkspace()
 
     const liveStats = screen.getByLabelText(/live stats/i)
-    const progressChart = within(liveStats).getByLabelText(/^board progress$/i)
     const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
-    expect(within(progressChart).getByText(/progress 28\.6%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/edge 28\.6%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/cell 50\.0%/i)).toBeInTheDocument()
+    const durationChart = within(liveStats).getByLabelText(/^step duration$/i)
+    expect(within(coverageChart).getByText(/edge decisions 28\.6%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell colors 50\.0%/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/full step 8\.0 ms/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 3\.0 ms/i)).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/trace timeline/i), { target: { value: '1' } })
 
-    expect(within(progressChart).getByText(/progress 14\.3%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/edge 14\.3%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/cell 0\.0%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge decisions 14\.3%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell colors 0\.0%/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/full step 5\.0 ms/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 2\.0 ms/i)).toBeInTheDocument()
   })
 
   it('shows the optimized live stats summary and charts', () => {
@@ -486,12 +492,53 @@ describe('WorkspacePage', () => {
     expect(within(liveStats).queryByText(/rule applications/i)).not.toBeInTheDocument()
     expect(within(liveStats).queryByText(/trace progress/i)).not.toBeInTheDocument()
 
-    expect(within(liveStats).getByLabelText(/^board progress$/i)).toBeInTheDocument()
+    expect(within(liveStats).queryByLabelText(/^board progress$/i)).not.toBeInTheDocument()
     const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
-    expect(within(coverageChart).getByText(/edge/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/cell/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/vertex/i)).toBeInTheDocument()
-    expect(within(coverageChart).queryByText(/sector/i)).not.toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge decisions/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell colors/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/vertex candidates/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/sector constraints/i)).toBeInTheDocument()
+    expect(within(liveStats).getByLabelText(/^step duration$/i)).toBeInTheDocument()
+  })
+
+  it('shows Masyu-specific live stats coverage', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const line = lineKey([0, 0], [0, 1])
+    const tile = tileKey(0, 0)
+    const steps: RuleStep[] = [{
+      id: 'step-1',
+      ruleId: 'masyu-stats',
+      ruleName: 'Masyu Stats',
+      message: 'update line and tile',
+      diffs: [
+        { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
+        { kind: 'tile', tileKey: tile, fromFill: null, toFill: 'green' },
+      ],
+      affectedCells: [],
+      affectedEdges: [],
+      affectedLines: [line],
+      affectedTiles: [tile],
+      affectedSectors: [],
+      timestamp: Date.now(),
+      durationMs: 4,
+    }]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+    }))
+
+    renderWorkspace()
+
+    const coverageChart = within(screen.getByLabelText(/live stats/i)).getByLabelText(/^inference coverage$/i)
+    expect(within(coverageChart).getByText(/line decisions/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/tile colors/i)).toBeInTheDocument()
+    expect(within(coverageChart).queryByText(/edge decisions/i)).not.toBeInTheDocument()
+    expect(within(coverageChart).queryByText(/vertex candidates/i)).not.toBeInTheDocument()
   })
 
   it('keeps future trace rules visible in live stats while browsing an earlier prefix', () => {

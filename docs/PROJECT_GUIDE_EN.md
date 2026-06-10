@@ -74,6 +74,7 @@ Each `PuzzlePlugin` may provide:
 - `help` for the puzzle rules popout.
 - `legend` for board legend examples.
 - `getStats(puzzle)` for compact board-title stats.
+- `liveStats` for puzzle-specific inference coverage series shown in the shared Live Stats panel.
 - `displayOptions` for puzzle-specific board toggles.
 
 Current families:
@@ -119,7 +120,7 @@ Partial or planned:
 
 - The public dataset includes a categorized Masyu manifest.
 - Penpa+ support is import-oriented; export completeness is not a current guarantee.
-- Puzzle-specific Live Stats wording can still be refined.
+- Live Stats uses a shared timeline, step-duration chart, and rule-usage view. Each puzzle plugin declares the meaningful inference coverage series for its own IR primitives.
 - Difficulty modeling is draft-level.
 - Nonogram remains planned.
 

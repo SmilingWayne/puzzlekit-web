@@ -71,6 +71,7 @@ export const WorkspacePage = () => {
             onSetDisplayOption={setDisplayOption}
           />
           <StatsPanel
+            pluginId={pluginId}
             traceStatsCache={traceStatsCache}
             pointer={pointer}
             isRunning={isRunning}
