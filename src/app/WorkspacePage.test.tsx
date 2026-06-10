@@ -61,6 +61,7 @@ describe('WorkspacePage', () => {
     renderWorkspace()
     expect(screen.getByRole('heading', { name: /puzzlekit web/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /editor/i })).toHaveAttribute('href', '/editor')
+    expect(screen.getByRole('link', { name: /^docs$/i })).toHaveAttribute('href', '/docs')
     expect(screen.getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
       'href',
       'https://github.com/SmilingWayne/puzzlekit-web',
@@ -849,15 +850,15 @@ describe('WorkspacePage', () => {
     renderWorkspace()
 
     expect(screen.getByText(/showing 30 \/ 35/i)).toBeInTheDocument()
-    expect(screen.getByText(/^35\. test rule$/i)).toBeInTheDocument()
-    expect(screen.queryByText(/^5\. test rule$/i)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Test Rule' })).toHaveLength(30)
+    expect(screen.queryByText(/^5\.$/i)).not.toBeInTheDocument()
 
     const showAll = screen.getByRole('button', { name: /show all/i })
     fireEvent.click(showAll)
 
     expect(showAll).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText(/showing 35 \/ 35/i)).toBeInTheDocument()
-    expect(screen.getByText(/^1\. test rule$/i)).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Test Rule' })).toHaveLength(35)
   })
 
   it('summarizes Slitherlink edge updates in reasoning steps', () => {
@@ -891,6 +892,10 @@ describe('WorkspacePage', () => {
     renderWorkspace()
 
     expect(screen.getByText('edge updates: 1')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edge Rule' })).toHaveAttribute(
+      'href',
+      '/docs/slitherlink/rules/edge-rule',
+    )
   })
 
   it('summarizes Masyu line updates and line crosses in reasoning steps', () => {

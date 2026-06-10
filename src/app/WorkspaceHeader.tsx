@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 
-type WorkspacePageId = 'solver' | 'dataset' | 'editor'
+type WorkspacePageId = 'solver' | 'dataset' | 'editor' | 'docs'
 
 type WorkspaceHeaderProps = {
   title: string
@@ -14,6 +14,7 @@ const navItems: Array<{ id: WorkspacePageId; label: string; to: string }> = [
   { id: 'solver', label: 'Solver', to: '/' },
   { id: 'dataset', label: 'Dataset', to: '/dataset' },
   { id: 'editor', label: 'Editor', to: '/editor' },
+  { id: 'docs', label: 'Docs', to: '/docs' },
 ]
 
 export const WorkspaceHeader = ({

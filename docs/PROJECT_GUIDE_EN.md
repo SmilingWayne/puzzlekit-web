@@ -34,6 +34,7 @@ dataset/
 scripts/
   benchmark-solve.ts
 docs/
+  content/          # in-app MDX rule documentation
   techniques/       # puzzle-specific technique notes
   legacy/           # old plans and research notes
 ```
@@ -111,6 +112,7 @@ Implemented:
 - Editor workspace for Slitherlink and Masyu custom boards, URL import, and load-to-solver flow.
 - Dataset page with filters, previews, and load-to-Solver/Editor actions.
 - Plugin-powered rules help, board legend, board display toggles, and compact puzzle stats.
+- In-app rule documentation generated from the production rule registry, with stable rule deep links and read-only Canvas examples.
 - Slitherlink puzz.link-compatible parse/encode, Penpa+ import, deterministic rules, branch-based inference, completion analysis, editor tools, and public dataset example.
 - Masyu puzz.link-compatible parse/encode, Penpa+ import, renderer, editor, deterministic rules, completion analysis, tile-color propagation, candidate pruning, bridge reasoning, premature-loop prevention, and inspectable bounded strong inference.
 - Public/private benchmark manifest workflow.

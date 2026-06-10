@@ -80,7 +80,7 @@ export const WorkspacePage = () => {
         </div>
         <div className="right-column">
           <ControlPanel />
-          <ExplanationPanel steps={activeSteps} />
+          <ExplanationPanel pluginId={pluginId} steps={activeSteps} />
         </div>
       </section>
       {solveProgress ? (

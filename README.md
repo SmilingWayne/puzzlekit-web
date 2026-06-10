@@ -48,6 +48,7 @@ pnpm benchmark:solve
 - **Solver** (`/`): import a puzzle, run one deduction at a time, jump through the replay timeline, inspect explanations and strong-inference branches, view stats, and export supported states.
 - **Editor** (`/editor`): create custom Slitherlink or Masyu grids, edit clues/pearls and marks, import supported URLs, then hand the puzzle to the solver.
 - **Dataset** (`/dataset`): browse curated public dataset manifests, preview puzzles, and load them into Solver or Editor.
+- **Docs** (`/docs`): browse puzzle-family rule documentation and open the explanation for any solver step.
 
 ## Solver Deep Links
 
@@ -73,6 +74,7 @@ dataset/
   public/     small committed dataset manifests
   private/    local-only manifests ignored by git
 docs/
+  content/    in-app MDX rule documentation
   techniques/ puzzle-specific technique notes
 ```
 
