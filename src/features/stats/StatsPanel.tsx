@@ -19,6 +19,8 @@ type ChartSeries = {
   values: number[]
 }
 
+type ChartInterpolation = 'linear' | 'step-after'
+
 const formatPercent = (ratio: number): string => `${(ratio * 100).toFixed(1)}%`
 
 const formatDuration = (durationMs: number): string => {
@@ -66,12 +68,21 @@ const sampleChartValues = (values: number[]): Array<{ index: number; value: numb
   return sampled.filter((item, index, arr) => index === 0 || item.index !== arr[index - 1].index)
 }
 
+const accumulateValues = (values: number[]): number[] => {
+  let total = 0
+  return values.map((value) => {
+    total += value
+    return total
+  })
+}
+
 const makePath = (
   values: number[],
   maxValue: number,
   width: number,
   height: number,
   padding: { top: number; right: number; bottom: number; left: number },
+  interpolation: ChartInterpolation,
 ): string => {
   if (values.length === 0) {
     return ''
@@ -83,9 +94,17 @@ const makePath = (
     padding.left + (values.length <= 1 ? 0 : (index / (values.length - 1)) * plotWidth)
   const yFor = (value: number): number =>
     padding.top + (1 - clampValue(value, maxValue) / maxValue) * plotHeight
-  return sampled
-    .map(({ index, value }, sampledIndex) => `${sampledIndex === 0 ? 'M' : 'L'} ${xFor(index)} ${yFor(value)}`)
-    .join(' ')
+  return sampled.reduce((path, point, sampledIndex) => {
+    const command = `${xFor(point.index)} ${yFor(point.value)}`
+    if (sampledIndex === 0) {
+      return `M ${command}`
+    }
+    if (interpolation === 'step-after') {
+      const previous = sampled[sampledIndex - 1]
+      return `${path} L ${xFor(point.index)} ${yFor(previous.value)} L ${command}`
+    }
+    return `${path} L ${command}`
+  }, '')
 }
 
 const TraceLineChart = ({
@@ -95,6 +114,8 @@ const TraceLineChart = ({
   currentIndex,
   maxValue,
   formatValue,
+  interpolation = 'linear',
+  formatLegendValue,
 }: {
   title: string
   description: string
@@ -102,6 +123,8 @@ const TraceLineChart = ({
   currentIndex: number
   maxValue: number
   formatValue: (value: number) => string
+  interpolation?: ChartInterpolation
+  formatLegendValue?: (series: ChartSeries, currentIndex: number) => string
 }) => {
   const width = 360
   const height = 190
@@ -145,7 +168,8 @@ const TraceLineChart = ({
         {series.map((item) => (
           <path
             key={item.label}
-            d={makePath(item.values, safeMaxValue, width, height, padding)}
+            d={makePath(item.values, safeMaxValue, width, height, padding, interpolation)}
+            data-interpolation={interpolation}
             fill="none"
             stroke={item.color}
             strokeWidth="2.4"
@@ -179,7 +203,8 @@ const TraceLineChart = ({
         {series.map((item) => (
           <span key={item.label}>
             <i style={{ backgroundColor: item.color }} />
-            {item.label} {formatValue(item.values[clampedIndex] ?? 0)}
+            {item.label}{' '}
+            {formatLegendValue?.(item, clampedIndex) ?? formatValue(item.values[clampedIndex] ?? 0)}
           </span>
         ))}
       </div>
@@ -242,7 +267,7 @@ export const StatsPanel = ({ pluginId, traceStatsCache, pointer, isRunning, onGo
       })),
     [liveStats, traceStatsCache],
   )
-  const durationSeries = useMemo<ChartSeries[]>(
+  const durationIncrements = useMemo<ChartSeries[]>(
     () => [
       {
         label: 'Full Step',
@@ -257,7 +282,19 @@ export const StatsPanel = ({ pluginId, traceStatsCache, pointer, isRunning, onGo
     ],
     [traceStatsCache],
   )
+  const durationSeries = useMemo<ChartSeries[]>(
+    () =>
+      durationIncrements.map((series) => ({
+        ...series,
+        values: accumulateValues(series.values),
+      })),
+    [durationIncrements],
+  )
   const maxDurationMs = Math.max(1, ...durationSeries.flatMap((series) => series.values))
+  const formatDurationLegend = (series: ChartSeries, currentIndex: number): string => {
+    const increments = durationIncrements.find((item) => item.label === series.label)
+    return `${formatDuration(series.values[currentIndex] ?? 0)} (+${formatDuration(increments?.values[currentIndex] ?? 0)} this step)`
+  }
 
   return (
     <section className="panel-card stats" aria-label="Live Stats">
@@ -309,12 +346,14 @@ export const StatsPanel = ({ pluginId, traceStatsCache, pointer, isRunning, onGo
           formatValue={formatPercent}
         />
         <TraceLineChart
-          title="Step Duration"
-          description="Full rule-chain time and matched rule apply time"
+          title="Cumulative Solve Time"
+          description="Cumulative full rule-chain time and matched rule apply time"
           series={durationSeries}
           currentIndex={stats.pointer}
           maxValue={maxDurationMs}
           formatValue={formatDuration}
+          interpolation="step-after"
+          formatLegendValue={formatDurationLegend}
         />
       </div>
 

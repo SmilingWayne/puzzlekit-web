@@ -399,7 +399,7 @@ describe('WorkspacePage', () => {
     const liveStats = screen.getByLabelText(/live stats/i)
     expect(statsTimeline).toHaveValue('2')
     expect(within(liveStats).getByText(/inference coverage/i)).toBeInTheDocument()
-    expect(within(liveStats).getByText(/step duration/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/cumulative solve time/i)).toBeInTheDocument()
 
     fireEvent.change(statsTimeline, { target: { value: '1' } })
 
@@ -465,18 +465,26 @@ describe('WorkspacePage', () => {
 
     const liveStats = screen.getByLabelText(/live stats/i)
     const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
-    const durationChart = within(liveStats).getByLabelText(/^step duration$/i)
+    const durationChart = within(liveStats).getByLabelText(/^cumulative solve time$/i)
     expect(within(coverageChart).getByText(/edge decisions 28\.6%/i)).toBeInTheDocument()
     expect(within(coverageChart).getByText(/cell colors 50\.0%/i)).toBeInTheDocument()
-    expect(within(durationChart).getByText(/full step 8\.0 ms/i)).toBeInTheDocument()
-    expect(within(durationChart).getByText(/matched rule 3\.0 ms/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/full step 13\.0 ms \(\+8\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 5\.0 ms \(\+3\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(coverageChart.querySelectorAll('path[data-interpolation="linear"]')).toHaveLength(4)
+    expect(durationChart.querySelectorAll('path[data-interpolation="step-after"]')).toHaveLength(2)
+    expect(durationChart.querySelector('path[data-interpolation="step-after"]')?.getAttribute('d')?.match(/ L /g)).toHaveLength(4)
 
     fireEvent.change(screen.getByLabelText(/trace timeline/i), { target: { value: '1' } })
 
     expect(within(coverageChart).getByText(/edge decisions 14\.3%/i)).toBeInTheDocument()
     expect(within(coverageChart).getByText(/cell colors 0\.0%/i)).toBeInTheDocument()
-    expect(within(durationChart).getByText(/full step 5\.0 ms/i)).toBeInTheDocument()
-    expect(within(durationChart).getByText(/matched rule 2\.0 ms/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/full step 5\.0 ms \(\+5\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 2\.0 ms \(\+2\.0 ms this step\)/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/trace timeline/i), { target: { value: '0' } })
+
+    expect(within(durationChart).getByText(/full step 0\.0 ms \(\+0\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 0\.0 ms \(\+0\.0 ms this step\)/i)).toBeInTheDocument()
   })
 
   it('shows the optimized live stats summary and charts', () => {
@@ -498,7 +506,7 @@ describe('WorkspacePage', () => {
     expect(within(coverageChart).getByText(/cell colors/i)).toBeInTheDocument()
     expect(within(coverageChart).getByText(/vertex candidates/i)).toBeInTheDocument()
     expect(within(coverageChart).getByText(/sector constraints/i)).toBeInTheDocument()
-    expect(within(liveStats).getByLabelText(/^step duration$/i)).toBeInTheDocument()
+    expect(within(liveStats).getByLabelText(/^cumulative solve time$/i)).toBeInTheDocument()
   })
 
   it('shows Masyu-specific live stats coverage', () => {
