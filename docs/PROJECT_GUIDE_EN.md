@@ -117,7 +117,7 @@ Implemented:
 
 Partial or planned:
 
-- Public Masyu dataset manifests are not yet committed to `dataset/public`.
+- The public dataset includes a categorized Masyu manifest.
 - Penpa+ support is import-oriented; export completeness is not a current guarantee.
 - Puzzle-specific Live Stats wording can still be refined.
 - Difficulty modeling is draft-level.

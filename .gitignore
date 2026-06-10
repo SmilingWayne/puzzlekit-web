@@ -35,3 +35,4 @@ src/domain/diagnostics/
 *.sw?
 Puzzlink_Assistance.js
 docs/legacy/*
+.plugin/

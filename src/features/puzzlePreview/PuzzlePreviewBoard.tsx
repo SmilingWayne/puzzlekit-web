@@ -74,6 +74,25 @@ const drawPuzzlePreview = (
     }
   }
 
+  if (puzzle.puzzleType === 'masyu') {
+    for (const [key, cell] of Object.entries(puzzle.cells)) {
+      if (cell.clue?.kind !== 'pearl') {
+        continue
+      }
+      const [row, col] = parseCellKey(key)
+      const centerX = offsetX + col * cellSize + cellSize / 2
+      const centerY = offsetY + row * cellSize + cellSize / 2
+      const radius = Math.max(1.2, cellSize * 0.28)
+      ctx.beginPath()
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+      ctx.fillStyle = cell.clue.color === 'black' ? '#111827' : '#ffffff'
+      ctx.fill()
+      ctx.strokeStyle = '#111827'
+      ctx.lineWidth = Math.max(0.8, cellSize * 0.08)
+      ctx.stroke()
+    }
+  }
+
   for (const [edge, state] of Object.entries(puzzle.edges)) {
     const [v1, v2] = parseEdgeKey(edge)
     const x1 = offsetX + v1[1] * cellSize
@@ -83,7 +102,9 @@ const drawPuzzlePreview = (
 
     if (state.mark === 'line') {
       ctx.strokeStyle = '#0284c7'
-      ctx.lineWidth = isCompact ? Math.max(1.2, cellSize * 0.08) : Math.max(2, cellSize * 0.08)
+      ctx.lineWidth = isCompact
+        ? Math.max(1.2, cellSize * 0.08)
+        : Math.max(2, cellSize * 0.08)
       ctx.beginPath()
       ctx.moveTo(x1, y1)
       ctx.lineTo(x2, y2)
@@ -91,9 +112,13 @@ const drawPuzzlePreview = (
     } else if (state.mark === 'blank') {
       const midX = (x1 + x2) / 2
       const midY = (y1 + y2) / 2
-      const crossSize = isCompact ? Math.max(1.8, cellSize * 0.16) : Math.max(3, cellSize * 0.18)
+      const crossSize = isCompact
+        ? Math.max(1.8, cellSize * 0.16)
+        : Math.max(3, cellSize * 0.18)
       ctx.strokeStyle = '#94a3b8'
-      ctx.lineWidth = isCompact ? Math.max(1, cellSize * 0.05) : Math.max(1.5, cellSize * 0.05)
+      ctx.lineWidth = isCompact
+        ? Math.max(1, cellSize * 0.05)
+        : Math.max(1.5, cellSize * 0.05)
       ctx.beginPath()
       ctx.moveTo(midX - crossSize, midY - crossSize)
       ctx.lineTo(midX + crossSize, midY + crossSize)
@@ -103,7 +128,8 @@ const drawPuzzlePreview = (
     }
   }
 
-  const shouldDrawVertices = !isCompact || cellSize >= 7
+  const shouldDrawVertices =
+    puzzle.puzzleType !== 'masyu' && (!isCompact || cellSize >= 7)
   if (shouldDrawVertices) {
     ctx.fillStyle = isCompact ? '#475569' : '#111827'
     const vertexRadius = isCompact
@@ -112,7 +138,13 @@ const drawPuzzlePreview = (
     for (let row = 0; row <= puzzle.rows; row += 1) {
       for (let col = 0; col <= puzzle.cols; col += 1) {
         ctx.beginPath()
-        ctx.arc(offsetX + col * cellSize, offsetY + row * cellSize, vertexRadius, 0, Math.PI * 2)
+        ctx.arc(
+          offsetX + col * cellSize,
+          offsetY + row * cellSize,
+          vertexRadius,
+          0,
+          Math.PI * 2,
+        )
         ctx.fill()
       }
     }

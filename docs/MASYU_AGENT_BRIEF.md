@@ -13,7 +13,7 @@ Masyu is a first-class puzzle family with:
 - Deterministic rules plus bounded strong-inference rules with branch replay and contradiction focus.
 - Tile-color topology support for inside/outside reasoning.
 
-Public Masyu dataset manifests are not yet committed to `dataset/public`; use private manifests for local experiments until curated public examples are added.
+A categorized Masyu manifest is committed to `dataset/public`; use private manifests for additional local experiments.
 
 ## Canonical Model
 
