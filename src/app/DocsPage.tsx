@@ -23,11 +23,15 @@ const RuleDocsRoute = () => {
 
 export const DocsPage = () => (
   <main className="workspace docs-workspace">
-    <WorkspaceHeader
-      title="PuzzleKit Docs"
-      description="Learn the puzzle rules and inspect every solver technique."
-      activePage="docs"
-    />
+    <section className="workspace-grid docs-header-grid">
+      <div className="left-column">
+        <WorkspaceHeader
+          title="PuzzleKit Docs"
+          description="Learn the puzzle rules and inspect every solver technique."
+          activePage="docs"
+        />
+      </div>
+    </section>
     <Routes>
       <Route index element={<DocsIndex />} />
       <Route path=":puzzleId" element={<PuzzleDocsRoute />} />

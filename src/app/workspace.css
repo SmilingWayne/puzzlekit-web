@@ -67,7 +67,12 @@
 
 .docs-workspace {
   display: grid;
+  align-content: start;
   gap: 16px;
+}
+
+.docs-header-grid {
+  width: 100%;
 }
 
 .docs-index {

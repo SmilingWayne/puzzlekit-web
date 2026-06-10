@@ -46,3 +46,29 @@ test('falls back and reports an invalid deep link', async ({ page }) => {
   )
   await expect(page).toHaveURL(/p=slither\/10\/10\/dsew%3F/)
 })
+
+test('keeps the docs header aligned and compact across docs routes', async ({ page }) => {
+  await page.goto('/puzzlekit-web/')
+  const solverHeader = page.locator('.workspace-title')
+  const solverHeaderWidth = await solverHeader.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  )
+
+  await page.goto('/puzzlekit-web/docs')
+  const docsHeader = page.locator('.workspace-title')
+  const docsIndexHeaderSize = await docsHeader.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return { height: rect.height, width: rect.width }
+  })
+
+  expect(docsIndexHeaderSize.width).toBeCloseTo(solverHeaderWidth, 0)
+
+  await page.goto(
+    '/puzzlekit-web/docs/slitherlink/rules/diagonal-adjacent-three-outer-corners',
+  )
+  const ruleHeaderHeight = await page
+    .locator('.workspace-title')
+    .evaluate((element) => element.getBoundingClientRect().height)
+
+  expect(ruleHeaderHeight).toBeCloseTo(docsIndexHeaderSize.height, 0)
+})
