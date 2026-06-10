@@ -956,18 +956,32 @@ describe('WorkspacePage', () => {
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(within(dialog).getByText(/vertex-degree contradiction at V\(5, 3\)/i)).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '10')
-    expect(within(dialog).getByLabelText(/slitherlink branch inspector canvas/i)).toBeInTheDocument()
+    const inspectorCanvas = within(dialog).getByLabelText(/slitherlink branch inspector canvas/i)
+    expect(inspectorCanvas).toBeInTheDocument()
+    const inspectorZoom = within(dialog).getByLabelText('Branch inspector board zoom', { exact: true })
+    expect(inspectorZoom).toHaveValue('100')
+    expect(inspectorZoom).toHaveAttribute('min', '20')
+    expect(inspectorZoom).toHaveAttribute('max', '200')
+    expect(inspectorZoom).toHaveAttribute('step', '5')
+    expect(inspectorCanvas).toHaveStyle({ width: '616px', height: '616px' })
     const stageDetails = within(dialog).getByLabelText('Current branch replay step', { exact: true })
     expect(within(stageDetails).getByText('Base puzzle', { exact: true })).toBeInTheDocument()
     const inspectorFooter = dialog.querySelector('.branch-inspector-controls')
     expect(inspectorFooter).not.toBeNull()
     expect(inspectorFooter).not.toHaveTextContent(/base puzzle before the inference/i)
 
+    fireEvent.change(inspectorZoom, { target: { value: '20' } })
+    expect(inspectorZoom).toHaveValue('20')
+    expect(within(dialog).getByText('20%', { exact: true })).toBeInTheDocument()
+    expect(inspectorCanvas).toHaveStyle({ width: '123px', height: '123px' })
+
     fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
     expect(within(stageDetails).getByText(/apply the branch assumption/i)).toBeInTheDocument()
+    expect(inspectorZoom).toHaveValue('20')
 
     fireEvent.click(within(dialog).getByRole('tab', { name: /branch b unresolved/i }))
     expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '3')
+    expect(inspectorZoom).toHaveValue('20')
 
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: /branch inspector/i })).not.toBeInTheDocument()
@@ -1058,17 +1072,27 @@ describe('WorkspacePage', () => {
     fireEvent.click(within(reasoningPanel).getByRole('button', { name: /view details/i }))
 
     const dialog = screen.getByRole('dialog', { name: /branch inspector/i })
-    expect(within(dialog).getByLabelText(/masyu branch inspector canvas/i)).toBeInTheDocument()
+    const inspectorCanvas = within(dialog).getByLabelText(/masyu branch inspector canvas/i)
+    expect(inspectorCanvas).toBeInTheDocument()
+    const inspectorZoom = within(dialog).getByLabelText('Branch inspector board zoom', { exact: true })
+    expect(inspectorZoom).toHaveValue('100')
     expect(within(dialog).getByText(/cell-degree contradiction at C\(2, 2\)/i)).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '2')
+
+    fireEvent.change(inspectorZoom, { target: { value: '200' } })
+    expect(inspectorZoom).toHaveValue('200')
+    expect(within(dialog).getByText('200%', { exact: true })).toBeInTheDocument()
+    expect(inspectorCanvas).toHaveStyle({ width: '504px', height: '504px' })
 
     fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
     fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
     expect(within(dialog).getByText('Test Downstream', { exact: true })).toBeInTheDocument()
+    expect(inspectorZoom).toHaveValue('200')
 
     fireEvent.click(within(dialog).getByRole('tab', { name: /forced conclusion forced/i }))
     expect(within(dialog).getByText(/forced because the trial assumption contradicts/i)).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '1')
+    expect(inspectorZoom).toHaveValue('200')
   })
 
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {

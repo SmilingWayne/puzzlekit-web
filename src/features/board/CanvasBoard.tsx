@@ -555,7 +555,26 @@ export const CanvasBoard = ({
   )
 
   if (variant === 'surface') {
-    return canvasSurface
+    return (
+      <div className="surface-board">
+        <div className="surface-board-tools">
+          <label className="board-zoom-control">
+            <span>Board zoom</span>
+            <input
+              aria-label="Branch inspector board zoom"
+              type="range"
+              min={MIN_ZOOM}
+              max={MAX_ZOOM}
+              step={ZOOM_STEP}
+              value={zoomPercent}
+              onChange={(event) => setZoomPercent(Number(event.target.value))}
+            />
+            <output>{zoomPercent}%</output>
+          </label>
+        </div>
+        {canvasSurface}
+      </div>
+    )
   }
 
   return (

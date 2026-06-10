@@ -1266,6 +1266,12 @@ button[data-active='true'] {
   background: #ffffff;
 }
 
+.surface-board-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 .branch-inspector-status {
   display: flex;
   justify-content: space-between;
@@ -1390,6 +1396,14 @@ button[data-active='true'] {
   .branch-inspector-navigation {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .surface-board-tools {
+    justify-content: stretch;
+  }
+
+  .surface-board-tools .board-zoom-control {
+    width: 100%;
   }
 }
 
