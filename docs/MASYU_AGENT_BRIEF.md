@@ -40,7 +40,8 @@ Implemented rule areas include:
 - Candidate bridge reasoning and pearl candidate pruning.
 - Adjacent white pearl lookahead.
 - Tile color propagation, color-line implications, color-pearl implications, and connectivity cut coloring.
-- Bounded strong inference for black pearls, white pearls, and empty cells.
+- Bounded strong inference for black pearls, confirmed-line component endpoints,
+  and white pearls.
 
 Default expectation: deterministic rules run first, then bounded strong-inference rules reuse the deterministic rule list for local propagation.
 

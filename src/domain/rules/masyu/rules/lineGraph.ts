@@ -24,6 +24,10 @@ export type MasyuKnownLineComponent = {
   vertices: Set<number>
 }
 
+export type MasyuOpenLineComponent = MasyuKnownLineComponent & {
+  endpointKeys: [string, string]
+}
+
 const getOverlayLineMark = (
   puzzle: PuzzleIR,
   overlay: MasyuLineOverlay,
@@ -124,6 +128,49 @@ export const getMasyuKnownLineComponents = (
   }
 
   return [...components.values()]
+}
+
+export const getMasyuOpenLineComponents = (
+  puzzle: PuzzleIR,
+  overlay: MasyuLineOverlay = new Map(),
+): MasyuOpenLineComponent[] => {
+  const degree = new Map<number, number>()
+  const { toCellIndex } = buildMasyuLineUnion(puzzle, overlay)
+
+  for (const lineKeyValue of Object.keys(puzzle.lines)) {
+    if (getOverlayLineMark(puzzle, overlay, lineKeyValue) !== 'line') {
+      continue
+    }
+    const [left, right] = parseLineKey(lineKeyValue)
+    const leftIndex = toCellIndex(left[0], left[1])
+    const rightIndex = toCellIndex(right[0], right[1])
+    degree.set(leftIndex, (degree.get(leftIndex) ?? 0) + 1)
+    degree.set(rightIndex, (degree.get(rightIndex) ?? 0) + 1)
+  }
+
+  return getMasyuKnownLineComponents(puzzle, overlay).flatMap((component) => {
+    if (component.edgeCount !== component.vertices.size - 1) {
+      return []
+    }
+    const endpoints = [...component.vertices].filter(
+      (vertex) => degree.get(vertex) === 1,
+    )
+    if (
+      endpoints.length !== 2 ||
+      [...component.vertices].some((vertex) => {
+        const vertexDegree = degree.get(vertex) ?? 0
+        return vertexDegree !== 1 && vertexDegree !== 2
+      })
+    ) {
+      return []
+    }
+    const endpointKeys = endpoints
+      .sort((left, right) => left - right)
+      .map((vertex) =>
+        cellKey(Math.floor(vertex / puzzle.cols), vertex % puzzle.cols),
+      ) as [string, string]
+    return [{ ...component, endpointKeys }]
+  })
 }
 
 export const findMasyuPrematureLoopClosingLines = (

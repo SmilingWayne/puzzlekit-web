@@ -13,7 +13,7 @@ import {
 } from './rules/color'
 import { createMasyuTileConnectivityCutColoringRule } from './rules/connectivity'
 import { createCellExitCompletionRule } from './rules/completion'
-import { createEmptyCellStrongInferenceRule } from './rules/emptyCellStrongInference'
+import { createLineComponentEndpointStrongInferenceRule } from './rules/lineComponentEndpointStrongInference'
 import {
   createMasyuEmptyCellPrematureLoopRule,
   createPreventPrematureLoopRule,
@@ -52,6 +52,6 @@ export const deterministicMasyuRules: Rule[] = [
 export const masyuRules: Rule[] = [
   ...deterministicMasyuRules,
   createBlackPearlStrongInferenceRule(() => deterministicMasyuRules),
+  createLineComponentEndpointStrongInferenceRule(() => deterministicMasyuRules),
   createWhitePearlStrongInferenceRule(() => deterministicMasyuRules),
-  createEmptyCellStrongInferenceRule(() => deterministicMasyuRules),
 ]

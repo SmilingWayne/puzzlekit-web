@@ -24,8 +24,8 @@ describe('Masyu rule registration', () => {
       'Adjacent White Pearls LookAhead',
       'Cell Exit Completion',
       'Black Pearl Strong Inference',
+      'Masyu Line Component Endpoint Strong Inference',
       'White Pearl Strong Inference',
-      'Empty Cell Strong Inference',
     ])
   })
 
@@ -75,5 +75,13 @@ describe('Masyu rule registration', () => {
     expect(rules.indexOf('masyu-adjacent-white-pearls-lookahead')).toBeLessThan(
       rules.indexOf('cell-exit-completion'),
     )
+  })
+
+  it('registers bounded strong inference in black-endpoint-white order', () => {
+    expect(masyuPlugin.getRules().slice(-3).map((rule) => rule.id)).toEqual([
+      'masyu-black-pearl-strong-inference',
+      'masyu-line-component-endpoint-strong-inference',
+      'masyu-white-pearl-strong-inference',
+    ])
   })
 })

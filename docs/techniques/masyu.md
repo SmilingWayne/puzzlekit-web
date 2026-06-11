@@ -383,6 +383,22 @@ crossed out in the real puzzle.
 
 This rule determines crossed-out line segments.
 
+### Line Component Endpoint Strong Inference
+
+For each open component of confirmed lines, the solver examines its two
+degree-1 endpoints. Endpoints with fewer remaining directions are tested first,
+followed by endpoints belonging to longer components.
+
+For one candidate direction, the solver assumes that the component continues in
+that direction and that the endpoint's other unknown exits are crossed out. If
+deterministic propagation reaches a contradiction, that candidate direction is
+crossed out in the real puzzle. Pearl cells may be component endpoints, but the
+dedicated black-pearl strong-inference rule runs first.
+
+Because component endpoints are already high-value candidates, this rule uses a
+tighter default candidate and elapsed-time cap than the broader strong-inference
+rules.
+
 ### White Pearl Strong Inference
 
 For a white pearl with exactly two feasible straight-axis candidates, the solver
@@ -393,16 +409,3 @@ forced in the real puzzle.
 
 This rule determines the confirmed lines and crossed-out lines belonging to the
 forced white-pearl axis.
-
-### Empty Cell Strong Inference
-
-For a non-pearl cell, the solver can test bounded degree choices when the local
-state has either one known line with exactly two unknown exits, or no known lines
-with exactly two unknown exits.
-
-In the degree-1 case, it assumes each possible continuation in turn. If one
-continuation reaches a contradiction, the other continuation is forced.
-
-In the degree-0 case, it tests the two local modes: both exits are used, or both
-exits are crossed out. If one mode reaches a contradiction, the other mode is
-forced in the real puzzle.

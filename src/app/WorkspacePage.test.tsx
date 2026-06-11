@@ -1000,8 +1000,8 @@ describe('WorkspacePage', () => {
     const steps: RuleStep[] = [
       {
         id: 'step-1',
-        ruleId: 'masyu-empty-cell-strong-inference',
-        ruleName: 'Empty Cell Strong Inference',
+        ruleId: 'masyu-line-component-endpoint-strong-inference',
+        ruleName: 'Masyu Line Component Endpoint Strong Inference',
         message: 'The assumption contradicts the puzzle, so the alternative is forced.',
         diffs: [{ kind: 'line', lineKey: forced, from: 'unknown', to: 'line' }],
         affectedCells: [cellKey(1, 1)],

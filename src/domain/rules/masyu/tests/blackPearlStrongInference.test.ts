@@ -162,7 +162,9 @@ describe('Masyu black pearl strong inference', () => {
       rules.slice(0, deterministicMasyuRules.length).map((rule) => rule.id),
     ).toEqual(deterministicMasyuRules.map((rule) => rule.id))
     expect(rules.at(-3)?.id).toBe('masyu-black-pearl-strong-inference')
-    expect(rules.at(-2)?.id).toBe('masyu-white-pearl-strong-inference')
-    expect(rules.at(-1)?.id).toBe('masyu-empty-cell-strong-inference')
+    expect(rules.at(-2)?.id).toBe(
+      'masyu-line-component-endpoint-strong-inference',
+    )
+    expect(rules.at(-1)?.id).toBe('masyu-white-pearl-strong-inference')
   })
 })
