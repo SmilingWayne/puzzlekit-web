@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellKey, edgeKey, vertexKey } from '../ir/keys'
+import { cellKey, edgeKey, sectorKey, tileKey, vertexKey } from '../ir/keys'
 import { createMasyuPuzzle } from '../ir/masyu'
 import { createSlitherPuzzle } from '../ir/slither'
 import type { RuleStep } from '../rules/types'
@@ -113,10 +113,10 @@ describe('buildTraceChartStats', () => {
 
     expect(stats.points).toHaveLength(1)
     expect(stats.current.step).toBe(0)
-    expect(stats.current.boardProgressRatio).toBe(0)
-    expect(stats.totalEdges).toBe(4)
-    expect(stats.totalCells).toBe(1)
-    expect(stats.totalVertices).toBe(4)
+    expect(stats.current.coverageRatios.edge).toBe(0)
+    expect(stats.coverageTotals).toMatchObject({ edge: 4, cell: 1, vertex: 4, sector: 4 })
+    expect(stats.current.stepDurationMs).toBe(0)
+    expect(stats.current.ruleApplyMs).toBe(0)
   })
 
   it('tracks edge board progress and edge coverage as edge diffs are applied', () => {
@@ -134,10 +134,9 @@ describe('buildTraceChartStats', () => {
 
     const stats = buildTraceChartStats(puzzle, steps, 2)
 
-    expect(stats.points.map((point) => point.edgeCoverageRatio)).toEqual([
+    expect(stats.points.map((point) => point.coverageRatios.edge)).toEqual([
       0, 0.25, 0.5,
     ])
-    expect(stats.current.boardProgressRatio).toBe(0.5)
   })
 
   it('tracks Masyu line decisions as board progress', () => {
@@ -151,9 +150,9 @@ describe('buildTraceChartStats', () => {
 
     const stats = buildTraceChartStats(puzzle, steps, 1)
 
-    expect(stats.totalEdges).toBe(1)
-    expect(stats.current.boardProgressRatio).toBe(1)
-    expect(stats.current.edgeCoverageRatio).toBe(1)
+    expect(stats.coverageTotals.line).toBe(1)
+    expect(stats.current.coverageRatios.line).toBe(1)
+    expect(stats.current.coverageRatios.edge).toBe(0)
   })
 
   it('tracks cell coverage from filled cells', () => {
@@ -171,7 +170,7 @@ describe('buildTraceChartStats', () => {
 
     const stats = buildTraceChartStats(puzzle, steps, 1)
 
-    expect(stats.current.cellCoverageRatio).toBe(0.25)
+    expect(stats.current.coverageRatios.cell).toBe(0.25)
   })
 
   it('tracks vertex coverage from narrowed vertex candidates', () => {
@@ -191,7 +190,46 @@ describe('buildTraceChartStats', () => {
 
     const stats = buildTraceChartStats(puzzle, steps, 1)
 
-    expect(stats.current.vertexCoverageRatio).toBe(0.25)
+    expect(stats.current.coverageRatios.vertex).toBe(0.25)
+  })
+
+  it('tracks tile colors and narrowed sector constraints', () => {
+    const masyu = createMasyuPuzzle(1, 1)
+    const tile = tileKey(0, 0)
+    const masyuStats = buildTraceChartStats(
+      masyu,
+      [makeStep(1, 'tile-rule', 'Tile Rule', 2, [
+        { kind: 'tile', tileKey: tile, fromFill: null, toFill: 'green' },
+      ])],
+      1,
+    )
+
+    const slither = createSlitherPuzzle(1, 1)
+    const sector = sectorKey(0, 0, 'nw')
+    const slitherStats = buildTraceChartStats(
+      slither,
+      [makeStep(1, 'sector-rule', 'Sector Rule', 3, [
+        { kind: 'sector', sectorKey: sector, fromMask: 7, toMask: 2 },
+      ])],
+      1,
+    )
+
+    expect(masyuStats.current.coverageRatios.tile).toBe(1 / 4)
+    expect(slitherStats.current.coverageRatios.sector).toBe(1 / 4)
+  })
+
+  it('stores full-step and matched-rule duration at each chart point', () => {
+    const puzzle = createSlitherPuzzle(1, 1)
+    const step = {
+      ...makeStep(1, 'late-rule', 'Late Rule', 50, []),
+      chainDurationMs: 50,
+      ruleApplyMs: 7,
+    }
+
+    const stats = buildTraceChartStats(puzzle, [step], 1)
+
+    expect(stats.points.map((point) => point.stepDurationMs)).toEqual([0, 50])
+    expect(stats.points.map((point) => point.ruleApplyMs)).toEqual([0, 7])
   })
 
   it('clamps pointer when selecting the current chart point', () => {
@@ -216,8 +254,8 @@ describe('incremental trace stats cache', () => {
 
     expect(cache.points).toHaveLength(1)
     expect(view.current.step).toBe(0)
-    expect(view.current.boardProgressRatio).toBe(0)
-    expect(view.totalEdges).toBe(4)
+    expect(view.current.coverageRatios.edge).toBe(0)
+    expect(view.coverageTotals.edge).toBe(4)
   })
 
   it('increments edge, cell, and vertex coverage from appended diffs', () => {
@@ -248,9 +286,9 @@ describe('incremental trace stats cache', () => {
     const cache = appendTraceStatsStep(createTraceStatsCache(puzzle), step)
     const view = buildTraceStatsView(cache, 1)
 
-    expect(view.current.edgeCoverageRatio).toBe(1 / 12)
-    expect(view.current.cellCoverageRatio).toBe(0.25)
-    expect(view.current.vertexCoverageRatio).toBe(1 / 9)
+    expect(view.current.coverageRatios.edge).toBe(1 / 12)
+    expect(view.current.coverageRatios.cell).toBe(0.25)
+    expect(view.current.coverageRatios.vertex).toBe(1 / 9)
     expect(view.totalDurationMs).toBe(4)
     expect(view.diffCounts).toMatchObject({ edge: 1, cell: 1, vertex: 1 })
   })
@@ -270,7 +308,7 @@ describe('incremental trace stats cache', () => {
 
     const cache = appendTraceStatsStep(createTraceStatsCache(puzzle), step)
 
-    expect(buildTraceStatsView(cache, 1).current.vertexCoverageRatio).toBe(0)
+    expect(buildTraceStatsView(cache, 1).current.coverageRatios.vertex).toBe(0)
   })
 
   it('truncates a future branch and rebuilds prefix totals', () => {
@@ -299,7 +337,7 @@ describe('incremental trace stats cache', () => {
     expect(truncated.points).toHaveLength(2)
     expect(view.totalDurationMs).toBe(2)
     expect(view.rules.map((rule) => rule.ruleId)).toEqual(['rule-a'])
-    expect(view.current.edgeCoverageRatio).toBe(0.25)
+    expect(view.current.coverageRatios.edge).toBe(0.25)
   })
 
   it('keeps full generated rule rows visible while building an earlier pointer view', () => {

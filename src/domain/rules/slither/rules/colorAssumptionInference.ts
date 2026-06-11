@@ -1,6 +1,6 @@
 import { clonePuzzle } from '../../../ir/normalize'
 import { cellKey, getCellEdgeKeys, sectorKey } from '../../../ir/keys'
-import type { Rule, RuleApplication } from '../../types'
+import type { InferenceDetails, Rule, RuleApplication } from '../../types'
 import {
   SECTOR_MASK_ALL,
   SECTOR_MASK_ONLY_1,
@@ -16,7 +16,7 @@ import {
   oppositeSlitherCellColor,
   type SlitherCellColor,
 } from './shared'
-import { runTrialUntilFixpoint, type TrialResult } from './trial'
+import { buildSlitherInferenceBranch, runTrialUntilFixpoint, type TrialResult } from './trial'
 
 const COLOR_ASSUMPTION_MAX_CANDIDATES = 200
 const COLOR_ASSUMPTION_MAX_TRIAL_STEPS = 50
@@ -230,6 +230,33 @@ const immediateContradictionResult = (puzzle: PuzzleIR): TrialResult => ({
     kind: 'color-edge',
     message: 'setup contradiction: the assumed color is already incompatible with the current cell state',
   },
+  traceSteps: [],
+})
+
+const buildInferenceDetails = (
+  puzzle: PuzzleIR,
+  candidate: ColorAssumptionCandidate,
+  greenResult: TrialResult,
+  yellowResult: TrialResult,
+): InferenceDetails => ({
+  kind: 'slither-color-assumption',
+  conclusion: 'opposite-branch',
+  basePuzzle: clonePuzzle(puzzle),
+  defaultBranchId: greenResult.contradiction ? 'green' : 'yellow',
+  branches: [
+    buildSlitherInferenceBranch(
+      'green',
+      'Green assumption',
+      getCellAssumptionDiff(puzzle, candidate, 'green'),
+      greenResult,
+    ),
+    buildSlitherInferenceBranch(
+      'yellow',
+      'Yellow assumption',
+      getCellAssumptionDiff(puzzle, candidate, 'yellow'),
+      yellowResult,
+    ),
+  ],
 })
 
 const formatElapsedMs = (elapsedMs: number): string => `${Math.max(0, Math.round(elapsedMs))} ms`
@@ -315,6 +342,7 @@ export const createColorAssumptionInferenceRule = (
           message: `Assume ${describeCandidate(candidate)} is ${failingColor}; after ${formatTrialStepCount(failingResult.stepsRun)} / ${formatElapsedMs(failingResult.elapsedMs)}, deterministic propagation reaches ${describeContradiction(failingResult)}, so ${describeCandidate(candidate)} must be ${inferredColor}. Searched ${componentsSearched} candidate ${componentsSearched === 1 ? 'component' : 'components'} from ${rawCandidateCount} candidate ${rawCandidateCount === 1 ? 'cell' : 'cells'} at probe budget ${budget}; compressed to ${componentCount} ${componentCount === 1 ? 'component' : 'components'}; ${describeProbeBranch('green', greenResult)}; ${describeProbeBranch('yellow', yellowResult)}.`,
           diffs,
           affectedCells: [candidate.cellKey],
+          inferenceDetails: buildInferenceDetails(puzzle, candidate, greenResult, yellowResult),
         }
       }
     }

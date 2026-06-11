@@ -1,7 +1,7 @@
 import { cellKey, parseLineKey } from '../../../ir/keys'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
 import { runNextRule } from '../../engine'
-import type { Rule } from '../../types'
+import type { InferenceContradiction, Rule, TrialTraceStep } from '../../types'
 import { getMasyuKnownLineComponents } from './lineGraph'
 import { buildMasyuTileParityGraph } from './tileParity'
 import {
@@ -17,7 +17,7 @@ import {
   type MasyuDirection,
 } from './shared'
 
-export type MasyuTrialContradictionReason = {
+export type MasyuTrialContradictionReason = InferenceContradiction & {
   kind:
     | 'cell-degree'
     | 'pearl-shape'
@@ -35,6 +35,7 @@ export type MasyuTrialResult = {
   stepsRun: number
   elapsedMs: number
   contradictionReason?: MasyuTrialContradictionReason
+  traceSteps: TrialTraceStep[]
 }
 
 export const applyMasyuLineAssumption = (
@@ -90,6 +91,7 @@ const detectCellDegreeContradiction = (
         return {
           kind: 'cell-degree',
           message: `cell-degree contradiction at ${formatMasyuCellKeyLabel(key)}: ${lineCount} line segments meet there`,
+          cells: [key],
         }
       }
       const addableUnknownCount =
@@ -105,6 +107,7 @@ const detectCellDegreeContradiction = (
         return {
           kind: 'cell-degree',
           message: `cell-degree contradiction at ${formatMasyuCellKeyLabel(key)}: a closed cell has only one line segment`,
+          cells: [key],
         }
       }
     }
@@ -255,6 +258,7 @@ const detectPearlContradiction = (
         return {
           kind: 'pearl-shape',
           message: `pearl-shape contradiction at ${formatMasyuCellKeyLabel(key)}: a black pearl must turn and continue straight after both exits`,
+          cells: [key],
         }
       }
       if (
@@ -264,6 +268,7 @@ const detectPearlContradiction = (
         return {
           kind: 'pearl-shape',
           message: `pearl-shape contradiction at ${formatMasyuCellKeyLabel(key)}: a white pearl must go straight through`,
+          cells: [key],
         }
       }
     }
@@ -276,6 +281,7 @@ const detectPearlContradiction = (
       return {
         kind: 'pearl-shape',
         message: `pearl-shape contradiction at ${formatMasyuCellKeyLabel(key)}: no ${cell.clue.color} pearl continuation remains possible`,
+        cells: [key],
       }
     }
   }
@@ -309,6 +315,7 @@ const detectLineLoopContradiction = (
 
   let closedLoopCount = 0
   let closedLoopLines = 0
+  const contradictionLines: string[] = []
   for (const component of getMasyuKnownLineComponents(puzzle)) {
     const { edgeCount, vertices } = component
     if (edgeCount !== vertices.size) {
@@ -326,6 +333,17 @@ const detectLineLoopContradiction = (
     }
     closedLoopCount += 1
     closedLoopLines += edgeCount
+    for (const [lineKeyValue, line] of Object.entries(puzzle.lines)) {
+      if ((line?.mark ?? 'unknown') !== 'line') {
+        continue
+      }
+      const [left, right] = parseLineKey(lineKeyValue)
+      const leftIdx = toCellIndex(left[0], left[1])
+      const rightIdx = toCellIndex(right[0], right[1])
+      if (vertices.has(leftIdx) && vertices.has(rightIdx)) {
+        contradictionLines.push(lineKeyValue)
+      }
+    }
   }
 
   if (
@@ -338,6 +356,7 @@ const detectLineLoopContradiction = (
         closedLoopCount > 1
           ? `line-loop contradiction: ${closedLoopCount} separate closed Masyu loops are present`
           : `line-loop contradiction: a closed Masyu loop of ${closedLoopLines} segments exists while other line segments remain outside it`,
+      lines: contradictionLines,
     }
   }
   return null
@@ -356,6 +375,9 @@ const detectTileColorContradiction = (
       conflict.kind === 'relation'
         ? `tile-color contradiction at ${formatMasyuLineLabel(conflict.source)}: ${conflict.message}`
         : `tile-color contradiction at ${conflict.source}: ${conflict.message}`,
+    ...(conflict.kind === 'relation'
+      ? { lines: [conflict.source] }
+      : { tiles: [conflict.source] }),
   }
 }
 
@@ -384,10 +406,12 @@ export const runMasyuTrialUntilFixpoint = (
       stepsRun: 0,
       elapsedMs: Math.max(0, performance.now() - startedAt),
       contradictionReason: initialContradictionReason,
+      traceSteps: [],
     }
   }
 
   let trial = puzzle
+  const traceSteps: TrialTraceStep[] = []
   for (let stepNumber = 1; stepNumber <= maxTrialSteps; stepNumber += 1) {
     if (Date.now() > deadlineMs) {
       return {
@@ -397,6 +421,7 @@ export const runMasyuTrialUntilFixpoint = (
         puzzle: trial,
         stepsRun: stepNumber - 1,
         elapsedMs: Math.max(0, performance.now() - startedAt),
+        traceSteps,
       }
     }
     const { nextPuzzle, step } = runNextRule(
@@ -414,9 +439,21 @@ export const runMasyuTrialUntilFixpoint = (
         stepsRun: stepNumber - 1,
         elapsedMs: Math.max(0, performance.now() - startedAt),
         contradictionReason: contradictionReason ?? undefined,
+        traceSteps,
       }
     }
     trial = nextPuzzle
+    traceSteps.push({
+      ruleId: step.ruleId,
+      ruleName: step.ruleName,
+      message: step.message,
+      diffs: step.diffs,
+      affectedCells: step.affectedCells,
+      affectedEdges: step.affectedEdges,
+      affectedLines: step.affectedLines,
+      affectedTiles: step.affectedTiles,
+      affectedSectors: step.affectedSectors,
+    })
     const contradictionReason = findMasyuHardContradictionReason(trial)
     if (contradictionReason) {
       return {
@@ -427,6 +464,7 @@ export const runMasyuTrialUntilFixpoint = (
         stepsRun: stepNumber,
         elapsedMs: Math.max(0, performance.now() - startedAt),
         contradictionReason,
+        traceSteps,
       }
     }
   }
@@ -438,5 +476,6 @@ export const runMasyuTrialUntilFixpoint = (
     puzzle: trial,
     stepsRun: maxTrialSteps,
     elapsedMs: Math.max(0, performance.now() - startedAt),
+    traceSteps,
   }
 }

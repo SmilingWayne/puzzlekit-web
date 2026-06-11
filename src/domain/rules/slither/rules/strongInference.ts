@@ -1,12 +1,12 @@
 import { clonePuzzle } from '../../../ir/normalize'
 import { cellKey, getCornerEdgeKeys, getVertexIncidentEdges, parseSectorKey } from '../../../ir/keys'
-import type { Rule, RuleApplication } from '../../types'
+import type { InferenceDetails, Rule, RuleApplication } from '../../types'
 import {
   SECTOR_MASK_ALL,
   sectorMaskSingleValue,
   type PuzzleIR,
 } from '../../../ir/types'
-import { applyEdgeAssumption, runTrialUntilFixpoint, type TrialResult } from './trial'
+import { applyEdgeAssumption, buildSlitherInferenceBranch, runTrialUntilFixpoint, type TrialResult } from './trial'
 import { formatEdgeLabel, formatSectorKeyLabel, formatVertexLabel } from './shared'
 
 // const STRONG_MAX_CANDIDATES = 1000
@@ -141,7 +141,34 @@ const immediateContradictionResult = (puzzle: PuzzleIR): TrialResult => ({
     kind: 'sector-mask',
     message: 'setup contradiction: this branch is already incompatible with the current edge state',
   },
+  traceSteps: [],
 })
+
+const buildInferenceDetails = (
+  puzzle: PuzzleIR,
+  conclusion: InferenceDetails['conclusion'],
+  branchAInfo: StrongCandidateBranch,
+  branchAResult: TrialResult,
+  branchBInfo: StrongCandidateBranch,
+  branchBResult: TrialResult,
+): InferenceDetails => {
+  const defaultBranchId =
+    branchAResult.contradiction !== branchBResult.contradiction
+      ? branchAResult.contradiction
+        ? 'a'
+        : 'b'
+      : 'a'
+  return {
+    kind: 'slither-strong',
+    conclusion,
+    basePuzzle: clonePuzzle(puzzle),
+    defaultBranchId,
+    branches: [
+      buildSlitherInferenceBranch('a', 'Branch A', branchAInfo.diffs, branchAResult),
+      buildSlitherInferenceBranch('b', 'Branch B', branchBInfo.diffs, branchBResult),
+    ],
+  }
+}
 
 const deriveProbeBudgets = (maxTrialSteps: number): number[] => {
   const cappedMax = Math.max(1, maxTrialSteps)
@@ -315,6 +342,14 @@ export const createStrongInferenceRule = (
             diffs,
             affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
             affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
+            inferenceDetails: buildInferenceDetails(
+              puzzle,
+              'opposite-branch',
+              branchAInfo,
+              branchAResult,
+              branchBInfo,
+              branchBResult,
+            ),
           }
         }
         if (branchAResult.contradiction && branchBResult.contradiction) {
@@ -331,6 +366,14 @@ export const createStrongInferenceRule = (
           diffs,
           affectedCells: candidate.kind === 'sector-only-one' ? [cellKey(candidate.row, candidate.col)] : [],
           affectedSectors: candidate.kind === 'sector-only-one' ? [candidate.sectorKey] : [],
+          inferenceDetails: buildInferenceDetails(
+            puzzle,
+            'shared-consequence',
+            branchAInfo,
+            branchAResult,
+            branchBInfo,
+            branchBResult,
+          ),
         }
       }
     }

@@ -1,4 +1,6 @@
 import type { PuzzleIR, VertexCandidate } from '../ir/types'
+import { SECTOR_MASK_ALL } from '../ir/types'
+import type { LiveStatsCoverageSource } from '../plugins/types'
 import type { RuleDiff, RuleStep } from '../rules/types'
 
 export type RuleTraceDiffCounts = Record<RuleDiff['kind'], number>
@@ -28,18 +30,15 @@ export type RuleTraceStats = {
 
 export type TraceChartPoint = {
   step: number
-  boardProgressRatio: number
-  edgeCoverageRatio: number
-  cellCoverageRatio: number
-  vertexCoverageRatio: number
+  coverageRatios: Record<LiveStatsCoverageSource, number>
+  stepDurationMs: number
+  ruleApplyMs: number
 }
 
 export type TraceChartStats = {
   pointer: number
   totalSteps: number
-  totalEdges: number
-  totalCells: number
-  totalVertices: number
+  coverageTotals: Record<LiveStatsCoverageSource, number>
   current: TraceChartPoint
   points: TraceChartPoint[]
 }
@@ -52,9 +51,8 @@ export type RuleTraceOccurrence = {
 }
 
 export type TraceStatsCache = {
-  totalEdges: number
-  totalCells: number
-  totalVertices: number
+  coverageTotals: Record<LiveStatsCoverageSource, number>
+  coverageCounts: Record<LiveStatsCoverageSource, number>
   points: TraceChartPoint[]
   ruleOrder: string[]
   ruleOccurrences: Record<string, RuleTraceOccurrence>
@@ -62,14 +60,15 @@ export type TraceStatsCache = {
   totalDiffPrefixCounts: number[]
   diffPrefixCounts: Record<RuleDiff['kind'], number[]>
   edgeMarks: Record<string, string>
+  lineMarks: Record<string, string>
   cellFills: Record<string, string | null>
+  tileFills: Record<string, string | null>
+  sectorMasks: Record<string, number>
+  narrowedSectorKeys: Record<string, boolean>
   vertexCandidateSignatures: Record<string, string>
   initialVertexCandidateCounts: Record<string, number>
   initialVertexCandidateSignatures: Record<string, string>
   narrowedVertexKeys: Record<string, boolean>
-  decidedEdgeCount: number
-  filledCellCount: number
-  narrowedVertexCount: number
 }
 
 export const emptyDiffCounts = (): RuleTraceDiffCounts => ({
@@ -180,21 +179,19 @@ const vertexSignature = (candidates: VertexCandidate[] | undefined): string =>
 
 const makeChartPoint = (
   step: number,
-  cache: Pick<
-    TraceStatsCache,
-    | 'decidedEdgeCount'
-    | 'filledCellCount'
-    | 'narrowedVertexCount'
-    | 'totalEdges'
-    | 'totalCells'
-    | 'totalVertices'
-  >,
+  cache: Pick<TraceStatsCache, 'coverageCounts' | 'coverageTotals'>,
+  stepDurationMs = 0,
+  ruleApplyMs = 0,
 ): TraceChartPoint => ({
   step,
-  boardProgressRatio: ratio(cache.decidedEdgeCount, cache.totalEdges),
-  edgeCoverageRatio: ratio(cache.decidedEdgeCount, cache.totalEdges),
-  cellCoverageRatio: ratio(cache.filledCellCount, cache.totalCells),
-  vertexCoverageRatio: ratio(cache.narrowedVertexCount, cache.totalVertices),
+  coverageRatios: Object.fromEntries(
+    (Object.keys(cache.coverageTotals) as LiveStatsCoverageSource[]).map((source) => [
+      source,
+      ratio(cache.coverageCounts[source], cache.coverageTotals[source]),
+    ]),
+  ) as Record<LiveStatsCoverageSource, number>,
+  stepDurationMs,
+  ruleApplyMs,
 })
 
 const countInitialFilledCells = (puzzle: PuzzleIR): number =>
@@ -202,10 +199,18 @@ const countInitialFilledCells = (puzzle: PuzzleIR): number =>
     (cell) => cell.fill !== undefined && cell.fill !== null,
   ).length
 
-const countInitialDecidedEdges = (puzzle: PuzzleIR): number =>
-  Object.values(
-    puzzle.puzzleType === 'masyu' ? (puzzle.lines ?? {}) : puzzle.edges,
-  ).filter((edge) => (edge?.mark ?? 'unknown') !== 'unknown').length
+const countDecidedMarks = (
+  marks: Record<string, { mark: string }>,
+): number => Object.values(marks).filter((item) => item.mark !== 'unknown').length
+
+const emptyCoverageRecord = (): Record<LiveStatsCoverageSource, number> => ({
+  edge: 0,
+  line: 0,
+  cell: 0,
+  tile: 0,
+  vertex: 0,
+  sector: 0,
+})
 
 const upperBound = (values: number[], target: number): number => {
   let low = 0
@@ -224,25 +229,33 @@ const upperBound = (values: number[], target: number): number => {
 export const createTraceStatsCache = (
   initialPuzzle: PuzzleIR,
 ): TraceStatsCache => {
-  const decisionMarks =
-    initialPuzzle.puzzleType === 'masyu'
-      ? (initialPuzzle.lines ?? {})
-      : initialPuzzle.edges
-  const totalEdges = Object.keys(decisionMarks).length
-  const totalCells = initialPuzzle.rows * initialPuzzle.cols
-  const totalVertices = Object.keys(initialPuzzle.vertices).length
   const edgeMarks: Record<string, string> = {}
+  const lineMarks: Record<string, string> = {}
   const cellFills: Record<string, string | null> = {}
+  const tileFills: Record<string, string | null> = {}
+  const sectorMasks: Record<string, number> = {}
+  const narrowedSectorKeys: Record<string, boolean> = {}
   const vertexCandidateSignatures: Record<string, string> = {}
   const initialVertexCandidateCounts: Record<string, number> = {}
   const initialVertexCandidateSignatures: Record<string, string> = {}
   const narrowedVertexKeys: Record<string, boolean> = {}
 
-  for (const [key, edge] of Object.entries(decisionMarks)) {
+  for (const [key, edge] of Object.entries(initialPuzzle.edges)) {
     edgeMarks[key] = edge?.mark ?? 'unknown'
+  }
+  for (const [key, line] of Object.entries(initialPuzzle.lines)) {
+    lineMarks[key] = line?.mark ?? 'unknown'
   }
   for (const [key, cell] of Object.entries(initialPuzzle.cells)) {
     cellFills[key] = cell.fill ?? null
+  }
+  for (const [key, tile] of Object.entries(initialPuzzle.tiles)) {
+    tileFills[key] = tile.fill ?? null
+  }
+  for (const [key, sector] of Object.entries(initialPuzzle.sectors)) {
+    const mask = sector.constraintsMask ?? SECTOR_MASK_ALL
+    sectorMasks[key] = mask
+    narrowedSectorKeys[key] = mask !== SECTOR_MASK_ALL
   }
   for (const [key, vertex] of Object.entries(initialPuzzle.vertices)) {
     const candidates = vertex?.candidateEdgeSets ?? []
@@ -253,19 +266,38 @@ export const createTraceStatsCache = (
     narrowedVertexKeys[key] = false
   }
 
+  const coverageTotals: Record<LiveStatsCoverageSource, number> = {
+    edge: Object.keys(initialPuzzle.edges).length,
+    line: Object.keys(initialPuzzle.lines).length,
+    cell: initialPuzzle.rows * initialPuzzle.cols,
+    tile: Object.keys(initialPuzzle.tiles).length,
+    vertex: Object.keys(initialPuzzle.vertices).length,
+    sector: Object.keys(initialPuzzle.sectors).length,
+  }
+  const coverageCounts: Record<LiveStatsCoverageSource, number> = {
+    ...emptyCoverageRecord(),
+    edge: countDecidedMarks(initialPuzzle.edges),
+    line: countDecidedMarks(initialPuzzle.lines),
+    cell: countInitialFilledCells(initialPuzzle),
+    tile: Object.values(initialPuzzle.tiles).filter((tile) => tile.fill != null).length,
+    sector: Object.values(initialPuzzle.sectors).filter(
+      (sector) => sector.constraintsMask !== SECTOR_MASK_ALL,
+    ).length,
+  }
+
   const cacheBase = {
-    totalEdges,
-    totalCells,
-    totalVertices,
+    coverageTotals,
+    coverageCounts,
     edgeMarks,
+    lineMarks,
     cellFills,
+    tileFills,
+    sectorMasks,
+    narrowedSectorKeys,
     vertexCandidateSignatures,
     initialVertexCandidateCounts,
     initialVertexCandidateSignatures,
     narrowedVertexKeys,
-    decidedEdgeCount: countInitialDecidedEdges(initialPuzzle),
-    filledCellCount: countInitialFilledCells(initialPuzzle),
-    narrowedVertexCount: 0,
   }
 
   return {
@@ -305,33 +337,44 @@ export const appendTraceStatsStep = (
   for (const diff of step.diffs) {
     if (diff.kind === 'edge' || diff.kind === 'line') {
       const key = diff.kind === 'edge' ? diff.edgeKey : diff.lineKey
+      const source = diff.kind
+      const marks = diff.kind === 'edge' ? next.edgeMarks : next.lineMarks
       if (diff.kind === 'edge') {
         edgeDiffs += 1
       } else {
         lineDiffs += 1
       }
-      const previous = next.edgeMarks[key] ?? diff.from ?? 'unknown'
+      const previous = marks[key] ?? diff.from ?? 'unknown'
       const previousDecided = previous !== 'unknown'
       const nextDecided = diff.to !== 'unknown'
       if (!previousDecided && nextDecided) {
-        next.decidedEdgeCount += 1
+        next.coverageCounts[source] += 1
       } else if (previousDecided && !nextDecided) {
-        next.decidedEdgeCount -= 1
+        next.coverageCounts[source] -= 1
       }
-      next.edgeMarks[key] = diff.to
+      marks[key] = diff.to
     } else if (diff.kind === 'cell') {
       cellDiffs += 1
       const previous = next.cellFills[diff.cellKey] ?? null
       const previousFilled = previous !== null
       const nextFilled = diff.toFill !== null
       if (!previousFilled && nextFilled) {
-        next.filledCellCount += 1
+        next.coverageCounts.cell += 1
       } else if (previousFilled && !nextFilled) {
-        next.filledCellCount -= 1
+        next.coverageCounts.cell -= 1
       }
       next.cellFills[diff.cellKey] = diff.toFill
     } else if (diff.kind === 'tile') {
       tileDiffs += 1
+      const previous = next.tileFills[diff.tileKey] ?? null
+      const previousFilled = previous !== null
+      const nextFilled = diff.toFill !== null
+      if (!previousFilled && nextFilled) {
+        next.coverageCounts.tile += 1
+      } else if (previousFilled && !nextFilled) {
+        next.coverageCounts.tile -= 1
+      }
+      next.tileFills[diff.tileKey] = diff.toFill
     } else if (diff.kind === 'vertex') {
       vertexDiffs += 1
       const signature = vertexSignature(diff.toCandidates)
@@ -344,14 +387,23 @@ export const appendTraceStatsStep = (
         diff.toCandidates.length < initialCount ||
         signature !== initialSignature
       if (!wasNarrowed && isNarrowed) {
-        next.narrowedVertexCount += 1
+        next.coverageCounts.vertex += 1
       } else if (wasNarrowed && !isNarrowed) {
-        next.narrowedVertexCount -= 1
+        next.coverageCounts.vertex -= 1
       }
       next.narrowedVertexKeys[diff.vertexKey] = isNarrowed
       next.vertexCandidateSignatures[diff.vertexKey] = signature
     } else {
       sectorDiffs += 1
+      const wasNarrowed = next.narrowedSectorKeys[diff.sectorKey] ?? false
+      const isNarrowed = diff.toMask !== SECTOR_MASK_ALL
+      if (!wasNarrowed && isNarrowed) {
+        next.coverageCounts.sector += 1
+      } else if (wasNarrowed && !isNarrowed) {
+        next.coverageCounts.sector -= 1
+      }
+      next.narrowedSectorKeys[diff.sectorKey] = isNarrowed
+      next.sectorMasks[diff.sectorKey] = diff.toMask
     }
   }
 
@@ -403,7 +455,14 @@ export const appendTraceStatsStep = (
     next.diffPrefixCounts.vertex[next.diffPrefixCounts.vertex.length - 1] +
       vertexDiffs,
   )
-  next.points.push(makeChartPoint(stepNumber, next))
+  next.points.push(
+    makeChartPoint(
+      stepNumber,
+      next,
+      getStepChainDurationMs(step),
+      getStepRuleApplyMs(step),
+    ),
+  )
 
   return { ...next }
 }
@@ -478,9 +537,7 @@ export const buildTraceStatsView = (
     ruleUsage,
     ruleSteps,
     rules,
-    totalEdges: cache.totalEdges,
-    totalCells: cache.totalCells,
-    totalVertices: cache.totalVertices,
+    coverageTotals: cache.coverageTotals,
     current: cache.points[currentPointer] ?? cache.points[0],
     points: cache.points,
   }
@@ -491,85 +548,13 @@ export const buildTraceChartStats = (
   steps: RuleStep[],
   pointer: number,
 ): TraceChartStats => {
-  const currentPointer = clampPointer(pointer, steps.length)
-  const decisionMarks =
-    initialPuzzle.puzzleType === 'masyu'
-      ? (initialPuzzle.lines ?? {})
-      : initialPuzzle.edges
-  const totalEdges = Object.keys(decisionMarks).length
-  const totalCells = initialPuzzle.rows * initialPuzzle.cols
-  const totalVertices = Object.keys(initialPuzzle.vertices).length
-
-  const edgeMarks: Record<string, string> = {}
-  const cellFills: Record<string, string | null> = {}
-  const initialVertexCandidateCounts: Record<string, number> = {}
-  const initialVertexSignatures: Record<string, string> = {}
-  const vertexCandidates: Record<string, VertexCandidate[]> = {}
-
-  for (const [key, edge] of Object.entries(decisionMarks)) {
-    edgeMarks[key] = edge?.mark ?? 'unknown'
-  }
-  for (const [key, cell] of Object.entries(initialPuzzle.cells)) {
-    cellFills[key] = cell.fill ?? null
-  }
-  for (const [key, vertex] of Object.entries(initialPuzzle.vertices)) {
-    const candidates = vertex?.candidateEdgeSets ?? []
-    initialVertexCandidateCounts[key] = candidates.length
-    initialVertexSignatures[key] = vertexSignature(candidates)
-    vertexCandidates[key] = candidates.map((candidate) => [...candidate])
-  }
-
-  const makePoint = (step: number): TraceChartPoint => {
-    const decidedEdges = Object.values(edgeMarks).filter(
-      (mark) => mark !== 'unknown',
-    ).length
-    const filledCells = Object.values(cellFills).filter(
-      (fill) => fill !== null,
-    ).length
-    const narrowedVertices = Object.entries(vertexCandidates).filter(
-      ([key, candidates]) => {
-        const initialCount = initialVertexCandidateCounts[key] ?? 0
-        return (
-          candidates.length < initialCount ||
-          vertexSignature(candidates) !== initialVertexSignatures[key]
-        )
-      },
-    ).length
-
-    return {
-      step,
-      boardProgressRatio: ratio(decidedEdges, totalEdges),
-      edgeCoverageRatio: ratio(decidedEdges, totalEdges),
-      cellCoverageRatio: ratio(filledCells, totalCells),
-      vertexCoverageRatio: ratio(narrowedVertices, totalVertices),
-    }
-  }
-
-  const points: TraceChartPoint[] = [makePoint(0)]
-  steps.forEach((step, index) => {
-    for (const diff of step.diffs) {
-      if (diff.kind === 'edge' || diff.kind === 'line') {
-        edgeMarks[diff.kind === 'edge' ? diff.edgeKey : diff.lineKey] = diff.to
-      } else if (diff.kind === 'cell') {
-        cellFills[diff.cellKey] = diff.toFill
-      } else if (diff.kind === 'tile') {
-        continue
-      } else if (diff.kind === 'vertex') {
-        vertexCandidates[diff.vertexKey] = diff.toCandidates.map(
-          (candidate) => [...candidate],
-        )
-      }
-    }
-    points.push(makePoint(index + 1))
-  })
-
+  const cache = rebuildTraceStatsCache(initialPuzzle, steps)
+  const view = buildTraceStatsView(cache, pointer)
   return {
-    pointer: currentPointer,
-    totalSteps: steps.length,
-    totalEdges,
-    totalCells,
-    totalVertices,
-    current: points[currentPointer] ?? points[0],
-    points,
+    pointer: view.pointer,
+    totalSteps: view.totalSteps,
+    coverageTotals: view.coverageTotals,
+    current: view.current,
+    points: view.points,
   }
 }

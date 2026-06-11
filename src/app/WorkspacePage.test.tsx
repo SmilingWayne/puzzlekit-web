@@ -61,6 +61,7 @@ describe('WorkspacePage', () => {
     renderWorkspace()
     expect(screen.getByRole('heading', { name: /puzzlekit web/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /editor/i })).toHaveAttribute('href', '/editor')
+    expect(screen.getByRole('link', { name: /^docs$/i })).toHaveAttribute('href', '/docs')
     expect(screen.getByRole('link', { name: /open puzzlekit web on github/i })).toHaveAttribute(
       'href',
       'https://github.com/SmilingWayne/puzzlekit-web',
@@ -398,8 +399,8 @@ describe('WorkspacePage', () => {
     const statsTimeline = screen.getByLabelText(/trace timeline/i)
     const liveStats = screen.getByLabelText(/live stats/i)
     expect(statsTimeline).toHaveValue('2')
-    expect(within(liveStats).getByText(/board progress/i)).toBeInTheDocument()
     expect(within(liveStats).getByText(/inference coverage/i)).toBeInTheDocument()
+    expect(within(liveStats).getByText(/cumulative solve time/i)).toBeInTheDocument()
 
     fireEvent.change(statsTimeline, { target: { value: '1' } })
 
@@ -423,6 +424,8 @@ describe('WorkspacePage', () => {
         affectedSectors: [],
         timestamp: Date.now(),
         durationMs: 1,
+        chainDurationMs: 5,
+        ruleApplyMs: 2,
       },
       {
         id: 'step-2',
@@ -438,6 +441,8 @@ describe('WorkspacePage', () => {
         affectedSectors: [],
         timestamp: Date.now() + 1,
         durationMs: 1,
+        chainDurationMs: 8,
+        ruleApplyMs: 3,
       },
     ]
     const puzzle = createSlitherPuzzle(1, 2)
@@ -460,17 +465,27 @@ describe('WorkspacePage', () => {
     renderWorkspace()
 
     const liveStats = screen.getByLabelText(/live stats/i)
-    const progressChart = within(liveStats).getByLabelText(/^board progress$/i)
     const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
-    expect(within(progressChart).getByText(/progress 28\.6%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/edge 28\.6%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/cell 50\.0%/i)).toBeInTheDocument()
+    const durationChart = within(liveStats).getByLabelText(/^cumulative solve time$/i)
+    expect(within(coverageChart).getByText(/edge decisions 28\.6%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell colors 50\.0%/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/full step 13\.0 ms \(\+8\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 5\.0 ms \(\+3\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(coverageChart.querySelectorAll('path[data-interpolation="linear"]')).toHaveLength(4)
+    expect(durationChart.querySelectorAll('path[data-interpolation="step-after"]')).toHaveLength(2)
+    expect(durationChart.querySelector('path[data-interpolation="step-after"]')?.getAttribute('d')?.match(/ L /g)).toHaveLength(4)
 
     fireEvent.change(screen.getByLabelText(/trace timeline/i), { target: { value: '1' } })
 
-    expect(within(progressChart).getByText(/progress 14\.3%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/edge 14\.3%/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/cell 0\.0%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge decisions 14\.3%/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell colors 0\.0%/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/full step 5\.0 ms \(\+5\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 2\.0 ms \(\+2\.0 ms this step\)/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/trace timeline/i), { target: { value: '0' } })
+
+    expect(within(durationChart).getByText(/full step 0\.0 ms \(\+0\.0 ms this step\)/i)).toBeInTheDocument()
+    expect(within(durationChart).getByText(/matched rule 0\.0 ms \(\+0\.0 ms this step\)/i)).toBeInTheDocument()
   })
 
   it('shows the optimized live stats summary and charts', () => {
@@ -486,12 +501,53 @@ describe('WorkspacePage', () => {
     expect(within(liveStats).queryByText(/rule applications/i)).not.toBeInTheDocument()
     expect(within(liveStats).queryByText(/trace progress/i)).not.toBeInTheDocument()
 
-    expect(within(liveStats).getByLabelText(/^board progress$/i)).toBeInTheDocument()
+    expect(within(liveStats).queryByLabelText(/^board progress$/i)).not.toBeInTheDocument()
     const coverageChart = within(liveStats).getByLabelText(/^inference coverage$/i)
-    expect(within(coverageChart).getByText(/edge/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/cell/i)).toBeInTheDocument()
-    expect(within(coverageChart).getByText(/vertex/i)).toBeInTheDocument()
-    expect(within(coverageChart).queryByText(/sector/i)).not.toBeInTheDocument()
+    expect(within(coverageChart).getByText(/edge decisions/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/cell colors/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/vertex candidates/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/sector constraints/i)).toBeInTheDocument()
+    expect(within(liveStats).getByLabelText(/^cumulative solve time$/i)).toBeInTheDocument()
+  })
+
+  it('shows Masyu-specific live stats coverage', () => {
+    const puzzle = createMasyuPuzzle(2, 2)
+    const line = lineKey([0, 0], [0, 1])
+    const tile = tileKey(0, 0)
+    const steps: RuleStep[] = [{
+      id: 'step-1',
+      ruleId: 'masyu-stats',
+      ruleName: 'Masyu Stats',
+      message: 'update line and tile',
+      diffs: [
+        { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
+        { kind: 'tile', tileKey: tile, fromFill: null, toFill: 'green' },
+      ],
+      affectedCells: [],
+      affectedEdges: [],
+      affectedLines: [line],
+      affectedTiles: [tile],
+      affectedSectors: [],
+      timestamp: Date.now(),
+      durationMs: 4,
+    }]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+    }))
+
+    renderWorkspace()
+
+    const coverageChart = within(screen.getByLabelText(/live stats/i)).getByLabelText(/^inference coverage$/i)
+    expect(within(coverageChart).getByText(/line decisions/i)).toBeInTheDocument()
+    expect(within(coverageChart).getByText(/tile colors/i)).toBeInTheDocument()
+    expect(within(coverageChart).queryByText(/edge decisions/i)).not.toBeInTheDocument()
+    expect(within(coverageChart).queryByText(/vertex candidates/i)).not.toBeInTheDocument()
   })
 
   it('keeps future trace rules visible in live stats while browsing an earlier prefix', () => {
@@ -794,15 +850,15 @@ describe('WorkspacePage', () => {
     renderWorkspace()
 
     expect(screen.getByText(/showing 30 \/ 35/i)).toBeInTheDocument()
-    expect(screen.getByText(/^35\. test rule$/i)).toBeInTheDocument()
-    expect(screen.queryByText(/^5\. test rule$/i)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Test Rule' })).toHaveLength(30)
+    expect(screen.queryByText(/^5\.$/i)).not.toBeInTheDocument()
 
     const showAll = screen.getByRole('button', { name: /show all/i })
     fireEvent.click(showAll)
 
     expect(showAll).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText(/showing 35 \/ 35/i)).toBeInTheDocument()
-    expect(screen.getByText(/^1\. test rule$/i)).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Test Rule' })).toHaveLength(35)
   })
 
   it('summarizes Slitherlink edge updates in reasoning steps', () => {
@@ -836,6 +892,10 @@ describe('WorkspacePage', () => {
     renderWorkspace()
 
     expect(screen.getByText('edge updates: 1')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Edge Rule' })).toHaveAttribute(
+      'href',
+      '/docs/slitherlink/rules/edge-rule',
+    )
   })
 
   it('summarizes Masyu line updates and line crosses in reasoning steps', () => {
@@ -874,6 +934,170 @@ describe('WorkspacePage', () => {
     renderWorkspace()
 
     expect(screen.getByText('line updates: 1, line crosses: 1')).toBeInTheDocument()
+  })
+
+  it('opens and navigates the Slitherlink strong inference branch inspector', () => {
+    const url =
+      'https://puzz.link/p?slither/10/10/q2111221ch6212b212611b61262cg1c6bb2121c2bcc621112bo'
+    const store = useSolverStore.getState()
+    store.importFromUrl(url, 'slitherlink')
+    store.nextStep()
+    store.nextStep()
+    store.nextStep()
+
+    renderWorkspace()
+
+    const reasoningPanel = screen.getByRole('heading', { name: /reasoning steps/i }).closest('section')
+    if (!reasoningPanel) {
+      throw new Error('Expected reasoning panel')
+    }
+    const strongInferenceMessage = within(reasoningPanel).getByText(/Strong inference: edge V\(1, 2\)-V\(1, 3\)/i)
+    expect(strongInferenceMessage.firstChild).toHaveTextContent('[View details]')
+    expect(within(reasoningPanel).getAllByRole('button', { name: /view details/i })).toHaveLength(1)
+    expect(within(reasoningPanel).queryByText(/\[View details\].*Apply Vertex Flow/i)).not.toBeInTheDocument()
+    fireEvent.click(within(reasoningPanel).getByRole('button', { name: /view details/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /branch inspector/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(within(dialog).getByText(/vertex-degree contradiction at V\(5, 3\)/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '10')
+    const inspectorCanvas = within(dialog).getByLabelText(/slitherlink branch inspector canvas/i)
+    expect(inspectorCanvas).toBeInTheDocument()
+    const inspectorZoom = within(dialog).getByLabelText('Branch inspector board zoom', { exact: true })
+    expect(inspectorZoom).toHaveValue('100')
+    expect(inspectorZoom).toHaveAttribute('min', '20')
+    expect(inspectorZoom).toHaveAttribute('max', '200')
+    expect(inspectorZoom).toHaveAttribute('step', '5')
+    expect(inspectorCanvas).toHaveStyle({ width: '616px', height: '616px' })
+    const stageDetails = within(dialog).getByLabelText('Current branch replay step', { exact: true })
+    expect(within(stageDetails).getByText('Base puzzle', { exact: true })).toBeInTheDocument()
+    const inspectorFooter = dialog.querySelector('.branch-inspector-controls')
+    expect(inspectorFooter).not.toBeNull()
+    expect(inspectorFooter).not.toHaveTextContent(/base puzzle before the inference/i)
+
+    fireEvent.change(inspectorZoom, { target: { value: '20' } })
+    expect(inspectorZoom).toHaveValue('20')
+    expect(within(dialog).getByText('20%', { exact: true })).toBeInTheDocument()
+    expect(inspectorCanvas).toHaveStyle({ width: '123px', height: '123px' })
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
+    expect(within(stageDetails).getByText(/apply the branch assumption/i)).toBeInTheDocument()
+    expect(inspectorZoom).toHaveValue('20')
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: /branch b unresolved/i }))
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '3')
+    expect(inspectorZoom).toHaveValue('20')
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /branch inspector/i })).not.toBeInTheDocument()
+  })
+
+  it('opens and navigates a Masyu strong inference branch inspector', () => {
+    const puzzle = createMasyuPuzzle(3, 3)
+    const assumed = lineKey([1, 0], [1, 1])
+    const downstream = lineKey([1, 1], [1, 2])
+    const forced = lineKey([0, 1], [1, 1])
+    const steps: RuleStep[] = [
+      {
+        id: 'step-1',
+        ruleId: 'masyu-line-component-endpoint-strong-inference',
+        ruleName: 'Masyu Line Component Endpoint Strong Inference',
+        message: 'The assumption contradicts the puzzle, so the alternative is forced.',
+        diffs: [{ kind: 'line', lineKey: forced, from: 'unknown', to: 'line' }],
+        affectedCells: [cellKey(1, 1)],
+        affectedEdges: [],
+        affectedLines: [forced],
+        affectedSectors: [],
+        timestamp: Date.now(),
+        durationMs: 1,
+        inferenceDetails: {
+          kind: 'masyu-strong',
+          conclusion: 'opposite-branch',
+          basePuzzle: puzzle,
+          defaultBranchId: 'assumption',
+          branches: [
+            {
+              id: 'assumption',
+              label: 'Assume the east continuation',
+              role: 'trial',
+              initialDiffs: [
+                { kind: 'line', lineKey: assumed, from: 'unknown', to: 'line' },
+              ],
+              status: 'contradiction',
+              traceSteps: [
+                {
+                  ruleId: 'test-downstream',
+                  ruleName: 'Test Downstream',
+                  message: 'Extend the trial line.',
+                  diffs: [
+                    { kind: 'line', lineKey: downstream, from: 'unknown', to: 'line' },
+                  ],
+                  affectedCells: [cellKey(1, 1)],
+                  affectedEdges: [],
+                  affectedLines: [downstream],
+                  affectedSectors: [],
+                },
+              ],
+              contradiction: {
+                kind: 'cell-degree',
+                message: 'cell-degree contradiction at C(2, 2)',
+                cells: [cellKey(1, 1)],
+              },
+            },
+            {
+              id: 'conclusion',
+              label: 'Forced conclusion',
+              role: 'forced-conclusion',
+              initialDiffs: [
+                { kind: 'line', lineKey: forced, from: 'unknown', to: 'line' },
+              ],
+              status: 'forced',
+              traceSteps: [],
+            },
+          ],
+        },
+      },
+    ]
+    useSolverStore.setState((state) => ({
+      ...state,
+      pluginId: 'masyu',
+      initialPuzzle: puzzle,
+      currentPuzzle: puzzle,
+      steps,
+      traceStatsCache: rebuildTraceStatsCache(puzzle, steps),
+      pointer: 1,
+      terminalReport: null,
+    }))
+
+    renderWorkspace()
+    const reasoningPanel = screen.getByRole('heading', { name: /reasoning steps/i }).closest('section')
+    if (!reasoningPanel) {
+      throw new Error('Expected reasoning panel')
+    }
+    fireEvent.click(within(reasoningPanel).getByRole('button', { name: /view details/i }))
+
+    const dialog = screen.getByRole('dialog', { name: /branch inspector/i })
+    const inspectorCanvas = within(dialog).getByLabelText(/masyu branch inspector canvas/i)
+    expect(inspectorCanvas).toBeInTheDocument()
+    const inspectorZoom = within(dialog).getByLabelText('Branch inspector board zoom', { exact: true })
+    expect(inspectorZoom).toHaveValue('100')
+    expect(within(dialog).getByText(/cell-degree contradiction at C\(2, 2\)/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '2')
+
+    fireEvent.change(inspectorZoom, { target: { value: '200' } })
+    expect(inspectorZoom).toHaveValue('200')
+    expect(within(dialog).getByText('200%', { exact: true })).toBeInTheDocument()
+    expect(inspectorCanvas).toHaveStyle({ width: '504px', height: '504px' })
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
+    fireEvent.click(within(dialog).getByRole('button', { name: /next/i }))
+    expect(within(dialog).getByText('Test Downstream', { exact: true })).toBeInTheDocument()
+    expect(inspectorZoom).toHaveValue('200')
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: /forced conclusion forced/i }))
+    expect(within(dialog).getByText(/forced because the trial assumption contradicts/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Branch replay step', { exact: true })).toHaveAttribute('max', '1')
+    expect(inspectorZoom).toHaveValue('200')
   })
 
   it('keeps replay and puzzle I/O controls in the intended compact order', () => {

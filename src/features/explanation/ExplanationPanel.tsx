@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { RuleStep } from '../../domain/rules/types'
+import { getRuleDocPath } from '../docs/ruleDocRegistry'
+import { BranchInspector } from './BranchInspector'
 
 type Props = {
+  pluginId: string
   steps: RuleStep[]
 }
 
@@ -19,8 +23,9 @@ const buildStepMeta = (step: RuleStep): string => {
   return parts.length > 0 ? parts.join(', ') : 'edge updates: 0'
 }
 
-export const ExplanationPanel = ({ steps }: Props) => {
+export const ExplanationPanel = ({ pluginId, steps }: Props) => {
   const [showAllSteps, setShowAllSteps] = useState(false)
+  const [inspectedStep, setInspectedStep] = useState<RuleStep | null>(null)
   const visibleEntries = useMemo(
     () =>
       (showAllSteps ? steps : steps.slice(-30))
@@ -62,14 +67,40 @@ export const ExplanationPanel = ({ steps }: Props) => {
               data-active={index === 0}
             >
               <p className="step-title">
-                {sequence}. {step.ruleName}
+                {sequence}.{' '}
+                <Link
+                  className="step-rule-link"
+                  to={getRuleDocPath(pluginId, step.ruleId)}
+                  title={`Read about ${step.ruleName}`}
+                >
+                  {step.ruleName}
+                </Link>
               </p>
-              <p className="step-message">{step.message}</p>
+              <p className="step-message">
+                {step.inferenceDetails ? (
+                  <>
+                    <button
+                      type="button"
+                      className="step-details-link"
+                      onClick={() => setInspectedStep(step)}
+                    >
+                      [View details]
+                    </button>{' '}
+                  </>
+                ) : null}
+                {step.message}
+              </p>
               <p className="step-meta">{buildStepMeta(step)}</p>
             </li>
           ))
         )}
       </ol>
+      {inspectedStep?.inferenceDetails ? (
+        <BranchInspector
+          details={inspectedStep.inferenceDetails}
+          onClose={() => setInspectedStep(null)}
+        />
+      ) : null}
     </section>
   )
 }

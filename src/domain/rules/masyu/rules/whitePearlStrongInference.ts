@@ -15,6 +15,7 @@ import {
 } from './shared'
 import {
   buildMasyuStrongBranch,
+  buildMasyuInferenceDetails,
   deriveMasyuStrongProbeBudgets,
   describeMasyuStrongTrialResult,
   immediateMasyuStrongContradictionResult,
@@ -215,6 +216,13 @@ export const createWhitePearlStrongInferenceRule = (
             diffs,
             affectedCells: [pearlCandidate.pearlKey],
             affectedLines: diffs.map((diff) => diff.lineKey),
+            inferenceDetails: buildMasyuInferenceDetails(
+              puzzle,
+              `Assume ${formatMasyuCellKeyLabel(pearlCandidate.pearlKey)} goes ${axisLabel(assumed.axis)}`,
+              branch,
+              result,
+              diffs,
+            ),
           }
         }
       }

@@ -1,0 +1,12 @@
+## Puzzle rules
+
+Slitherlink asks for one continuous loop along grid edges. A numbered cell
+states how many of its four surrounding edges belong to the loop. The loop
+cannot branch, cross itself, or split into multiple loops.
+
+## Solver techniques
+
+PuzzleKit combines clue and vertex completion, local patterns, sector
+constraints, inside/outside coloring, connectivity checks, and bounded
+inference. Each technique below is linked by the same stable ID used in the
+solver trace.

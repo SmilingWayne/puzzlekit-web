@@ -34,6 +34,7 @@ dataset/
 scripts/
   benchmark-solve.ts
 docs/
+  content/          # in-app MDX rule documentation
   techniques/       # puzzle-specific technique notes
   legacy/           # old plans and research notes
 ```
@@ -57,6 +58,11 @@ Boundary rule:
 
 This contract is central: solver output must remain deterministic, replay-safe, and explainable.
 
+Bounded inference steps may also store structured branch details: the base
+puzzle, initial branch diffs, trial trace, contradiction focus, and formal
+conclusion. The shared Branch Inspector replays these details for Slitherlink
+and Masyu without changing solver behavior.
+
 ## 4. Plugin Contract
 
 Puzzle families are registered in `src/domain/plugins/registry.ts`.
@@ -69,6 +75,7 @@ Each `PuzzlePlugin` may provide:
 - `help` for the puzzle rules popout.
 - `legend` for board legend examples.
 - `getStats(puzzle)` for compact board-title stats.
+- `liveStats` for puzzle-specific inference coverage series shown in the shared Live Stats panel.
 - `displayOptions` for puzzle-specific board toggles.
 
 Current families:
@@ -105,16 +112,17 @@ Implemented:
 - Editor workspace for Slitherlink and Masyu custom boards, URL import, and load-to-solver flow.
 - Dataset page with filters, previews, and load-to-Solver/Editor actions.
 - Plugin-powered rules help, board legend, board display toggles, and compact puzzle stats.
+- In-app rule documentation generated from the production rule registry, with stable rule deep links and read-only Canvas examples.
 - Slitherlink puzz.link-compatible parse/encode, Penpa+ import, deterministic rules, branch-based inference, completion analysis, editor tools, and public dataset example.
-- Masyu puzz.link-compatible parse/encode, Penpa+ import, renderer, editor, deterministic rules, completion analysis, tile-color propagation, candidate pruning, bridge reasoning, premature-loop prevention, and bounded strong inference.
+- Masyu puzz.link-compatible parse/encode, Penpa+ import, renderer, editor, deterministic rules, completion analysis, tile-color propagation, candidate pruning, bridge reasoning, premature-loop prevention, and inspectable bounded strong inference.
 - Public/private benchmark manifest workflow.
 - GitHub Pages release workflow for tagged builds.
 
 Partial or planned:
 
-- Public Masyu dataset manifests are not yet committed to `dataset/public`.
+- The public dataset includes a categorized Masyu manifest.
 - Penpa+ support is import-oriented; export completeness is not a current guarantee.
-- Puzzle-specific Live Stats wording can still be refined.
+- Live Stats uses a shared timeline, step-duration chart, and rule-usage view. Each puzzle plugin declares the meaningful inference coverage series for its own IR primitives.
 - Difficulty modeling is draft-level.
 - Nonogram remains planned.
 

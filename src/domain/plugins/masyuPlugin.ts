@@ -127,6 +127,14 @@ export const getMasyuStats = (puzzle: PuzzleIR): PuzzleStatsContent => {
 export const masyuPlugin: PuzzlePlugin = {
   id: 'masyu',
   displayName: 'Masyu',
+  liveStats: {
+    coverageTitle: 'Inference Coverage',
+    coverageDescription: 'Decided or colored Masyu state',
+    coverageSeries: [
+      { source: 'line', label: 'Line Decisions', color: '#2563eb' },
+      { source: 'tile', label: 'Tile Colors', color: '#16a34a' },
+    ],
+  },
   help: masyuHelp,
   legend: masyuLegend,
   displayOptions: [

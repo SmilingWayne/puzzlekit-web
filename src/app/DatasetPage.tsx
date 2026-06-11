@@ -21,17 +21,23 @@ type ActivePuzzlePopover = 'rules' | 'legend' | null
 
 const DATASET_PREVIEW_SIZE = 136
 
-const datasetCards: DatasetPuzzleCard[] = publicDatasetManifests.flatMap((manifest) =>
-  manifest.items.map((item) => ({
-    ...item,
-    datasetId: manifest.id,
-    datasetTitle: manifest.title,
-    description: `${manifest.title}: ${item.height} x ${item.width} ${item.puzzleType} puzzle.`,
-  })),
+const datasetCards: DatasetPuzzleCard[] = publicDatasetManifests.flatMap(
+  (manifest) =>
+    manifest.items.map((item) => ({
+      ...item,
+      datasetId: manifest.id,
+      datasetTitle: manifest.title,
+      description: `${manifest.title}: ${item.height} x ${item.width} ${item.puzzleType} puzzle.`,
+    })),
 )
 
-const buildSizeLabel = (item: Pick<BenchmarkDatasetItem, 'height' | 'width'>): string =>
-  `${item.height} x ${item.width}`
+const publicDatasetPluginIds = new Set(
+  datasetCards.map((item) => item.puzzleType),
+)
+
+const buildSizeLabel = (
+  item: Pick<BenchmarkDatasetItem, 'height' | 'width'>,
+): string => `${item.height} x ${item.width}`
 
 const parseDatasetPuzzle = (item: BenchmarkDatasetItem) => {
   const plugin = puzzleRegistry.get(item.puzzleType)
@@ -75,16 +81,24 @@ export const DatasetPage = () => {
   const [query, setQuery] = useState('')
   const [sizeFilter, setSizeFilter] = useState('all')
   const [activeTag, setActiveTag] = useState<string | null>(null)
-  const [activePuzzlePopover, setActivePuzzlePopover] = useState<ActivePuzzlePopover>(null)
+  const [activePuzzlePopover, setActivePuzzlePopover] =
+    useState<ActivePuzzlePopover>(null)
   const [actionError, setActionError] = useState('')
 
+  const pluginItems = useMemo(
+    () => datasetCards.filter((item) => item.puzzleType === pluginId),
+    [pluginId],
+  )
   const tags = useMemo(
-    () => Array.from(new Set(datasetCards.flatMap((item) => item.tags))).sort(),
-    [],
+    () => Array.from(new Set(pluginItems.flatMap((item) => item.tags))).sort(),
+    [pluginItems],
   )
   const sizeOptions = useMemo(
-    () => Array.from(new Set(datasetCards.map(buildSizeLabel))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
-    [],
+    () =>
+      Array.from(new Set(pluginItems.map(buildSizeLabel))).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    [pluginItems],
   )
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -102,7 +116,8 @@ export const DatasetPage = () => {
         .join(' ')
         .toLowerCase()
       const matchesPlugin = item.puzzleType === pluginId
-      const matchesQuery = normalizedQuery.length === 0 || searchableText.includes(normalizedQuery)
+      const matchesQuery =
+        normalizedQuery.length === 0 || searchableText.includes(normalizedQuery)
       const matchesSize = sizeFilter === 'all' || sizeLabel === sizeFilter
       const matchesTag = activeTag === null || item.tags.includes(activeTag)
       return matchesPlugin && matchesQuery && matchesSize && matchesTag
@@ -142,10 +157,13 @@ export const DatasetPage = () => {
         <div className="left-column">
           <WorkspaceHeader
             title="PuzzleKit Dataset"
-            description="Browse public Slitherlink puzzles and load them into the workspace."
+            description="Browse public Slitherlink and Masyu puzzles and load them into the workspace."
             activePage="dataset"
           />
-          <section className="panel-card dataset-list-card" aria-labelledby="dataset-list-title">
+          <section
+            className="panel-card dataset-list-card"
+            aria-labelledby="dataset-list-title"
+          >
             <header className="panel-header dataset-list-header">
               <div>
                 <h2 id="dataset-list-title">Public Dataset</h2>
@@ -154,10 +172,15 @@ export const DatasetPage = () => {
                 </small>
               </div>
             </header>
-            {actionError ? <p className="error-text dataset-action-error">{actionError}</p> : null}
+            {actionError ? (
+              <p className="error-text dataset-action-error">{actionError}</p>
+            ) : null}
             <div className="dataset-card-list">
               {filteredItems.map((item) => (
-                <article key={`${item.datasetId}-${item.id}`} className="dataset-puzzle-card">
+                <article
+                  key={`${item.datasetId}-${item.id}`}
+                  className="dataset-puzzle-card"
+                >
                   <div className="dataset-preview">
                     <DatasetPreview item={item} />
                   </div>
@@ -171,7 +194,10 @@ export const DatasetPage = () => {
                         <span key={tag}>{tag}</span>
                       ))}
                     </div>
-                    <div className="dataset-card-actions" aria-label={`${item.id} actions`}>
+                    <div
+                      className="dataset-card-actions"
+                      aria-label={`${item.id} actions`}
+                    >
                       <a href={item.sourceUrl} target="_blank" rel="noreferrer">
                         URL
                       </a>
@@ -199,7 +225,11 @@ export const DatasetPage = () => {
                 </article>
               ))}
             </div>
-            {filteredItems.length === 0 ? <p className="dataset-empty">No dataset puzzles match the current filters.</p> : null}
+            {filteredItems.length === 0 ? (
+              <p className="dataset-empty">
+                No dataset puzzles match the current filters.
+              </p>
+            ) : null}
           </section>
         </div>
         <div className="right-column">
@@ -215,19 +245,34 @@ export const DatasetPage = () => {
                   onChange={(event) => {
                     setActivePuzzlePopover(null)
                     setPluginId(event.target.value)
+                    setSizeFilter('all')
+                    setActiveTag(null)
                   }}
                 >
-                  {puzzleRegistry.all().map((plugin) => (
-                    <option key={plugin.id} value={plugin.id} disabled={plugin.id !== 'slitherlink'}>
-                      {plugin.id === 'slitherlink' ? plugin.displayName : `${plugin.displayName} (planned)`}
-                    </option>
-                  ))}
+                  {puzzleRegistry.all().map((plugin) => {
+                    const hasPublicDataset = publicDatasetPluginIds.has(
+                      plugin.id,
+                    )
+                    return (
+                      <option
+                        key={plugin.id}
+                        value={plugin.id}
+                        disabled={!hasPublicDataset}
+                      >
+                        {hasPublicDataset
+                          ? plugin.displayName
+                          : `${plugin.displayName} (planned)`}
+                      </option>
+                    )
+                  })}
                 </select>
                 <PuzzleInfoButton
                   pluginId={pluginId}
                   isOpen={activePuzzlePopover === 'rules'}
                   onToggle={() =>
-                    setActivePuzzlePopover((current) => (current === 'rules' ? null : 'rules'))
+                    setActivePuzzlePopover((current) =>
+                      current === 'rules' ? null : 'rules',
+                    )
                   }
                   onClose={() => setActivePuzzlePopover(null)}
                 />
@@ -235,7 +280,9 @@ export const DatasetPage = () => {
                   pluginId={pluginId}
                   isOpen={activePuzzlePopover === 'legend'}
                   onToggle={() =>
-                    setActivePuzzlePopover((current) => (current === 'legend' ? null : 'legend'))
+                    setActivePuzzlePopover((current) =>
+                      current === 'legend' ? null : 'legend',
+                    )
                   }
                   onClose={() => setActivePuzzlePopover(null)}
                 />
@@ -252,7 +299,10 @@ export const DatasetPage = () => {
             </label>
             <label className="label-row compact">
               Size
-              <select value={sizeFilter} onChange={(event) => setSizeFilter(event.target.value)}>
+              <select
+                value={sizeFilter}
+                onChange={(event) => setSizeFilter(event.target.value)}
+              >
                 <option value="all">All sizes</option>
                 {sizeOptions.map((size) => (
                   <option key={size} value={size}>
@@ -263,8 +313,15 @@ export const DatasetPage = () => {
             </label>
             <div className="control-group compact-control-group dataset-filter-group">
               <span className="control-group-title">Tags</span>
-              <div className="dataset-filter-row" aria-label="Dataset tag filters">
-                <button type="button" data-active={activeTag === null} onClick={() => setActiveTag(null)}>
+              <div
+                className="dataset-filter-row"
+                aria-label="Dataset tag filters"
+              >
+                <button
+                  type="button"
+                  data-active={activeTag === null}
+                  onClick={() => setActiveTag(null)}
+                >
                   All
                 </button>
                 {tags.map((tag) => (
@@ -272,7 +329,9 @@ export const DatasetPage = () => {
                     key={tag}
                     type="button"
                     data-active={activeTag === tag}
-                    onClick={() => setActiveTag((current) => (current === tag ? null : tag))}
+                    onClick={() =>
+                      setActiveTag((current) => (current === tag ? null : tag))
+                    }
                   >
                     {tag}
                   </button>

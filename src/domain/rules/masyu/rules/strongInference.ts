@@ -1,5 +1,6 @@
 import { clonePuzzle } from '../../../ir/normalize'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
+import type { InferenceDetails, RuleApplication } from '../../types'
 import {
   applyMasyuLineAssumption,
   type MasyuTrialResult,
@@ -16,13 +17,14 @@ export type MasyuStrongBranch = {
   puzzle: PuzzleIR
   setupOk: boolean
   setupDescription: string
+  assumptionDiffs: RuleApplication['diffs']
 }
 
 export type MasyuLineAssumption = [lineKey: string, mark: LineMark]
 
 export const STRONG_MAX_CANDIDATES = 300
 export const STRONG_MAX_TRIAL_STEPS = 100
-export const STRONG_MAX_MS = 15000
+export const STRONG_MAX_MS = 30000
 
 export const deriveMasyuStrongProbeBudgets = (
   maxTrialSteps: number,
@@ -49,7 +51,17 @@ export const buildMasyuStrongBranch = (
     )
     .join(', ')
 
-  return { puzzle: branch, setupOk, setupDescription }
+  return {
+    puzzle: branch,
+    setupOk,
+    setupDescription,
+    assumptionDiffs: assumptions.map(([lineKeyValue, mark]) => ({
+      kind: 'line',
+      lineKey: lineKeyValue,
+      from: puzzle.lines[lineKeyValue]?.mark ?? 'unknown',
+      to: mark,
+    })),
+  }
 }
 
 export const immediateMasyuStrongContradictionResult = (
@@ -65,8 +77,57 @@ export const immediateMasyuStrongContradictionResult = (
     kind: 'line-assumption',
     message:
       'line-assumption contradiction: this assumption conflicts with an already decided Masyu line',
+    lines: [],
   },
+  traceSteps: [],
 })
+
+export const buildMasyuInferenceDetails = (
+  puzzle: PuzzleIR,
+  branchLabel: string,
+  branch: MasyuStrongBranch,
+  result: MasyuTrialResult,
+  conclusionDiffs: RuleApplication['diffs'],
+): InferenceDetails => {
+  const contradiction =
+    result.contradictionReason?.kind === 'line-assumption'
+      ? {
+          ...result.contradictionReason,
+          lines: branch.assumptionDiffs.flatMap((diff) =>
+            diff.kind === 'line' ? [diff.lineKey] : [],
+          ),
+        }
+      : result.contradictionReason
+  return {
+    kind: 'masyu-strong',
+    conclusion: 'opposite-branch',
+    basePuzzle: clonePuzzle(puzzle),
+    defaultBranchId: 'assumption',
+    branches: [
+      {
+        id: 'assumption',
+        label: branchLabel,
+        role: 'trial',
+        initialDiffs: branch.assumptionDiffs,
+        status: result.contradiction
+          ? 'contradiction'
+          : result.exhausted
+            ? 'exhausted'
+            : 'unresolved',
+        traceSteps: result.traceSteps,
+        contradiction,
+      },
+      {
+        id: 'conclusion',
+        label: 'Forced conclusion',
+        role: 'forced-conclusion',
+        initialDiffs: conclusionDiffs,
+        status: 'forced',
+        traceSteps: [],
+      },
+    ],
+  }
+}
 
 export const describeMasyuStrongTrialResult = (
   result: MasyuTrialResult,

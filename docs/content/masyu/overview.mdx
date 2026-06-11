@@ -1,0 +1,12 @@
+## Puzzle rules
+
+Masyu asks for one continuous loop that passes through every pearl. The loop
+turns on black pearls and continues straight in both neighboring cells. It
+passes straight through white pearls and turns in at least one neighboring
+cell.
+
+## Solver techniques
+
+PuzzleKit combines direct pearl rules, local patterns, candidate pruning,
+inside/outside tile coloring, connectivity checks, and bounded strong
+inference. Each technique below is a real rule registered in the solver.

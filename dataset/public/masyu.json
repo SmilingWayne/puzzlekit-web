@@ -1,0 +1,503 @@
+{
+  "schemaVersion": 1,
+  "id": "masyu",
+  "title": "Masyu Dataset",
+  "puzzleType": "masyu",
+  "items": [
+    {
+      "id": "masyu-25x25-0001",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/i0c11020i3030320006009020i9361i9c93i9i03910g50691230000110010a41e3b6aa0d0001010900c90200329940b7930006k009j66901390000109263cj6390009i0i6013003900ma0330220130990013360b7ia009i60001692009171a301399a0902010900ii",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-0002",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/i39001003216230092091006l309079931106ff090000409b9iik01093900010a00i9706i0c001193601ai3a46900b36i0i6a0030j0i003913100ic0a0a0ai633090i011303l099030f23i600630600inc00i0m090f00000b3032i01i11096b029120119i0i009000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-9899866",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/3i09210010909039900i0b20i36a401039300c311a3b00371ic09k231000ic06300ak0a00a300080ai210020a9f213i370031000a0n1000a91003bb000930a03k101c09ic03i02a001000030a111fc910c9i9021010k139f196000003032ai2f0i0919193009i0100",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-4265995",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/j00b0200019i0c079a620306900409900530001c1010c101630304000923596m9a03020i0f3110903a600b98010335022300090i002600393c33l66009800f2130i0300260id0i1103901043l00310050939334009909c01009d3091200l090c20i349k0363000300",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-1088348",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/00i0i00j1901069099l22006000900300300aii609b900006002io69620910i0109c40i4610030i12133a300030l10161000c0430222040220000200f1c6b30500a0i1ga011i063j3601000366i32109039800370i0006904223090a03902099101036b04209i0210",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-6888877",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/00909310ij929900000c10f3c4i91060030cf3097000001904m090a3300b13i020i0900b210ii3a06000991f030000c9496b50309aa30a2011023399d360020i9003601209006i6a009o600609j91963ii1930i000309g03ij03i01990004001363319203016f0o0i",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-5468112",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/ij909631000a133339330003i0j0306a0294000a06090l094007632063ai93k00030100b643402f9103022011034050a49991900005003cdf330l00100000a030j603920i9039150620i40i000920093660202000i1609b6i06161090009091703ij31132i0046000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-4003665",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/2010ij00l43i1001000020i003j03127i30060003l23004600109i102203918330i91600510a3k310c06l0301326000962902110019909031i1i60i9i9000663i030169b0io9c301a20013301001300660k0000960600370060a0i01906003i02103309i00203i0i0",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-2944455",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/00i903990300191400001b0i068279130i019c0009i4001090300il1040a9000dj0100929101cfj1040009332106i410000310360a691216b9009300a0959031a31a00100190i0i5030900i0g00064120b140010610915c4396811000i00i990100i0099i0800609i",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-9566366",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/i0i9f90a010a0a103130101793004110001330c9c0k00180i05i36100400130i304920390220f196c63060000k209393103c1b369193400000900060l60630902i0116jib0b34022003009010016200j0092010066b26399d306000i120009i1i0900i0j000b62000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-587855",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/070606i63939100000911020349c10b0a1012206i0200i002111043606100i10001200631f101106609026000611k04ki220003023011a10c0700i3k9293b0001100110m0k2k00301i9030103i169203i13929600a051001903331131m39011340331010i00921i10",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-6857349",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/0000009903069609ac4906609000i03ii099i3110j010030103022i0c004c9ik004i009000k009i1ia00c9131009214302c3033006b9413909000413600b0300a321221009i02002600i009900209900069609643il315090b0i696100039010b0f01060020960700",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-3231926",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/i13000010099b129060a660d3ii000301005103o098100j03900063331630620110409i113c05b006005061300j11106210i003006k0aa923620660j900000i006i0ic0209k1060if991j060606003090240k020a26a2030900020000096236061000006i310k9000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-4088053",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/0001009a3024117197200610000210a141106900i309j96g3a0i020000009i0c7aa6100j0i031000010903c6b30939a0i1a003960f93260a29960060003i330kbb9001a01302361l30c9i603061300009i303390i0003496i3101000091b6b0090f0093922103060i",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-20x20-6613546",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/20/20/i000006303j0215600c0031070269c30i0009069i200o99213300c4004c9100l000610j96i900366k3991300969a1010c200j0c009i00190000b01606j1006c0904000",
+      "width": 20,
+      "height": 20,
+      "tags": ["hard", "Medium"],
+      "source": "https://zh.puzzle-masyu.com/?size=12"
+    },
+    {
+      "id": "masyu-20x20-8268975",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/20/20/09o5020c000a410090a30f433030161091i1070000b00343l03bj3l9c0o20900000920k0756030l036221099060330300110325b11g1303c909e9l09091300ef000960",
+      "width": 20,
+      "height": 20,
+      "tags": ["hard", "Medium"],
+      "source": "https://zh.puzzle-masyu.com/?size=12"
+    },
+    {
+      "id": "masyu-25x25-5562527",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/310j2i003301220o939e0094010096201303fk11i39000300016ij00g900031i0iji0in04i33a001m0904206000d3i60399600230b1211300i039201340c39j1i32g06091a004302696712i011500007900603l191100000069ilji0c09290100a0000030i323k690",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-8964356",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/30109306i8c309300100016c1i026i00c60c00069060ai15610200200101i09l0i430aj012000000320i60021003i36600c3108939lc630091930l013310903m0333093c109f60c1i800160j001g10100d4106i1ii00k9001011001090930091010161002i191060i",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-3874630",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/00i090333709c402003010b9000f01010509ci08130i3i300940ji6969i0203i16069009600i90j030m00900di31i9b2020001a0003k06i1l60200000c3j030400003e6316f6c1031c060a0060901900j00k1022009c1a0006o031ica3003600a0a39990010090170",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-6113625",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/1006e10003209011513910ia000f02130f0200a620a30c6002090i9i0210l21010030030fa006f33ii3lc069900061909509110a207034lb6030i33116j00000904303811629d332i0i090031013j0ic00c00989040o6901600333i10199a03036430c14l00i00200",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-7453852",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/010623k3341003009003f3963093090i03339000i0i013010i63c3df3100a20002030904090000i2109ii3096i90060900960820j9a009276633b30090k010039i0904fi0i64f600406i10i400003101036001300l20i90190i142119i90020l900230c0369961000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-6744156",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/61900081000i19010062a3d1040i009039ca000a1110143fi300030100a20a0119900i6l01c0kb915935060150310c330093001l609i90k000fi0b009bc2033000000c9063i3i00k41000032610040960j0di2900396200i919100fi310602000209i210i3000i910",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-8512608",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/0023096020c0a000903404i0b93i1l96i03200660b100010i0000ga300043961649901090000b9108810306090609761109090633601196910660001610i664200a3a0096003391069j0106069003k09604209200f007111301c900100i03a0009a01a0a33i0o00i0",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-879127",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/j20160902001030030330a1632051021006a9e26f00003001310100i0003111213916334133002314i99c6000410116091000005030k010ij1200i333091c011c0c9j4f1i400009030420903m00f9221i0c2090903130o00k0o03200000000a900019f607o1910060",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-5584744",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/4000002j01b905300406139330161k4322093c329k0030020339c707a21100100101700431051b0m035910000230925li4330000110060g0b1370k041133000i0i0i0335b09k6k3b0009913000i6b0000j3903002b00i7ak250i9300300230369i1a093a311102000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-8788377",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/i101013003ic1300300a9090ii900ic9i910o2012010020c002601093f072909c60093202021163b01kf90ii100011003i333o930300000i6k5610009ii02633009a01660i0010003092022c339ca4190300033043afj9c603j30600390060390026000910i001010",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-0003",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/0003090019033936204i01402a1i9i1631009c2099190633a060200006020219f90i0a00i900737020009i00304b3009l0603620a300902f0c0151a0i93c01032803g003300603da03003000003ia0239i06303082033630002f0f263090k6039j0i90b0000039000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-225588",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/0i60030000a0c13a3i00o3011126300il390a220300302313i0ib620163397006006a03103i6039ii93001003416133h29701i000033320ji0590ia003j01000bf0j40i9f0400900l101a013i34i0b1l16900i0030k919900b001001196013973390790c300030000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-78337",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/3110030i0690f9009934946j3003001i3313jk00993c12112a020l10ia033933c060020110900c03il00k0c6i09303040919ff62an3000f30010300j3a3i00j00i0276i0c0a390b11003192e03132093f05i099901690l0a0019295a13a10000130a9790l30i0i0k0",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-1228297",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/100311i01ia2000f32001936096f17ii013010i01504900030706360i690a003209a139c0i00800i303f006bi0300030223bii309030020c99i0a3190a0b903n3610a0a3010343903b203005310o69i50a300i3l0c9310033005c3f2029000001020600303610b2i0",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-4221753",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/000100i0010209096k0a09i006000l6i301a000i600c6930ii010i000352b0ca9160000339090ibi093o0i0009300k0faa733i06i36100i9030620204413i901040i0140630i509e033k00900010c000009001b04al00i0a000a2030ca9003001006833930jj0003i",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-988309",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/3020i23i00060010c3c006000i00e096603c0009093909j010f003304293ki1190000439930619021060900930a0c06190111441030300230k76ia3962290444050a0000c0c0000c13002i19141120106l03900a603i3b70900190i690j002009ci0300c000009600",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-2408667",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/2090903il00l000001909i90c03aik56017001000j010i02000100c900o06i0056023010i000063320g500j3i0600a0023a0199360603001660109000112212kii1000a0030a200j3221301006060c603163i15063jl02106301a6000930j0i930913903391600b00",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-9603489",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/0i0000906iic9001000003kf0041i6203100b506a0099060001j6940kb091091001216000060903k23i00k0003i3d01k39100000000026909o96301f0j1300f6091100423i1039c3006902030k34l3002900000a91060c902000ki0633kai20a0109400i0j0000030",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-5042658",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/109210103009010c39c0910999f6e6l1109i001000001ic23a6if003611260i11m099336a0c911000100a92906266910m96011102109010c91111i109c00111a062139002030923c1606391060696010j13990666i330f3000606a210006009021109613002006000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-0004",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/000k99o9301091009ca0030235019119107b0f0009101704i0ii90200i10b6im0a911a03i11130095631409o4006c17600270a00026000e1140a0fa2301011i006ca309641i0a03137309099362gia0100692004a140096200909l0i0b001ia9c400j3013036c0310",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-25x25-5809037",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/06016020j9903210090c0000i11020031022j030b130i106070c0360i0109f0200c310061209i000a000i0i603i09810160a0a032090141c210l03393i6070303021320l943010000j001aa9a02ii11f00010920a0l60i9093310jj06f1301001309c30a300010000",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "https://zh.puzzle-masyu.com/?size=18"
+    },
+    {
+      "id": "masyu-15x21-0005",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/21/15/100300030000b000i239009203036040ii006i600131090i0000b0330k2062103360996091020910ik30096002121000010i0a109",
+      "width": 21,
+      "height": 15,
+      "tags": ["easy", "Medium"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x10-0006",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/10/09a1010a6c09900914690001300106ib00",
+      "width": 10,
+      "height": 10,
+      "tags": ["easy", "Small"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x10-0007",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/10/3k6100000i0mj03381103mi090000313j0",
+      "width": 10,
+      "height": 10,
+      "tags": ["easy", "Small"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x10-0008",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/10/0000c9ia3000cb2000030dk0100c060330",
+      "width": 10,
+      "height": 10,
+      "tags": ["easy", "Small"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x10-0009",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/10/0060jc0000010f90c2099010a6j0000990",
+      "width": 10,
+      "height": 10,
+      "tags": ["easy", "Small"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x10-0010",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/10/00106020b6130000211139000ka3313390",
+      "width": 10,
+      "height": 10,
+      "tags": ["easy", "Small"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-25x40-0011",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/40/25/13j0j0133913i0000144001960a3k3i309cc2030000093190i11g3k3j3c30c9920900009ac110i10k6k33a040g99290000331b011i26b6j0430136090000341102030lb6a3a130i1060000193940a2036303300330i103i03i0690609200a00023o030i0021210003160023112191a5200j6i66308000006000006c0i0o80116312006c00i1209j31b0020i6369i000i20i6600000140cj000030j3i9000900039209019c00i0i",
+      "width": 40,
+      "height": 25,
+      "tags": ["easy", "Large"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-25x40-0012",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/40/25/13j0j0133913i0000144001960a3k3i300cc2030000093190i1173k3j3930c9920900009ac110i10k6k33a040g99290000331b011i26b6j0430106090000341102030lb6a3a130i1060000193940a2036303300330i103i03i0690609200a00023o030i0021210003160023112191a5200j6i663080000i6000006c0i0i20116312006c02i1209j31b002006369i000i20i6600000140cj000030j3i9000900039209019c00i0i",
+      "width": 40,
+      "height": 25,
+      "tags": ["easy", "Large"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-39x49-0013",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/49/39/0000000000i000000c63k0cj04962g6a430910i06390300109i20609090i30106000300400j00i100940iib01303c0646306110306j0010900f0306409064270i30112300030900000006a000390062216j09903i606230126c93a600000114000093009j63603004000040090099l0c919j00j41000l0343902030000k10963023990i0cia390399c02069200300930613i10013j0199ib0c00000460090a000i3j6iii013i0i1232090900c06960b00i323020000209j0909900996b690006463003k090396430000219900b02091610390021300l00c61a420b039i310201003030399010210i53026b690030a061132031003262120210a0ia30i30009190i3600601990300c00i30c31k0a203c019a0000090613ii00c26b0j206i0900130300093030023i09ic3b33b10i39310ia00030090060930000000130k090",
+      "width": 49,
+      "height": 39,
+      "tags": ["easy", "Large"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x18-0014",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/18/10/09i9092000l00a19009009061cc0i0000329111300i200l600b9000c0133",
+      "width": 18,
+      "height": 10,
+      "tags": ["easy", "Medium"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-12x14-0015",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/14/12/00011c336369i9m212203333050bbf0036600ig11220333309ii9if0",
+      "width": 14,
+      "height": 12,
+      "tags": ["easy", "Medium"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x10-0016",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/10/090003ii40340009080c01039960334010",
+      "width": 10,
+      "height": 10,
+      "tags": ["easy", "Small"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-10x10-0017",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/10/i300060b0i30003fa000124090099109i0",
+      "width": 10,
+      "height": 10,
+      "tags": ["easy", "Small"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-20x29-0018",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/29/20/3026k40306010000c200o0j3i0a00900003a307006a60300009000000126k6k6n6k00000000003i0j0jcj3i310000010060616d6a6000000000326k6k6k6k0040000000209i3i09010091030a61636963i300030002c003026k000490j00031600",
+      "width": 29,
+      "height": 20,
+      "tags": ["easy", "Large"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-13x18-0019",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/18/13/1000000a23030000006202k00002i30o601310090010c1120921601309090b0313632039009200",
+      "width": 18,
+      "height": 13,
+      "tags": ["easy", "Medium"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-40x40-0020",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/40/40/il0020010160i003ol0c3i00606900010o0203301632010100901206600900i5ef003193cii9000900106990046091191603c6i021201a69k01i23390b963i00i0630i010000o06f00af06106139302002060i0099211a1000i0j0a3ia03321562309i30016023003420000a0k90ii00190200i0fj603j06211i09190f0i9024029710i6230010000000009b0b3096f062j31300a09909060a00i04101920090626b0690020913320101iib31620200859a901b6119a901093a300a0000610310100226210k1931203605000001911030i10m23920a2010cc00200000a63i900l61c6201923i1a9036k090090j6039000a010ji0611921006i020i019ii0i04a90039c102i6000o3390000",
+      "width": 40,
+      "height": 40,
+      "tags": ["easy", "Large"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-30x30-0021",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/30/30/i00000300009133i13213a699001c3i903b3k00062633311920i30391320000313a0633621005b003i030601a9333i0i4011903060c39939002i01i0020b19193703o1c006i0109206i00049094aaj390160601090310i31021606109a5020c0i09c9000430903607c0006a901200100000i00a1a1k10263030360c21020i000l0061606c963200bk11300090403006003i000i126ii",
+      "width": 30,
+      "height": 30,
+      "tags": ["easy", "Large"],
+      "source": "example.txt"
+    },
+    {
+      "id": "masyu-15x10-0022",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/10/15/39000c0966103093ibf40d3262003j31008060003l03990030",
+      "width": 10,
+      "height": 15,
+      "tags": ["easy", "Medium"],
+      "source": "example.txt"
+    }
+  ]
+}

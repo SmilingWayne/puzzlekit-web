@@ -1,6 +1,6 @@
-import { cellKey, edgeKey, getCellEdgeKeys, getCornerEdgeKeys, getVertexIncidentEdges, parseEdgeKey, parseSectorKey } from '../../../ir/keys'
+import { cellKey, edgeKey, getCellEdgeKeys, getCornerEdgeKeys, getVertexIncidentEdges, parseEdgeKey, parseSectorKey, vertexKey } from '../../../ir/keys'
 import { runNextRule } from '../../engine'
-import type { Rule } from '../../types'
+import type { InferenceBranch, InferenceContradiction, Rule, TrialTraceStep } from '../../types'
 import {
   SECTOR_MASK_ALL,
   sectorMaskAllows,
@@ -18,7 +18,7 @@ import {
   isSlitherCellColor,
 } from './shared'
 
-export type TrialContradictionReason = {
+export type TrialContradictionReason = InferenceContradiction & {
   kind:
     | 'vertex-degree'
     | 'cell-clue'
@@ -38,7 +38,22 @@ export type TrialResult = {
   stepsRun: number
   elapsedMs: number
   contradictionReason?: TrialContradictionReason
+  traceSteps: TrialTraceStep[]
 }
+
+export const buildSlitherInferenceBranch = (
+  id: string,
+  label: string,
+  initialDiffs: InferenceBranch['initialDiffs'],
+  result: TrialResult,
+): InferenceBranch => ({
+  id,
+  label,
+  initialDiffs,
+  status: result.contradiction ? 'contradiction' : result.exhausted ? 'exhausted' : 'unresolved',
+  traceSteps: result.traceSteps,
+  contradiction: result.contradictionReason,
+})
 
 export const applyEdgeAssumption = (puzzle: PuzzleIR, edgeKeyValue: string, to: EdgeMark): boolean => {
   const current = puzzle.edges[edgeKeyValue]?.mark ?? 'unknown'
@@ -67,12 +82,14 @@ const detectVertexContradiction = (puzzle: PuzzleIR): TrialContradictionReason |
         return {
           kind: 'vertex-degree',
           message: `vertex-degree contradiction at ${formatVertexLabel(r, c)}: ${lineCount} line edges meet there`,
+          vertices: [vertexKey(r, c)],
         }
       }
       if (unknownCount === 0 && lineCount !== 0 && lineCount !== 2) {
         return {
           kind: 'vertex-degree',
           message: `vertex-degree contradiction at ${formatVertexLabel(r, c)}: closed vertex has ${lineCount} line edge`,
+          vertices: [vertexKey(r, c)],
         }
       }
     }
@@ -100,12 +117,14 @@ const detectCellClueContradiction = (puzzle: PuzzleIR): TrialContradictionReason
         return {
           kind: 'cell-clue',
           message: `cell-clue contradiction at ${formatCellLabel(r, c)}: clue ${target} already has ${lineCount} line edges`,
+          cells: [cellKey(r, c)],
         }
       }
       if (lineCount + unknownCount < target) {
         return {
           kind: 'cell-clue',
           message: `cell-clue contradiction at ${formatCellLabel(r, c)}: clue ${target} can reach at most ${lineCount + unknownCount} line edges`,
+          cells: [cellKey(r, c)],
         }
       }
     }
@@ -120,6 +139,7 @@ const detectSectorContradiction = (puzzle: PuzzleIR): TrialContradictionReason |
       return {
         kind: 'sector-mask',
         message: `sector-mask contradiction at ${formatSectorKeyLabel(sectorKeyValue)}: no corner line count remains allowed`,
+        sectors: [sectorKeyValue],
       }
     }
     const [row, col, corner] = parseSectorKey(sectorKeyValue)
@@ -135,6 +155,7 @@ const detectSectorContradiction = (puzzle: PuzzleIR): TrialContradictionReason |
       return {
         kind: 'sector-mask',
         message: `sector-mask contradiction at ${formatSectorKeyLabel(sectorKeyValue)}: fixed corner has ${lineCount} line edges, which the sector mask forbids`,
+        sectors: [sectorKeyValue],
       }
     }
     let hasFeasible = false
@@ -148,6 +169,7 @@ const detectSectorContradiction = (puzzle: PuzzleIR): TrialContradictionReason |
       return {
         kind: 'sector-mask',
         message: `sector-mask contradiction at ${formatSectorKeyLabel(sectorKeyValue)}: ${lineCount} fixed line edges and ${unknownCount} unknown edges leave no allowed corner count`,
+        sectors: [sectorKeyValue],
       }
     }
   }
@@ -161,6 +183,7 @@ const detectVertexCandidateContradiction = (puzzle: PuzzleIR): TrialContradictio
       return {
         kind: 'vertex-candidates',
         message: `vertex-candidates contradiction at ${formatVertexLabel(row, col)}: no feasible degree state remains`,
+        vertices: [vertexKeyValue],
       }
     }
   }
@@ -184,6 +207,8 @@ const detectColorEdgeContradiction = (puzzle: PuzzleIR): TrialContradictionReaso
         return {
           kind: 'color-edge',
           message: `color-edge contradiction at ${formatEdgeLabel(edgeKeyValue)}: boundary ${mark} requires ${formatCellKeyLabel(adjacentCells[0])} to be ${expected}, but it is ${color}`,
+          edges: [edgeKeyValue],
+          cells: adjacentCells,
         }
       }
       continue
@@ -200,12 +225,16 @@ const detectColorEdgeContradiction = (puzzle: PuzzleIR): TrialContradictionReaso
       return {
         kind: 'color-edge',
         message: `color-edge contradiction at ${formatEdgeLabel(edgeKeyValue)}: a line edge separates equal-colored cells ${formatCellKeyLabel(adjacentCells[0])} and ${formatCellKeyLabel(adjacentCells[1])}`,
+        edges: [edgeKeyValue],
+        cells: adjacentCells,
       }
     }
     if (mark === 'blank' && colorA !== colorB) {
       return {
         kind: 'color-edge',
         message: `color-edge contradiction at ${formatEdgeLabel(edgeKeyValue)}: a blank edge connects different-colored cells ${formatCellKeyLabel(adjacentCells[0])} and ${formatCellKeyLabel(adjacentCells[1])}`,
+        edges: [edgeKeyValue],
+        cells: adjacentCells,
       }
     }
   }
@@ -295,6 +324,7 @@ const detectLineLoopContradiction = (puzzle: PuzzleIR): TrialContradictionReason
         closedLoopComponents > 1
           ? `line-loop contradiction: ${closedLoopComponents} separate closed loops are present`
           : `line-loop contradiction: a closed loop of ${closedLoopEdges} edges exists while other line edges remain outside it`,
+      edges: lineEdges.map(([edgeKeyValue]) => edgeKeyValue),
     }
   }
   return null
@@ -354,6 +384,7 @@ const detectDisconnectedGreenContradiction = (puzzle: PuzzleIR): TrialContradict
   return {
     kind: 'disconnected-green',
     message: `disconnected-green contradiction: ${formatCellKeyLabel(disconnectedCell)} cannot connect to ${formatCellKeyLabel(greenCells[0])} through non-line edges`,
+    cells: [disconnectedCell, greenCells[0]],
   }
 }
 
@@ -386,10 +417,12 @@ export const runTrialUntilFixpoint = (
       stepsRun: 0,
       elapsedMs: Math.max(0, performance.now() - startedAt),
       contradictionReason: initialContradictionReason,
+      traceSteps: [],
     }
   }
 
   let trial = puzzle
+  const traceSteps: TrialTraceStep[] = []
   for (let stepNumber = 1; stepNumber <= maxTrialSteps; stepNumber += 1) {
     if (Date.now() > deadlineMs) {
       return {
@@ -399,6 +432,7 @@ export const runTrialUntilFixpoint = (
         puzzle: trial,
         stepsRun: stepNumber - 1,
         elapsedMs: Math.max(0, performance.now() - startedAt),
+        traceSteps,
       }
     }
     const { nextPuzzle, step } = runNextRule(trial, deterministicRules, stepNumber)
@@ -412,9 +446,19 @@ export const runTrialUntilFixpoint = (
         stepsRun: stepNumber - 1,
         elapsedMs: Math.max(0, performance.now() - startedAt),
         contradictionReason: contradictionReason ?? undefined,
+        traceSteps,
       }
     }
     trial = nextPuzzle
+    traceSteps.push({
+      ruleId: step.ruleId,
+      ruleName: step.ruleName,
+      message: step.message,
+      diffs: step.diffs,
+      affectedCells: step.affectedCells,
+      affectedEdges: step.affectedEdges,
+      affectedSectors: step.affectedSectors,
+    })
     const contradictionReason = findHardContradictionReason(trial)
     if (contradictionReason) {
       return {
@@ -425,6 +469,7 @@ export const runTrialUntilFixpoint = (
         stepsRun: stepNumber,
         elapsedMs: Math.max(0, performance.now() - startedAt),
         contradictionReason,
+        traceSteps,
       }
     }
   }
@@ -435,5 +480,6 @@ export const runTrialUntilFixpoint = (
     puzzle: trial,
     stepsRun: maxTrialSteps,
     elapsedMs: Math.max(0, performance.now() - startedAt),
+    traceSteps,
   }
 }

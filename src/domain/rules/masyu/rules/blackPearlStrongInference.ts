@@ -16,6 +16,7 @@ import {
 } from './shared'
 import {
   buildMasyuStrongBranch,
+  buildMasyuInferenceDetails,
   deriveMasyuStrongProbeBudgets,
   describeMasyuStrongTrialResult,
   immediateMasyuStrongContradictionResult,
@@ -134,22 +135,30 @@ export const createBlackPearlStrongInferenceRule = (
           continue
         }
 
+        const diffs: RuleApplication['diffs'] = [
+          {
+            kind: 'line',
+            lineKey: candidate.firstLine,
+            from: 'unknown',
+            to: 'blank',
+          },
+        ]
         return {
           message:
             `Black Pearl Strong Inference: assuming ${formatMasyuCellKeyLabel(candidate.pearlKey)} exits ${candidate.direction} ` +
             `(${branch.setupDescription}) leads to ${describeMasyuStrongTrialResult(result)}, so ${formatMasyuLineLabel(
               candidate.firstLine,
             )} is crossed out.`,
-          diffs: [
-            {
-              kind: 'line',
-              lineKey: candidate.firstLine,
-              from: 'unknown',
-              to: 'blank',
-            },
-          ],
+          diffs,
           affectedCells: [candidate.pearlKey],
           affectedLines: [candidate.firstLine],
+          inferenceDetails: buildMasyuInferenceDetails(
+            puzzle,
+            `Assume ${formatMasyuCellKeyLabel(candidate.pearlKey)} exits ${candidate.direction}`,
+            branch,
+            result,
+            diffs,
+          ),
         }
       }
     }

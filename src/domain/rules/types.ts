@@ -56,6 +56,50 @@ export type RuleDiff =
   | TileDiff
   | VertexDiff
 
+export type InferenceFocus = {
+  cells?: string[]
+  edges?: string[]
+  lines?: string[]
+  tiles?: string[]
+  sectors?: string[]
+  vertices?: string[]
+}
+
+export type InferenceContradiction = InferenceFocus & {
+  kind: string
+  message: string
+}
+
+export type TrialTraceStep = {
+  ruleId: string
+  ruleName: string
+  message: string
+  diffs: RuleDiff[]
+  affectedCells: string[]
+  affectedEdges: string[]
+  affectedLines?: string[]
+  affectedTiles?: string[]
+  affectedSectors: string[]
+}
+
+export type InferenceBranch = {
+  id: string
+  label: string
+  role?: 'trial' | 'forced-conclusion'
+  initialDiffs: RuleDiff[]
+  status: 'contradiction' | 'unresolved' | 'exhausted' | 'forced'
+  traceSteps: TrialTraceStep[]
+  contradiction?: InferenceContradiction
+}
+
+export type InferenceDetails = {
+  kind: 'slither-strong' | 'slither-color-assumption' | 'slither-sector-parity' | 'masyu-strong'
+  conclusion: 'opposite-branch' | 'shared-consequence'
+  basePuzzle: PuzzleIR
+  defaultBranchId: string
+  branches: InferenceBranch[]
+}
+
 export type RuleStep = {
   id: string
   ruleId: string
@@ -72,6 +116,7 @@ export type RuleStep = {
   chainDurationMs?: number
   ruleApplyMs?: number
   ruleAttempts?: RuleAttempt[]
+  inferenceDetails?: InferenceDetails
 }
 
 export type RuleApplication = {
@@ -81,6 +126,7 @@ export type RuleApplication = {
   affectedTiles?: string[]
   affectedLines?: string[]
   affectedSectors?: string[]
+  inferenceDetails?: InferenceDetails
 }
 
 export type RuleAttempt = {

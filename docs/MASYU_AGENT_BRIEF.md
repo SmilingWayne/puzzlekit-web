@@ -10,10 +10,10 @@ Masyu is a first-class puzzle family with:
 - Penpa+ import.
 - Solver rendering, replay, explanations, stats, legend/help content, and completion analysis.
 - Editor support for blank custom grids, URL import, black/white pearl placement, and load-to-solver flow.
-- Deterministic rules plus bounded, explainable strong-inference rules.
+- Deterministic rules plus bounded strong-inference rules with branch replay and contradiction focus.
 - Tile-color topology support for inside/outside reasoning.
 
-Public Masyu dataset manifests are not yet committed to `dataset/public`; use private manifests for local experiments until curated public examples are added.
+A categorized Masyu manifest is committed to `dataset/public`; use private manifests for additional local experiments.
 
 ## Canonical Model
 
@@ -40,7 +40,8 @@ Implemented rule areas include:
 - Candidate bridge reasoning and pearl candidate pruning.
 - Adjacent white pearl lookahead.
 - Tile color propagation, color-line implications, color-pearl implications, and connectivity cut coloring.
-- Bounded strong inference for black pearls, white pearls, and empty cells.
+- Bounded strong inference for black pearls, confirmed-line component endpoints,
+  and white pearls.
 
 Default expectation: deterministic rules run first, then bounded strong-inference rules reuse the deterministic rule list for local propagation.
 
@@ -59,7 +60,7 @@ Use these files first:
 - Lookahead helpers: `src/domain/rules/masyu/rules/lookahead*.ts`
 - Masyu parser/exporter: `src/domain/parsers/puzzlink/masyuPuzzlink.ts`, `src/domain/parsers/penpa/index.ts`
 - Masyu editor: `src/features/editor/MasyuEditorBoard.tsx`, `src/features/editor/editorStore.ts`
-- Tests: `src/domain/rules/masyu/rules.test.ts`, `src/domain/ir/masyu.test.ts`, parser tests
+- Tests: `src/domain/rules/masyu/tests/`, `src/domain/rules/masyu/completion.test.ts`, `src/domain/ir/masyu.test.ts`, parser tests
 
 Replay and rendering plumbing:
 
@@ -67,6 +68,7 @@ Replay and rendering plumbing:
 - Diff application: `src/domain/rules/engine.ts`
 - Solver timeline/checkpoints: `src/features/solver/solverStore.ts`
 - Board rendering: `src/features/board/CanvasBoard.tsx`
+- Strong-inference inspection: `src/features/explanation/BranchInspector.tsx`
 
 ## Development Direction
 
@@ -74,7 +76,7 @@ Near-term Masyu work should favor small, maintainable rule improvements over bro
 
 - Consolidate repeated line, tile, candidate, and graph primitives when duplication becomes costly.
 - Prefer named deterministic rules before adding broader assumption search.
-- Keep bounded inference explainable through contradiction or common-conclusion messages.
+- Keep bounded inference explainable through structured trial traces, contradiction focus, and formal conclusions.
 - Add focused fixture tests whenever a rule changes.
 
 Historical Masyu planning notes live under `docs/legacy/`. They are reference material, not the current source of truth.
@@ -90,7 +92,7 @@ Historical Masyu planning notes live under `docs/legacy/`. They are reference ma
 Useful commands:
 
 ```bash
-pnpm test:run src/domain/rules/masyu/rules.test.ts
+pnpm test:run src/domain/rules/masyu/tests
 pnpm test:run src/domain/rules/engine.test.ts src/features/solver/solverStore.test.ts
 pnpm build
 ```
