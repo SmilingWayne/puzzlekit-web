@@ -127,6 +127,25 @@ export const getMasyuStats = (puzzle: PuzzleIR): PuzzleStatsContent => {
 export const masyuPlugin: PuzzlePlugin = {
   id: 'masyu',
   displayName: 'Masyu',
+  strongTelemetry: {
+    rules: [
+      {
+        ruleId: 'masyu-black-pearl-strong-inference',
+        ruleName: 'Black Pearl Strong Inference',
+        supported: true,
+      },
+      {
+        ruleId: 'masyu-line-component-endpoint-strong-inference',
+        ruleName: 'Masyu Line Component Endpoint Strong Inference',
+        supported: true,
+      },
+      {
+        ruleId: 'masyu-white-pearl-strong-inference',
+        ruleName: 'White Pearl Strong Inference',
+        supported: true,
+      },
+    ],
+  },
   liveStats: {
     coverageTitle: 'Inference Coverage',
     coverageDescription: 'Decided or colored Masyu state',
@@ -139,7 +158,11 @@ export const masyuPlugin: PuzzlePlugin = {
   legend: masyuLegend,
   displayOptions: [
     { id: 'showTiles', label: 'Show Tiles', enabledByDefault: true },
-    { id: 'showLineCrosses', label: 'Show Line Crosses', enabledByDefault: true },
+    {
+      id: 'showLineCrosses',
+      label: 'Show Line Crosses',
+      enabledByDefault: true,
+    },
     { id: 'showHighlights', label: 'Show Highlights', enabledByDefault: true },
     { id: 'showGridLabels', label: 'Show Grid Labels', enabledByDefault: true },
     { id: 'showGrid', label: 'Show Grid', enabledByDefault: true },

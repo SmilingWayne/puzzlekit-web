@@ -1,4 +1,10 @@
+import type {
+  PuzzleStrongTelemetryConfig,
+  StrongTelemetryRule,
+} from '../plugins/types'
 import type { CompletionReport } from '../rules/completion'
+import type { RuleAttemptSummary } from '../rules/ruleAttemptSummaryCollector'
+import type { StrongInferenceSummary } from '../rules/strongInferenceSummaryCollector'
 
 export type BenchmarkDatasetItem = {
   id: string
@@ -26,6 +32,30 @@ export type BenchmarkPuzzleStatus =
   | 'step-capped'
   | 'time-capped'
 
+export type BenchmarkTelemetryLevel = 'off' | 'summary'
+
+export type StrongTelemetryCoverageStatus =
+  | 'full'
+  | 'partial'
+  | 'none'
+  | 'not-applicable'
+
+export type StrongTelemetryCoverage = {
+  status: StrongTelemetryCoverageStatus
+  supportedRules: StrongTelemetryRule[]
+  unsupportedRules: StrongTelemetryRule[]
+}
+
+export type BenchmarkStrongInferenceTelemetry = {
+  coverage: StrongTelemetryCoverage
+  summary: StrongInferenceSummary
+}
+
+export type BenchmarkTelemetrySummary = {
+  ruleAttempts: RuleAttemptSummary
+  strongInference: BenchmarkStrongInferenceTelemetry
+}
+
 export type BenchmarkPuzzleResult = {
   id: string
   puzzleType: string
@@ -36,9 +66,8 @@ export type BenchmarkPuzzleResult = {
   stepCount: number
   durationMs: number
   ruleUsage: Record<string, number>
-  ruleSteps: Record<string, number[]>
   terminal: CompletionReport | null
-  steps: []
+  telemetry?: BenchmarkTelemetrySummary
   error?: string
 }
 
@@ -49,6 +78,7 @@ export type BenchmarkRunConfig = {
   maxSteps: number
   timeoutMs: number
   ruleProfile: 'default'
+  telemetry: BenchmarkTelemetryLevel
 }
 
 export type BenchmarkSummary = {
@@ -61,10 +91,11 @@ export type BenchmarkSummary = {
   timeCapped: number
   totalDurationMs: number
   ruleUsage: Record<string, number>
+  telemetry?: BenchmarkTelemetrySummary
 }
 
 export type BenchmarkReport = {
-  schemaVersion: 1
+  schemaVersion: 2
   run: BenchmarkRunConfig
   summary: BenchmarkSummary
   items: BenchmarkPuzzleResult[]
@@ -73,4 +104,23 @@ export type BenchmarkReport = {
 export type BenchmarkRunnerOptions = {
   maxSteps?: number
   timeoutMs?: number
+  telemetry?: BenchmarkTelemetryLevel
+}
+
+export const getStrongTelemetryCoverage = (
+  config: PuzzleStrongTelemetryConfig | undefined,
+): StrongTelemetryCoverage => {
+  const rules = config?.rules ?? []
+  const supportedRules = rules.filter((rule) => rule.supported)
+  const unsupportedRules = rules.filter((rule) => !rule.supported)
+  const status: StrongTelemetryCoverageStatus =
+    rules.length === 0
+      ? 'not-applicable'
+      : unsupportedRules.length === 0
+        ? 'full'
+        : supportedRules.length === 0
+          ? 'none'
+          : 'partial'
+
+  return { status, supportedRules, unsupportedRules }
 }

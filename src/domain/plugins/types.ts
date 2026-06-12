@@ -98,6 +98,16 @@ export type PuzzleLiveStatsConfig = {
   coverageSeries: LiveStatsCoverageSeries[]
 }
 
+export type StrongTelemetryRule = {
+  ruleId: string
+  ruleName: string
+  supported: boolean
+}
+
+export type PuzzleStrongTelemetryConfig = {
+  rules: StrongTelemetryRule[]
+}
+
 export interface PuzzlePlugin {
   id: string
   displayName: string
@@ -105,6 +115,7 @@ export interface PuzzlePlugin {
   legend?: PuzzleLegendContent
   displayOptions?: PuzzleDisplayOption[]
   liveStats?: PuzzleLiveStatsConfig
+  strongTelemetry?: PuzzleStrongTelemetryConfig
   getStats?: (puzzle: PuzzleIR) => PuzzleStatsContent | null
   parse: (input: string) => PuzzleIR
   encode: (puzzle: PuzzleIR) => string
