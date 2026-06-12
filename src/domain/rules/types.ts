@@ -136,6 +136,19 @@ export type RuleAttempt = {
   hit: boolean
 }
 
+export type RuleAttemptEvent = RuleAttempt & {
+  solverStepNumber: number
+  producedDiffCount: number
+}
+
+export type SolverObserver = {
+  onRuleAttemptCompleted?: (event: RuleAttemptEvent) => void
+}
+
+export type RunNextRuleOptions = {
+  observer?: SolverObserver
+}
+
 export type RuleRuntimeContext = {
   cache: Map<string, unknown>
 }
