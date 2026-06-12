@@ -169,14 +169,23 @@ export const createWhitePearlStrongInferenceRule = (
     const budgets = deriveMasyuStrongProbeBudgets(
       options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
     )
+    let eligibleTrialIndexes: Set<number> | null = null
 
     for (const budget of budgets) {
-      for (const pearlCandidate of candidates) {
+      const exhaustedTrialIndexes = new Set<number>()
+      for (const [candidateIndex, pearlCandidate] of candidates.entries()) {
         if (Date.now() > deadlineMs) {
           return null
         }
 
         for (const assumedIndex of [0, 1] as const) {
+          const trialIndex = candidateIndex * 2 + assumedIndex
+          if (
+            eligibleTrialIndexes !== null &&
+            !eligibleTrialIndexes.has(trialIndex)
+          ) {
+            continue
+          }
           const assumed = pearlCandidate.candidates[assumedIndex]
           const forced = pearlCandidate.candidates[assumedIndex === 0 ? 1 : 0]
           const assumptions = candidateAssumptions(assumed)
@@ -196,6 +205,9 @@ export const createWhitePearlStrongInferenceRule = (
             return null
           }
           if (!result.contradiction) {
+            if (result.exhausted) {
+              exhaustedTrialIndexes.add(trialIndex)
+            }
             continue
           }
 
@@ -225,6 +237,10 @@ export const createWhitePearlStrongInferenceRule = (
             ),
           }
         }
+      }
+      eligibleTrialIndexes = exhaustedTrialIndexes
+      if (eligibleTrialIndexes.size === 0) {
+        break
       }
     }
 

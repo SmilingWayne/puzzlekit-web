@@ -108,8 +108,13 @@ export const createBlackPearlStrongInferenceRule = (
     const budgets = deriveMasyuStrongProbeBudgets(
       options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
     )
+    let eligibleCandidates: Set<BlackPearlExitCandidate> | null = null
     for (const budget of budgets) {
+      const exhaustedCandidates = new Set<BlackPearlExitCandidate>()
       for (const candidate of candidates) {
+        if (eligibleCandidates !== null && !eligibleCandidates.has(candidate)) {
+          continue
+        }
         if (Date.now() > deadlineMs) {
           return null
         }
@@ -127,6 +132,9 @@ export const createBlackPearlStrongInferenceRule = (
           return null
         }
         if (!result.contradiction) {
+          if (result.exhausted) {
+            exhaustedCandidates.add(candidate)
+          }
           continue
         }
         if (
@@ -160,6 +168,10 @@ export const createBlackPearlStrongInferenceRule = (
             diffs,
           ),
         }
+      }
+      eligibleCandidates = exhaustedCandidates
+      if (eligibleCandidates.size === 0) {
+        break
       }
     }
 

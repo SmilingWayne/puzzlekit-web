@@ -125,6 +125,63 @@ describe('Masyu black pearl strong inference', () => {
     expect(puzzle.lines[unrelated]?.mark).toBe('unknown')
   })
 
+  it('does not retry a settled trial at higher budgets', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'black')
+    let attempts = 0
+    const settledRule: Rule = {
+      id: 'test-settled-trial',
+      name: 'Test Settled Trial',
+      apply: () => {
+        attempts += 1
+        return null
+      },
+    }
+
+    const result = createBlackPearlStrongInferenceRule(() => [settledRule], {
+      maxCandidates: 1,
+      maxTrialSteps: 13,
+    }).apply(puzzle)
+
+    expect(result).toBeNull()
+    expect(attempts).toBe(1)
+  })
+
+  it('retries a budget-limited trial at the next budget', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'black')
+    const targetCell = cellKey(0, 0)
+    let attempts = 0
+    const progressingRule: Rule = {
+      id: 'test-budget-limited-trial',
+      name: 'Test Budget Limited Trial',
+      apply: (trial) => {
+        attempts += 1
+        const fromFill = trial.cells[targetCell]?.fill ?? null
+        return {
+          message: 'Keep the trial progressing',
+          diffs: [
+            {
+              kind: 'cell',
+              cellKey: targetCell,
+              fromFill,
+              toFill: fromFill === 'a' ? 'b' : 'a',
+            },
+          ],
+          affectedCells: [targetCell],
+        }
+      },
+    }
+
+    const result = createBlackPearlStrongInferenceRule(
+      () => [progressingRule],
+      { maxCandidates: 1, maxTrialSteps: 13 },
+    ).apply(puzzle)
+
+    expect(result).toBeNull()
+    expect(attempts).toBe(25)
+  })
+
   it('returns null when the trial budget times out', () => {
     const puzzle = createMasyuPuzzle(5, 5)
     addPearl(puzzle, 2, 2, 'black')

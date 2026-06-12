@@ -102,9 +102,14 @@ export const createLineComponentEndpointStrongInferenceRule = (
     const budgets = deriveMasyuStrongProbeBudgets(
       options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
     )
+    let eligibleCandidates: Set<LineComponentEndpointCandidate> | null = null
 
     for (const budget of budgets) {
+      const exhaustedCandidates = new Set<LineComponentEndpointCandidate>()
       for (const candidate of candidates) {
+        if (eligibleCandidates !== null && !eligibleCandidates.has(candidate)) {
+          continue
+        }
         if (Date.now() > deadlineMs) {
           return null
         }
@@ -124,6 +129,9 @@ export const createLineComponentEndpointStrongInferenceRule = (
           return null
         }
         if (!result.contradiction) {
+          if (result.exhausted) {
+            exhaustedCandidates.add(candidate)
+          }
           continue
         }
 
@@ -155,6 +163,10 @@ export const createLineComponentEndpointStrongInferenceRule = (
             diffs,
           ),
         }
+      }
+      eligibleCandidates = exhaustedCandidates
+      if (eligibleCandidates.size === 0) {
+        break
       }
     }
 
