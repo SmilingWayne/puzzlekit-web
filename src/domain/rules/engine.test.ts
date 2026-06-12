@@ -4,7 +4,7 @@ import { tileKey, vertexKey } from '../ir/keys'
 import { createMasyuPuzzle } from '../ir/masyu'
 import { applyRuleDiffs, revertRuleDiffs, runNextRule } from './engine'
 import { slitherRules } from './slither/rules'
-import type { Rule, RuleAttemptEvent, RuleDiff } from './types'
+import type { Rule, RuleAttemptEvent, RuleDiff, SolverObserver } from './types'
 
 describe('rule engine', () => {
   afterEach(() => {
@@ -62,6 +62,32 @@ describe('rule engine', () => {
     ])
   })
 
+  it('provides the step number and observer through the runtime context', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    const observer: SolverObserver = {}
+    const seen: Array<{
+      solverStepNumber: number | undefined
+      observer: SolverObserver | undefined
+    }> = []
+    const rules: Rule[] = [
+      {
+        id: 'context',
+        name: 'Context',
+        apply: (_puzzle, runtimeContext) => {
+          seen.push({
+            solverStepNumber: runtimeContext?.solverStepNumber,
+            observer: runtimeContext?.observer,
+          })
+          return null
+        },
+      },
+    ]
+
+    runNextRule(puzzle, rules, 17, { observer })
+
+    expect(seen).toEqual([{ solverStepNumber: 17, observer }])
+  })
+
   it('reports ordered miss and hit rule attempts through an optional observer', () => {
     vi.spyOn(performance, 'now')
       .mockReturnValueOnce(0)
@@ -81,9 +107,7 @@ describe('rule engine', () => {
         name: 'Hit',
         apply: () => ({
           message: 'hit',
-          diffs: [
-            { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
-          ],
+          diffs: [{ kind: 'line', lineKey: line, from: 'unknown', to: 'line' }],
           affectedCells: [],
         }),
       },
@@ -139,11 +163,13 @@ describe('rule engine', () => {
     })
 
     expect(result).toEqual({ nextPuzzle: puzzle, step: null })
-    expect(events.map(({ ruleId, hit, producedDiffCount }) => ({
-      ruleId,
-      hit,
-      producedDiffCount,
-    }))).toEqual([
+    expect(
+      events.map(({ ruleId, hit, producedDiffCount }) => ({
+        ruleId,
+        hit,
+        producedDiffCount,
+      })),
+    ).toEqual([
       { ruleId: 'miss-null', hit: false, producedDiffCount: 0 },
       { ruleId: 'miss-empty', hit: false, producedDiffCount: 0 },
     ])
@@ -159,9 +185,7 @@ describe('rule engine', () => {
         name: 'Hit',
         apply: () => ({
           message: 'hit',
-          diffs: [
-            { kind: 'line', lineKey: line, from: 'unknown', to: 'line' },
-          ],
+          diffs: [{ kind: 'line', lineKey: line, from: 'unknown', to: 'line' }],
           affectedCells: [],
         }),
       },

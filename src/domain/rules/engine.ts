@@ -7,6 +7,7 @@ import type {
   RunNextRuleOptions,
   RuleRuntimeContext,
   RuleStep,
+  StrongInferenceCompletedEvent,
 } from './types'
 
 type WritableBuckets = {
@@ -170,6 +171,20 @@ const notifyRuleAttemptCompleted = (
   }
 }
 
+export const notifyStrongInferenceCompleted = (
+  runtimeContext: RuleRuntimeContext | undefined,
+  event: Omit<StrongInferenceCompletedEvent, 'solverStepNumber'>,
+): void => {
+  try {
+    runtimeContext?.observer?.onStrongInferenceCompleted?.({
+      solverStepNumber: runtimeContext.solverStepNumber,
+      ...event,
+    })
+  } catch {
+    // Observability must never affect solver behavior.
+  }
+}
+
 export const runNextRule = (
   puzzle: PuzzleIR,
   rules: Rule[],
@@ -179,6 +194,8 @@ export const runNextRule = (
   const startedAt = performance.now()
   const runtimeContext: RuleRuntimeContext = {
     cache: new Map<string, unknown>(),
+    solverStepNumber: stepNumber,
+    observer: options.observer,
   }
   const attempts: RuleAttempt[] = []
   for (const rule of rules) {
@@ -198,7 +215,7 @@ export const runNextRule = (
       ruleName: rule.name,
       durationMs: ruleApplyMs,
       hit,
-      producedDiffCount: hit ? result?.diffs.length ?? 0 : 0,
+      producedDiffCount: hit ? (result?.diffs.length ?? 0) : 0,
     })
     if (!result || result.diffs.length === 0) {
       continue

@@ -93,7 +93,11 @@ export type InferenceBranch = {
 }
 
 export type InferenceDetails = {
-  kind: 'slither-strong' | 'slither-color-assumption' | 'slither-sector-parity' | 'masyu-strong'
+  kind:
+    | 'slither-strong'
+    | 'slither-color-assumption'
+    | 'slither-sector-parity'
+    | 'masyu-strong'
   conclusion: 'opposite-branch' | 'shared-consequence'
   basePuzzle: PuzzleIR
   defaultBranchId: string
@@ -141,8 +145,23 @@ export type RuleAttemptEvent = RuleAttempt & {
   producedDiffCount: number
 }
 
+export type StrongInferenceOutcome = 'hit' | 'miss' | 'timeout'
+
+export type StrongInferenceCompletedEvent = {
+  solverStepNumber: number
+  ruleId: string
+  ruleName: string
+  candidateCount: number
+  probeCount: number
+  trialStepCount: number
+  probeDurationMs: number
+  outcome: StrongInferenceOutcome
+  producedDiffCount: number
+}
+
 export type SolverObserver = {
   onRuleAttemptCompleted?: (event: RuleAttemptEvent) => void
+  onStrongInferenceCompleted?: (event: StrongInferenceCompletedEvent) => void
 }
 
 export type RunNextRuleOptions = {
@@ -151,6 +170,8 @@ export type RunNextRuleOptions = {
 
 export type RuleRuntimeContext = {
   cache: Map<string, unknown>
+  solverStepNumber: number
+  observer?: SolverObserver
 }
 
 export type Rule = {

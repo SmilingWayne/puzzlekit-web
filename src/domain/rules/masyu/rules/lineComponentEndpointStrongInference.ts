@@ -1,6 +1,6 @@
 import { parseCellKey } from '../../../ir/keys'
 import type { PuzzleIR } from '../../../ir/types'
-import type { Rule, RuleApplication } from '../../types'
+import type { Rule, RuleApplication, RuleRuntimeContext } from '../../types'
 import { getMasyuOpenLineComponents } from './lineGraph'
 import {
   formatMasyuCellKeyLabel,
@@ -12,6 +12,7 @@ import {
 import {
   buildMasyuInferenceDetails,
   buildMasyuStrongBranch,
+  createMasyuStrongInferenceTracker,
   deriveMasyuStrongProbeBudgets,
   describeMasyuStrongTrialResult,
   immediateMasyuStrongContradictionResult,
@@ -82,94 +83,115 @@ const buildCandidateAssumptions = (
 export const createLineComponentEndpointStrongInferenceRule = (
   getDeterministicRules: () => Rule[],
   options: MasyuStrongInferenceOptions = {},
-): Rule => ({
-  id: 'masyu-line-component-endpoint-strong-inference',
-  name: 'Masyu Line Component Endpoint Strong Inference',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const candidates = collectLineComponentEndpointCandidates(
-      puzzle,
-      options.maxCandidates ??
-        Math.min(ENDPOINT_STRONG_MAX_CANDIDATES, STRONG_MAX_CANDIDATES),
-    )
-    if (candidates.length === 0) {
-      return null
-    }
+): Rule => {
+  const id = 'masyu-line-component-endpoint-strong-inference'
+  const name = 'Masyu Line Component Endpoint Strong Inference'
+  return {
+    id,
+    name,
+    apply: (
+      puzzle: PuzzleIR,
+      runtimeContext?: RuleRuntimeContext,
+    ): RuleApplication | null => {
+      const candidates = collectLineComponentEndpointCandidates(
+        puzzle,
+        options.maxCandidates ??
+          Math.min(ENDPOINT_STRONG_MAX_CANDIDATES, STRONG_MAX_CANDIDATES),
+      )
+      const tracker = createMasyuStrongInferenceTracker(
+        runtimeContext,
+        id,
+        name,
+        candidates.length,
+      )
+      if (candidates.length === 0) {
+        tracker.complete('miss')
+        return null
+      }
 
-    const deterministicRules = getDeterministicRules()
-    const deadlineMs =
-      Date.now() +
-      (options.maxMs ?? Math.min(ENDPOINT_STRONG_MAX_MS, STRONG_MAX_MS))
-    const budgets = deriveMasyuStrongProbeBudgets(
-      options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
-    )
-    let eligibleCandidates: Set<LineComponentEndpointCandidate> | null = null
+      const deterministicRules = getDeterministicRules()
+      const deadlineMs =
+        Date.now() +
+        (options.maxMs ?? Math.min(ENDPOINT_STRONG_MAX_MS, STRONG_MAX_MS))
+      const budgets = deriveMasyuStrongProbeBudgets(
+        options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
+      )
+      let eligibleCandidates: Set<LineComponentEndpointCandidate> | null = null
 
-    for (const budget of budgets) {
-      const exhaustedCandidates = new Set<LineComponentEndpointCandidate>()
-      for (const candidate of candidates) {
-        if (eligibleCandidates !== null && !eligibleCandidates.has(candidate)) {
-          continue
-        }
-        if (Date.now() > deadlineMs) {
-          return null
-        }
-        const branch = buildMasyuStrongBranch(
-          puzzle,
-          buildCandidateAssumptions(candidate),
-        )
-        const result = branch.setupOk
-          ? runMasyuTrialUntilFixpoint(
-              branch.puzzle,
-              deterministicRules,
-              budget,
-              deadlineMs,
-            )
-          : immediateMasyuStrongContradictionResult(branch.puzzle)
-        if (result.timedOut) {
-          return null
-        }
-        if (!result.contradiction) {
-          if (result.exhausted) {
-            exhaustedCandidates.add(candidate)
+      for (const budget of budgets) {
+        const exhaustedCandidates = new Set<LineComponentEndpointCandidate>()
+        for (const candidate of candidates) {
+          if (
+            eligibleCandidates !== null &&
+            !eligibleCandidates.has(candidate)
+          ) {
+            continue
           }
-          continue
-        }
+          if (Date.now() > deadlineMs) {
+            tracker.complete('timeout')
+            return null
+          }
+          const branch = buildMasyuStrongBranch(
+            puzzle,
+            buildCandidateAssumptions(candidate),
+          )
+          const result = branch.setupOk
+            ? runMasyuTrialUntilFixpoint(
+                branch.puzzle,
+                deterministicRules,
+                budget,
+                deadlineMs,
+              )
+            : immediateMasyuStrongContradictionResult(branch.puzzle)
+          tracker.recordProbe(result)
+          if (result.timedOut) {
+            tracker.complete('timeout')
+            return null
+          }
+          if (!result.contradiction) {
+            if (result.exhausted) {
+              exhaustedCandidates.add(candidate)
+            }
+            continue
+          }
 
-        const diffs: RuleApplication['diffs'] = [
-          {
-            kind: 'line',
-            lineKey: candidate.assumed.lineKey,
-            from: 'unknown',
-            to: 'blank',
-          },
-        ]
-        return {
-          message:
-            `Masyu Line Component Endpoint Strong Inference: assuming the ${candidate.componentEdgeCount}-segment component at ${formatMasyuCellKeyLabel(
+          const diffs: RuleApplication['diffs'] = [
+            {
+              kind: 'line',
+              lineKey: candidate.assumed.lineKey,
+              from: 'unknown',
+              to: 'blank',
+            },
+          ]
+          tracker.complete('hit', diffs.length)
+          return {
+            message: `Masyu Line Component Endpoint Strong Inference: assuming the ${candidate.componentEdgeCount}-segment component at ${formatMasyuCellKeyLabel(
               candidate.endpointKey,
             )} continues ${candidate.assumed.direction} among ${candidate.unknowns.length} candidate directions (${branch.setupDescription}) leads to ${describeMasyuStrongTrialResult(
               result,
             )}, so ${formatMasyuLineLabel(candidate.assumed.lineKey)} is crossed out.`,
-          diffs,
-          affectedCells: [candidate.endpointKey],
-          affectedLines: [candidate.assumed.lineKey],
-          inferenceDetails: buildMasyuInferenceDetails(
-            puzzle,
-            `Assume the ${candidate.componentEdgeCount}-segment component at ${formatMasyuCellKeyLabel(
-              candidate.endpointKey,
-            )} continues ${candidate.assumed.direction}`,
-            branch,
-            result,
             diffs,
-          ),
+            affectedCells: [candidate.endpointKey],
+            affectedLines: [candidate.assumed.lineKey],
+            inferenceDetails: buildMasyuInferenceDetails(
+              puzzle,
+              `Assume the ${candidate.componentEdgeCount}-segment component at ${formatMasyuCellKeyLabel(
+                candidate.endpointKey,
+              )} continues ${candidate.assumed.direction}`,
+              branch,
+              result,
+              diffs,
+            ),
+          }
+        }
+        eligibleCandidates = exhaustedCandidates
+        if (eligibleCandidates.size === 0) {
+          break
         }
       }
-      eligibleCandidates = exhaustedCandidates
-      if (eligibleCandidates.size === 0) {
-        break
-      }
-    }
 
-    return null
-  },
-})
+      tracker.complete('miss')
+      return null
+    },
+  }
+}

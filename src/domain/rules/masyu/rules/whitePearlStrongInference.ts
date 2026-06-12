@@ -1,6 +1,6 @@
 import { cellKey, parseCellKey } from '../../../ir/keys'
 import type { PuzzleIR } from '../../../ir/types'
-import type { Rule, RuleApplication } from '../../types'
+import type { Rule, RuleApplication, RuleRuntimeContext } from '../../types'
 import { createMasyuLineDecisionCollector } from './decisionCollector'
 import { createMasyuLookaheadContext } from './lookahead'
 import type { WhitePearlCandidate } from './pearlCandidates'
@@ -16,6 +16,7 @@ import {
 import {
   buildMasyuStrongBranch,
   buildMasyuInferenceDetails,
+  createMasyuStrongInferenceTracker,
   deriveMasyuStrongProbeBudgets,
   describeMasyuStrongTrialResult,
   immediateMasyuStrongContradictionResult,
@@ -79,7 +80,9 @@ const getDecidedLocalLineCount = (
 
   const localLines = new Set<string>()
   for (const key of localCells) {
-    for (const line of Object.values(getMasyuIncidentDirectionalLines(puzzle, key))) {
+    for (const line of Object.values(
+      getMasyuIncidentDirectionalLines(puzzle, key),
+    )) {
       if (line) {
         localLines.add(line.lineKey)
       }
@@ -133,7 +136,9 @@ const candidateAssumptions = (
 const collectCandidateDiffs = (
   puzzle: PuzzleIR,
   candidate: WhitePearlCandidate,
-): ReturnType<ReturnType<typeof createMasyuLineDecisionCollector>['diffs']> | null => {
+): ReturnType<
+  ReturnType<typeof createMasyuLineDecisionCollector>['diffs']
+> | null => {
   const overlay = masyuPearlCandidateToOverlay(candidate)
   if (!overlay) {
     return null
@@ -152,98 +157,116 @@ const collectCandidateDiffs = (
 export const createWhitePearlStrongInferenceRule = (
   getDeterministicRules: () => Rule[],
   options: MasyuStrongInferenceOptions = {},
-): Rule => ({
-  id: 'masyu-white-pearl-strong-inference',
-  name: 'White Pearl Strong Inference',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const deterministicRules = getDeterministicRules()
-    const candidates = collectWhitePearlAxisCandidates(
-      puzzle,
-      options.maxCandidates ?? STRONG_MAX_CANDIDATES,
-    )
-    if (candidates.length === 0) {
-      return null
-    }
+): Rule => {
+  const id = 'masyu-white-pearl-strong-inference'
+  const name = 'White Pearl Strong Inference'
+  return {
+    id,
+    name,
+    apply: (
+      puzzle: PuzzleIR,
+      runtimeContext?: RuleRuntimeContext,
+    ): RuleApplication | null => {
+      const deterministicRules = getDeterministicRules()
+      const candidates = collectWhitePearlAxisCandidates(
+        puzzle,
+        options.maxCandidates ?? STRONG_MAX_CANDIDATES,
+      )
+      const tracker = createMasyuStrongInferenceTracker(
+        runtimeContext,
+        id,
+        name,
+        candidates.length,
+      )
+      if (candidates.length === 0) {
+        tracker.complete('miss')
+        return null
+      }
 
-    const deadlineMs = Date.now() + (options.maxMs ?? STRONG_MAX_MS)
-    const budgets = deriveMasyuStrongProbeBudgets(
-      options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
-    )
-    let eligibleTrialIndexes: Set<number> | null = null
+      const deadlineMs = Date.now() + (options.maxMs ?? STRONG_MAX_MS)
+      const budgets = deriveMasyuStrongProbeBudgets(
+        options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
+      )
+      let eligibleTrialIndexes: Set<number> | null = null
 
-    for (const budget of budgets) {
-      const exhaustedTrialIndexes = new Set<number>()
-      for (const [candidateIndex, pearlCandidate] of candidates.entries()) {
-        if (Date.now() > deadlineMs) {
-          return null
-        }
-
-        for (const assumedIndex of [0, 1] as const) {
-          const trialIndex = candidateIndex * 2 + assumedIndex
-          if (
-            eligibleTrialIndexes !== null &&
-            !eligibleTrialIndexes.has(trialIndex)
-          ) {
-            continue
-          }
-          const assumed = pearlCandidate.candidates[assumedIndex]
-          const forced = pearlCandidate.candidates[assumedIndex === 0 ? 1 : 0]
-          const assumptions = candidateAssumptions(assumed)
-          if (assumptions.length === 0) {
-            continue
-          }
-          const branch = buildMasyuStrongBranch(puzzle, assumptions)
-          const result = branch.setupOk
-            ? runMasyuTrialUntilFixpoint(
-                branch.puzzle,
-                deterministicRules,
-                budget,
-                deadlineMs,
-              )
-            : immediateMasyuStrongContradictionResult(branch.puzzle)
-          if (result.timedOut) {
+      for (const budget of budgets) {
+        const exhaustedTrialIndexes = new Set<number>()
+        for (const [candidateIndex, pearlCandidate] of candidates.entries()) {
+          if (Date.now() > deadlineMs) {
+            tracker.complete('timeout')
             return null
           }
-          if (!result.contradiction) {
-            if (result.exhausted) {
-              exhaustedTrialIndexes.add(trialIndex)
-            }
-            continue
-          }
 
-          const diffs = collectCandidateDiffs(puzzle, forced)
-          if (!diffs || diffs.length === 0) {
-            continue
-          }
-          const firstLine = diffs[0]?.lineKey
-          return {
-            message:
-              `White Pearl Strong Inference: assuming ${formatMasyuCellKeyLabel(pearlCandidate.pearlKey)} goes ${axisLabel(
+          for (const assumedIndex of [0, 1] as const) {
+            const trialIndex = candidateIndex * 2 + assumedIndex
+            if (
+              eligibleTrialIndexes !== null &&
+              !eligibleTrialIndexes.has(trialIndex)
+            ) {
+              continue
+            }
+            const assumed = pearlCandidate.candidates[assumedIndex]
+            const forced = pearlCandidate.candidates[assumedIndex === 0 ? 1 : 0]
+            const assumptions = candidateAssumptions(assumed)
+            if (assumptions.length === 0) {
+              continue
+            }
+            const branch = buildMasyuStrongBranch(puzzle, assumptions)
+            const result = branch.setupOk
+              ? runMasyuTrialUntilFixpoint(
+                  branch.puzzle,
+                  deterministicRules,
+                  budget,
+                  deadlineMs,
+                )
+              : immediateMasyuStrongContradictionResult(branch.puzzle)
+            tracker.recordProbe(result)
+            if (result.timedOut) {
+              tracker.complete('timeout')
+              return null
+            }
+            if (!result.contradiction) {
+              if (result.exhausted) {
+                exhaustedTrialIndexes.add(trialIndex)
+              }
+              continue
+            }
+
+            const diffs = collectCandidateDiffs(puzzle, forced)
+            if (!diffs || diffs.length === 0) {
+              continue
+            }
+            const firstLine = diffs[0]?.lineKey
+            tracker.complete('hit', diffs.length)
+            return {
+              message: `White Pearl Strong Inference: assuming ${formatMasyuCellKeyLabel(pearlCandidate.pearlKey)} goes ${axisLabel(
                 assumed.axis,
               )} (${branch.setupDescription}) leads to ${describeMasyuStrongTrialResult(
                 result,
               )}, so it must go ${axisLabel(forced.axis)} through ${formatMasyuLineLabel(
                 firstLine,
               )}${diffs.length > 1 ? ` (${diffs.length} total)` : ''}.`,
-            diffs,
-            affectedCells: [pearlCandidate.pearlKey],
-            affectedLines: diffs.map((diff) => diff.lineKey),
-            inferenceDetails: buildMasyuInferenceDetails(
-              puzzle,
-              `Assume ${formatMasyuCellKeyLabel(pearlCandidate.pearlKey)} goes ${axisLabel(assumed.axis)}`,
-              branch,
-              result,
               diffs,
-            ),
+              affectedCells: [pearlCandidate.pearlKey],
+              affectedLines: diffs.map((diff) => diff.lineKey),
+              inferenceDetails: buildMasyuInferenceDetails(
+                puzzle,
+                `Assume ${formatMasyuCellKeyLabel(pearlCandidate.pearlKey)} goes ${axisLabel(assumed.axis)}`,
+                branch,
+                result,
+                diffs,
+              ),
+            }
           }
         }
+        eligibleTrialIndexes = exhaustedTrialIndexes
+        if (eligibleTrialIndexes.size === 0) {
+          break
+        }
       }
-      eligibleTrialIndexes = exhaustedTrialIndexes
-      if (eligibleTrialIndexes.size === 0) {
-        break
-      }
-    }
 
-    return null
-  },
-})
+      tracker.complete('miss')
+      return null
+    },
+  }
+}
