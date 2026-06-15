@@ -1,6 +1,8 @@
 import type { ComponentType } from 'react'
 import BlackPearlRuleDoc from '../../../docs/content/masyu/rules/black-pearl-rule.mdx'
 import WhitePearlRuleDoc from '../../../docs/content/masyu/rules/white-pearl-rule.mdx'
+import AdjacentThreesRuleDoc from '../../../docs/content/slitherlink/rules/adjacent-threes.mdx'
+import DiagonalThreesRuleDoc from '../../../docs/content/slitherlink/rules/diagonal-threes.mdx'
 import VertexDegreeRuleDoc from '../../../docs/content/slitherlink/rules/vertex-degree.mdx'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import type { Rule } from '../../domain/rules/types'
@@ -38,6 +40,15 @@ const documentedContent: Record<
     content: VertexDegreeRuleDoc,
     summary:
       'Maintains the loop degree of zero or two at every Slitherlink vertex.',
+  },
+  'slitherlink:contiguous-three-run-boundaries': {
+    content: AdjacentThreesRuleDoc,
+    summary: 'Draws the forced repeating line pattern around adjacent 3 clues.',
+  },
+  'slitherlink:diagonal-adjacent-three-outer-corners': {
+    content: DiagonalThreesRuleDoc,
+    summary:
+      'Draws the four forced outer-corner edges of diagonally adjacent 3 clues.',
   },
 }
 

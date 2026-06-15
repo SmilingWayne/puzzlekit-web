@@ -198,6 +198,7 @@ For targeted work:
 
 - Slitherlink rules: start at `src/domain/rules/slither/rules.ts`.
 - Masyu rules: start at `docs/MASYU_AGENT_BRIEF.md`, then inspect `src/domain/rules/masyu/rules.ts`.
+- Rule documentation: follow `docs/RULE_DOCUMENTATION_AGENT_WORKFLOW.md`.
 - Editor/UI work: inspect the relevant `src/features/*` component plus page tests.
 - Benchmark work: read `src/domain/benchmark/runner.ts` and `scripts/benchmark-solve.ts`.
 - Historical Masyu plans: check `docs/legacy/` only when old design context is useful.

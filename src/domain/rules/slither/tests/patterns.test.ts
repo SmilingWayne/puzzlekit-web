@@ -23,7 +23,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Contiguous 3-run')
+    expect(result?.message).toContain('Adjacent 3s')
     expect(result?.affectedCells).toEqual(['1,1', '1,2', '1,3'])
     expect(result?.diffs).toEqual([
       {
@@ -86,7 +86,7 @@ describe('slither contiguous 3-run boundaries rule', () => {
     const result = threeRunRule.apply(puzzle)
 
     expect(result).not.toBeNull()
-    expect(result?.message).toContain('Contiguous 3-run')
+    expect(result?.message).toContain('Adjacent 3s')
     expect(result?.affectedCells).toEqual(['1,2', '2,2', '3,2'])
     expect(result?.diffs).toEqual([
       {
@@ -264,7 +264,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.message).toContain(
-      'Diagonal adjacent 3s force their outside corner edges',
+      'Diagonal 3s force the two outer-corner edges',
     )
     expect(result?.affectedCells).toEqual(['0,0', '1,1'])
     expect(getEdgeDiffKeys(result)).toEqual([
@@ -284,7 +284,7 @@ describe('slither diagonal adjacent 3 outer corners rule', () => {
 
     expect(result).not.toBeNull()
     expect(result?.message).toContain(
-      'Diagonal adjacent 3s force their outside corner edges',
+      'Diagonal 3s force the two outer-corner edges',
     )
     expect(result?.affectedCells).toEqual(['0,1', '1,0'])
     expect(getEdgeDiffKeys(result)).toEqual([

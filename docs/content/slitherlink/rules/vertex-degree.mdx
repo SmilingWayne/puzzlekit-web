@@ -1,25 +1,17 @@
-## What this technique does
+## What it does
 
 Every Slitherlink vertex belongs to either zero or two loop edges. A vertex may
-never become a dead end or a branch.
+never become a dead end or a branch. If two lines already meet at a vertex,
+every other incident edge is crossed out. If one line and only one unknown edge
+remain, that unknown edge is forced. If no lines and only one unknown edge
+remain, it is crossed out.
 
-## Trigger conditions
+## When it triggers
 
 The technique acts when the decided edges around a vertex determine the
 remaining unknown edges.
-
-## Conclusions
-
-If two lines already meet at a vertex, every other incident edge is crossed out.
-If one line and only one unknown edge remain, that unknown edge is forced.
-If no lines and only one unknown edge remain, it is crossed out.
 
 ## Why it works
 
 A single used edge creates a dead end, while three or more used edges create a
 branch. Neither can be part of one continuous loop.
-
-## Limits and related techniques
-
-This rule enforces local degree only. Prevent Premature Loop and connectivity
-rules handle larger loop structure.

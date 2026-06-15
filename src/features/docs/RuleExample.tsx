@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { PuzzleIR } from '../../domain/ir/types'
 import { applyRuleDiffs } from '../../domain/rules/engine'
-import type { InferenceFocus, RuleDiff } from '../../domain/rules/types'
+import type { RuleDiff } from '../../domain/rules/types'
 import { CanvasBoard } from '../board/CanvasBoard'
 import type { DisplaySettings } from '../solver/solverStore'
 
@@ -9,7 +9,6 @@ type Props = {
   puzzle: PuzzleIR
   before?: RuleDiff[]
   after: RuleDiff[]
-  highlights?: InferenceFocus
   explanation?: string
 }
 
@@ -30,7 +29,6 @@ export const RuleExample = ({
   puzzle,
   before = [],
   after,
-  highlights = {},
   explanation,
 }: Props) => {
   const [view, setView] = useState<'before' | 'after'>('before')
@@ -42,6 +40,20 @@ export const RuleExample = ({
   const afterPuzzle = useMemo(
     () => applyRuleDiffs(beforePuzzle, after),
     [after, beforePuzzle],
+  )
+  const changedEdges = useMemo(
+    () =>
+      view === 'after'
+        ? after.flatMap((diff) => (diff.kind === 'edge' ? [diff.edgeKey] : []))
+        : [],
+    [after, view],
+  )
+  const changedLines = useMemo(
+    () =>
+      view === 'after'
+        ? after.flatMap((diff) => (diff.kind === 'line' ? [diff.lineKey] : []))
+        : [],
+    [after, view],
   )
 
   useEffect(() => {
@@ -88,16 +100,14 @@ export const RuleExample = ({
       <CanvasBoard
         puzzle={view === 'before' ? beforePuzzle : afterPuzzle}
         pluginId={puzzle.puzzleType}
-        highlightedEdges={highlights.edges ?? []}
-        highlightedLines={highlights.lines ?? []}
-        highlightedCells={highlights.cells ?? []}
-        highlightedColorCells={highlights.cells ?? []}
-        highlightedColorTiles={highlights.tiles ?? []}
+        highlightedEdges={changedEdges}
+        highlightedLines={changedLines}
+        highlightedCells={[]}
+        highlightedColorCells={[]}
+        highlightedColorTiles={[]}
         displaySettings={displaySettings}
         onSetDisplayOption={() => undefined}
         variant="surface"
-        inferenceDiffs={view === 'after' ? after : []}
-        inferenceDiffRole="conclusion"
         ariaLabel="Rule documentation example"
       />
       {explanation ? <figcaption>{explanation}</figcaption> : null}

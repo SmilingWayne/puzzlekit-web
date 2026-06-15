@@ -1,0 +1,18 @@
+## What it does
+
+Two diagonally adjacent `3` clues force the two edges at each clue's outer
+corner. The result is four lines: two meeting at the corner of each `3` that
+faces away from their shared vertex.
+
+## When it triggers
+
+The technique acts whenever two `3` clues occupy opposite cells of the same
+`2 x 2` block. It does not require any edges to be decided first.
+
+## Why it works
+
+A `3` has exactly one unused edge. If either outer-corner edge of one clue were
+unused, its other three edges would be lines. At the vertex shared by the two
+clues, that forces the diagonal clue to leave too many of its surrounding edges
+unused to reach three lines. Therefore neither clue can use an outer-corner
+edge as its single unused edge.

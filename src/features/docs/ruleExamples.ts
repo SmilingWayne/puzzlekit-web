@@ -2,13 +2,12 @@ import { cellKey, edgeKey, lineKey } from '../../domain/ir/keys'
 import { createMasyuPuzzle } from '../../domain/ir/masyu'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import type { PuzzleIR } from '../../domain/ir/types'
-import type { InferenceFocus, RuleDiff } from '../../domain/rules/types'
+import type { RuleDiff } from '../../domain/rules/types'
 
 export type RuleExampleData = {
   puzzle: PuzzleIR
   before?: RuleDiff[]
   after: RuleDiff[]
-  highlights?: InferenceFocus
   explanation: string
 }
 
@@ -27,7 +26,6 @@ const createWhitePearlExample = (): RuleExampleData => {
       { kind: 'line', lineKey: up, from: 'unknown', to: 'blank' },
       { kind: 'line', lineKey: down, from: 'unknown', to: 'blank' },
     ],
-    highlights: { cells: [cellKey(1, 1)], lines: [right, up, down] },
     explanation:
       'A known horizontal exit forces the white pearl to continue horizontally and rejects both vertical exits.',
   }
@@ -46,7 +44,6 @@ const createBlackPearlExample = (): RuleExampleData => {
       { kind: 'line', lineKey: upExtension, from: 'unknown', to: 'line' },
       { kind: 'line', lineKey: down, from: 'unknown', to: 'blank' },
     ],
-    highlights: { cells: [cellKey(2, 1)], lines: [upExtension, down] },
     explanation:
       'Once the loop exits upward from a black pearl, it must continue straight for another cell and cannot also exit downward.',
   }
@@ -68,9 +65,53 @@ const createVertexDegreeExample = (): RuleExampleData => {
       { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
       { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
     ],
-    highlights: { edges: [right, bottom], vertices: ['1,1'] },
     explanation:
       'A loop vertex already containing two used edges cannot accept either remaining edge.',
+  }
+}
+
+const createAdjacentThreesExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(3, 4)
+  puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 3 } }
+  puzzle.cells[cellKey(1, 2)] = { clue: { kind: 'number', value: 3 } }
+  const left = edgeKey([1, 1], [2, 1])
+  const shared = edgeKey([1, 2], [2, 2])
+  const right = edgeKey([1, 3], [2, 3])
+  const sharedAbove = edgeKey([0, 2], [1, 2])
+  const sharedBelow = edgeKey([2, 2], [3, 2])
+  return {
+    puzzle,
+    after: [
+      { kind: 'edge', edgeKey: left, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: shared, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: sharedAbove, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: sharedBelow, from: 'unknown', to: 'blank' },
+    ],
+    explanation:
+      'Adjacent 3s force every perpendicular edge to be a line and cross out both straight extensions of their shared edge. The vertical pattern is the rotated equivalent, and longer runs apply the same deduction pairwise.',
+  }
+}
+
+const createDiagonalThreesExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(4, 4)
+  puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 3 } }
+  puzzle.cells[cellKey(2, 2)] = { clue: { kind: 'number', value: 3 } }
+  const firstLeft = edgeKey([1, 1], [2, 1])
+  const firstTop = edgeKey([1, 1], [1, 2])
+  const secondRight = edgeKey([2, 3], [3, 3])
+  const secondBottom = edgeKey([3, 2], [3, 3])
+  const decidedEdges = [firstLeft, firstTop, secondRight, secondBottom]
+  return {
+    puzzle,
+    after: decidedEdges.map((key) => ({
+      kind: 'edge' as const,
+      edgeKey: key,
+      from: 'unknown' as const,
+      to: 'line' as const,
+    })),
+    explanation:
+      'Diagonal 3s force the two edges at each outer corner, giving four lines in total.',
   }
 }
 
@@ -78,4 +119,7 @@ export const ruleExamples: Record<string, RuleExampleData> = {
   'masyu:white-pearl-rule': createWhitePearlExample(),
   'masyu:black-pearl-rule': createBlackPearlExample(),
   'slitherlink:vertex-degree': createVertexDegreeExample(),
+  'slitherlink:contiguous-three-run-boundaries': createAdjacentThreesExample(),
+  'slitherlink:diagonal-adjacent-three-outer-corners':
+    createDiagonalThreesExample(),
 }

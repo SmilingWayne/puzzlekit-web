@@ -1,0 +1,21 @@
+## What it does
+
+Two or more horizontally or vertically adjacent `3` clues force a repeating
+line pattern along the run. Every edge perpendicular to the run is a line,
+including the shared edges between neighboring `3` clues. Each shared edge is
+crossed out where it would continue straight beyond either side of the run.
+
+## When it triggers
+
+The technique acts whenever at least two `3` clues form one uninterrupted
+horizontal or vertical run. It does not require any edges to be decided first.
+
+## Why it works
+
+For a pair of adjacent `3` clues, leaving their shared edge unused would force
+the other six surrounding edges to form a closed loop around only those two
+cells, preventing any required loop elsewhere from joining it. In a standard
+Slitherlink puzzle, the shared edge must therefore be a line. Each clue then
+needs both of its edges perpendicular to the run. At either end of a shared
+edge, the loop already has two incident lines, so it cannot continue straight
+beyond the run.

@@ -1,25 +1,17 @@
-## What this technique does
+## What it does
 
 A white pearl must be crossed by a straight section of the loop. The loop must
 also turn in at least one of the cells immediately before or after the pearl.
+This can force the opposite line through the pearl, cross out perpendicular
+exits, or reject a straight continuation that would make the required nearby
+turn impossible.
 
-## Trigger conditions
+## When it triggers
 
 The technique acts when a known line, blocked direction, or impossible adjacent
 turn leaves only one valid straight axis through the pearl.
-
-## Conclusions
-
-It can force the opposite line through the pearl, cross out perpendicular exits,
-or reject a straight continuation that would make the required nearby turn
-impossible.
 
 ## Why it works
 
 Any alternative would either turn on the white pearl or continue straight on
 both adjacent cells. Both outcomes violate the puzzle's white-pearl rule.
-
-## Limits and related techniques
-
-This is local deterministic reasoning. Candidate pruning and strong inference
-can resolve cases where more than one locally valid axis remains.
