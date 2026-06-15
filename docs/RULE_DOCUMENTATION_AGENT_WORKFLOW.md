@@ -29,7 +29,9 @@ Read these files before documenting a rule:
    multi-match behavior.
 4. `src/features/docs/ruleDocRegistry.tsx`
 5. `src/features/docs/ruleExamples.ts`
-6. Existing MDX documents under `docs/content/<puzzle>/rules/`
+6. `src/features/docs/RuleExample.tsx`
+7. The `.rule-example*` styles in `src/app/workspace.css`
+8. Existing MDX documents under `docs/content/<puzzle>/rules/`
 
 Do not infer behavior from the rule name alone.
 
@@ -110,7 +112,17 @@ Writing rules:
 
 ### 4. Decide Whether to Add a Canvas Example
 
-Classify the rule before creating example data.
+Classify the rule before creating example data. A rule does not need to fit into
+one Canvas to qualify. Prefer a small multi-Canvas group over omitting a useful
+deterministic explanation merely because the rule has several separable cases.
+
+The classifications are:
+
+- **Simple deterministic:** use one Canvas case.
+- **Separable deterministic:** use multiple Canvas cases.
+- **Strong inference:** never add Canvas cases.
+- **Too complex or too coupled:** defer the Canvas and leave an explicit
+  reminder for the author.
 
 #### A. Simple deterministic rule: add an example
 
@@ -135,33 +147,157 @@ Example requirements:
   visually distinct.
 - The caption should state the deduction, not repeat the full proof.
 
-#### B. Strong-inference rule: do not add an example yet
+#### B. Separable deterministic rule: add multiple Canvas cases
+
+A somewhat complex rule should still receive Canvas documentation when its
+important triggers or conclusions can be divided into independent,
+direct Before/After cases. Do not defer merely because one board cannot express
+the whole rule clearly.
+
+Use one case per distinct point that a reader needs to compare, such as:
+
+- Two equally important completion branches.
+- Distinct deterministic trigger shapes with the same underlying rule.
+- Different direct conclusion types that would be confusing on one board.
+
+Case-selection rules:
+
+- Prefer an even number of cases, normally `2` or `4`, because the desktop
+  layout uses two columns.
+- Do not invent a redundant or weak case solely to make the count even. A clear
+  three-case group is better than four cases with filler.
+- Normally stop at four representative cases. More than four is a strong signal
+  that the rule should be deferred or redesigned with author input.
+- Give every case a stable, descriptive `id`.
+- Give every case in a multi-case group a short, parallel title.
+- Use similarly sized puzzles where practical. Prefer matching dimensions; small
+  differences are acceptable when the Canvas cards still feel balanced.
+- Avoid grouping boards when the largest is roughly more than twice the width
+  or height of the smallest.
+- Keep every case independent. A reader must not need to understand one case as
+  an intermediate step or hidden prerequisite of another.
+
+Each case must still satisfy all visual and diff requirements from category A.
+
+#### C. Strong-inference rule: never add a Canvas example
 
 Do not create a Before/After Canvas example for strong inference, assumption
 inference, contradiction probing, or branch-comparison rules. A static pair
 hides the reasoning chain and can misrepresent why the conclusion is valid.
 
-Document the rule in MDX and report:
+This restriction overrides every other Canvas guideline. Even if a
+strong-inference rule appears easy to illustrate or can be divided into several
+small boards, leave its Canvas example empty. Document the rule in MDX and
+report:
 
 ```text
 Canvas example deferred: this is a strong-inference rule whose explanation
 requires branch or contradiction history.
 ```
 
-#### C. Complex or multi-case rule: defer when unclear
+#### D. Complex rule: defer when unclear
 
-Defer the Canvas example when the rule has several materially different trigger
-paths, produces different conclusion types, or needs a sequence of intermediate
-states to be understood.
+Defer the Canvas example when cases require intermediate history, branch
+reasoning, hidden candidate state, more than four representative cases, or
+cannot be understood as independent Before/After states. Also defer when the
+cases are too coupled, the necessary split is unclear, or implementing the
+group confidently would be disproportionately difficult.
 
-Do not invent an oversimplified example. Report:
+Do not invent an oversimplified example. Leave the rule's example registration
+empty and make the missing Canvas obvious:
+
+- Add a concise `TODO(rule-doc-canvas)` comment beside the relevant location in
+  `src/features/docs/ruleExamples.ts`. Include the puzzle ID, rule ID, and exact
+  blocker so a future author can find and resume the work.
+- Always state the deferral and exact blocker in the delivery report under
+  `Needs author input`.
+
+Use this wording:
 
 ```text
-Canvas example needs author input: the rule covers <brief list of cases>.
-Please choose the representative case or approve a multi-stage explanation.
+Canvas example deferred: <rule name> needs <number or description of cases>,
+but <coupling, hidden state, sequence, or case-count blocker>. Author input is
+needed before the Canvas group can be added.
 ```
 
-When uncertain between A and C, choose C.
+#### E. Understand the Current Multi-Canvas Implementation
+
+All examples use one unified data shape in
+`src/features/docs/ruleExamples.ts`:
+
+```ts
+export type RuleExampleCaseData = {
+  id: string
+  title?: string
+  puzzle: PuzzleIR
+  before?: RuleDiff[]
+  after: RuleDiff[]
+  explanation: string
+}
+
+export type RuleExampleData = {
+  cases: [RuleExampleCaseData, ...RuleExampleCaseData[]]
+}
+```
+
+The `cases` tuple must contain at least one case. Existing single-Canvas
+examples are simply one-case groups; do not introduce a separate single-case
+shape or compatibility layer.
+
+A typical multi-case registration looks like:
+
+```ts
+{
+  cases: [
+    {
+      id: 'first-direct-branch',
+      title: 'First direct branch',
+      puzzle: firstPuzzle,
+      before: firstPrerequisiteDiffs,
+      after: firstConclusionDiffs,
+      explanation: '...',
+    },
+    {
+      id: 'second-direct-branch',
+      title: 'Second direct branch',
+      puzzle: secondPuzzle,
+      before: secondPrerequisiteDiffs,
+      after: secondConclusionDiffs,
+      explanation: '...',
+    },
+  ],
+}
+```
+
+`RuleExample` owns the complete example group's shared interaction:
+
+- One shared `view` switches every case between Before and After.
+- One shared playback timer moves every case from Before to After.
+- One shared `Before / After / Play deduction` toolbar is rendered for the
+  complete group.
+- Manual Before or After selection cancels active playback.
+
+The internal `RuleExampleCase` component owns one `<figure>`:
+
+- It applies that case's `before` diffs to its base puzzle.
+- It applies that case's `after` diffs on top of the Before state.
+- It highlights only that case's newly decided edges or lines in After.
+- It renders the optional title, one `CanvasBoard`, and one caption.
+- It derives a unique accessible Canvas label from the case title or ID.
+
+Layout behavior is already provided by `src/app/workspace.css`:
+
+- One case spans the full example width.
+- Two and four cases use a maximum of two columns on desktop.
+- An odd final case spans the next row and is centered.
+- At or below `820px`, every case becomes one full-width vertical item.
+- Case cards in one row stretch to equal height.
+- Each board is centered inside its card without resizing the Canvas.
+- Large boards scroll inside their own shells instead of widening the page.
+
+Do not change `CanvasBoard` rendering behavior to author an example. Build each
+case from a small `PuzzleIR`, prerequisite `before` diffs, and conclusion
+`after` diffs.
 
 ### 5. Register the Documentation
 
@@ -170,8 +306,10 @@ For a completed rule:
 1. Add the MDX file under `docs/content/<puzzle>/rules/`.
 2. Import it in `src/features/docs/ruleDocRegistry.tsx`.
 3. Add a concise one-sentence summary describing the rule's practical result.
-4. Add `RuleExampleData` only when the Canvas decision is category A.
-5. Keep the existing rule ID as the registry key and documentation deep-link
+4. Add `RuleExampleData` only when the Canvas decision is category A or B.
+5. For a deferred category C or D Canvas, leave the example registration empty
+   and add the required reminder and delivery-report note.
+6. Keep the existing rule ID as the registry key and documentation deep-link
    identifier.
 
 ## Quality Review
@@ -186,12 +324,18 @@ Before finishing, verify:
   `Why it works`.
 - A Canvas example, if present, shows real board state rather than decorative
   overlays.
+- Multi-case examples use independent cases with stable IDs, short titles,
+  similarly sized boards, and preferably an even case count.
+- All cases share exactly one Before, one After, and one Play deduction control.
+- Every case Canvas has a unique accessible label.
+- Strong-inference rules have no Canvas example, without exception.
 - Strong-inference and deferred examples are explicitly reported to the author.
 - No solver logic, rule order, rule ID, or factory name changed unintentionally.
 
-Run focused existing tests, formatting, lint, and build. Do not add tests solely
-for prose. Update existing assertions only when an approved display name or
-solver message changes.
+Run focused existing tests, formatting, lint, and build. When adding a
+multi-case example, verify the shared controls and inspect desktop and narrow
+layouts in the browser. Do not add tests solely for prose. Update existing
+assertions only when an approved display name or solver message changes.
 
 ## Delivery Report
 
@@ -206,7 +350,7 @@ Naming:
 - Rule ID and factory function preserved.
 
 Canvas:
-- Added: <what Before and After show>
+- Added: <case count and what each Before and After shows>
 or
 - Deferred: <strong-inference or complexity reason>
 
@@ -217,43 +361,3 @@ Needs author input:
 - <only unresolved Canvas or terminology decisions; omit when none>
 ```
 
-## Reusable Prompt Chain
-
-Use these prompts sequentially when assigning the work to an AI agent.
-
-### Prompt 1: Analyze
-
-```text
-Read the production implementation, registration, helpers, and focused tests
-for <rule factory or rule ID>. Produce a rule fact sheet using
-docs/RULE_DOCUMENTATION_AGENT_WORKFLOW.md. Do not edit files yet. Flag any
-disagreement between the implementation and the apparent intended technique.
-```
-
-### Prompt 2: Propose
-
-```text
-Using the approved fact sheet, propose the user-facing display name, solver-step
-message, three-section English MDX outline, and Canvas classification (simple,
-strong inference, or complex/multi-case). Preserve the rule ID and factory
-function unless explicitly approved otherwise.
-```
-
-### Prompt 3: Implement
-
-```text
-Implement the approved rule documentation according to
-docs/RULE_DOCUMENTATION_AGENT_WORKFLOW.md. Add a Canvas example only for a
-simple deterministic rule. For strong-inference or complex rules, document the
-rule and explicitly report why the Canvas example was deferred. Run focused
-existing tests, formatting, lint, and build.
-```
-
-### Prompt 4: Review
-
-```text
-Review the completed rule documentation against the production implementation
-and docs/RULE_DOCUMENTATION_AGENT_WORKFLOW.md. Prioritize logical inaccuracies,
-ambiguous trigger wording, misleading Canvas states, duplicated prose, and
-unintentional compatibility changes.
-```

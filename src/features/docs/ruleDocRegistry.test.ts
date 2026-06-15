@@ -29,4 +29,16 @@ describe('ruleDocRegistry', () => {
       'documented',
     )
   })
+
+  it('registers both cell-count-completion example cases', () => {
+    expect(
+      getRuleDocEntry(
+        'slitherlink',
+        'cell-count-completion',
+      )?.example?.cases.map(({ id, title }) => ({ id, title })),
+    ).toEqual([
+      { id: 'satisfied-clue', title: 'Satisfied clue' },
+      { id: 'all-edges-required', title: 'All remaining edges required' },
+    ])
+  })
 })
