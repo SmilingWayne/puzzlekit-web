@@ -93,6 +93,47 @@ const createAdjacentThreesExample = (): RuleExampleData => {
   }
 }
 
+const createCellClueCompletionExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(3, 3)
+  puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 1 } }
+  const top = edgeKey([1, 1], [1, 2])
+  const bottom = edgeKey([2, 1], [2, 2])
+  const left = edgeKey([1, 1], [2, 1])
+  const right = edgeKey([1, 2], [2, 2])
+  return {
+    puzzle,
+    before: [{ kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' }],
+    after: [
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: left, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+    ],
+    explanation:
+      'Once the clue already has one line, every remaining unknown edge must be crossed out.',
+  }
+}
+
+const createAdjacentTwoThreeOppositeCrossExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(4, 4)
+  puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 2 } }
+  puzzle.cells[cellKey(1, 2)] = { clue: { kind: 'number', value: 3 } }
+  const twoOpposite = edgeKey([1, 1], [2, 1])
+  const threeOpposite = edgeKey([1, 3], [2, 3])
+  const extensionAbove = edgeKey([0, 2], [1, 2])
+  const extensionBelow = edgeKey([2, 2], [3, 2])
+  return {
+    puzzle,
+    before: [{ kind: 'edge', edgeKey: twoOpposite, from: 'unknown', to: 'blank' }],
+    after: [
+      { kind: 'edge', edgeKey: threeOpposite, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: extensionAbove, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: extensionBelow, from: 'unknown', to: 'blank' },
+    ],
+    explanation:
+      "With the 2's far-side edge crossed out, the 3's opposite edge is a line and the shared-side extensions are blank.",
+  }
+}
+
 const createDiagonalThreesExample = (): RuleExampleData => {
   const puzzle = createSlitherPuzzle(4, 4)
   puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 3 } }
@@ -122,4 +163,7 @@ export const ruleExamples: Record<string, RuleExampleData> = {
   'slitherlink:contiguous-three-run-boundaries': createAdjacentThreesExample(),
   'slitherlink:diagonal-adjacent-three-outer-corners':
     createDiagonalThreesExample(),
+  'slitherlink:cell-count-completion': createCellClueCompletionExample(),
+  'slitherlink:adjacent-two-three-opposite-cross':
+    createAdjacentTwoThreeOppositeCrossExample(),
 }

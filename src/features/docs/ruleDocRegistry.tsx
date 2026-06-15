@@ -2,6 +2,8 @@ import type { ComponentType } from 'react'
 import BlackPearlRuleDoc from '../../../docs/content/masyu/rules/black-pearl-rule.mdx'
 import WhitePearlRuleDoc from '../../../docs/content/masyu/rules/white-pearl-rule.mdx'
 import AdjacentThreesRuleDoc from '../../../docs/content/slitherlink/rules/adjacent-threes.mdx'
+import AdjacentTwoThreeOppositeCrossRuleDoc from '../../../docs/content/slitherlink/rules/adjacent-two-three-opposite-cross.mdx'
+import CellClueCompletionRuleDoc from '../../../docs/content/slitherlink/rules/cell-clue-completion.mdx'
 import DiagonalThreesRuleDoc from '../../../docs/content/slitherlink/rules/diagonal-threes.mdx'
 import VertexDegreeRuleDoc from '../../../docs/content/slitherlink/rules/vertex-degree.mdx'
 import { puzzleRegistry } from '../../domain/plugins/registry'
@@ -49,6 +51,16 @@ const documentedContent: Record<
     content: DiagonalThreesRuleDoc,
     summary:
       'Draws the four forced outer-corner edges of diagonally adjacent 3 clues.',
+  },
+  'slitherlink:cell-count-completion': {
+    content: CellClueCompletionRuleDoc,
+    summary:
+      'Completes or blanks every remaining unknown edge around a numbered clue when the clue count is already determined.',
+  },
+  'slitherlink:adjacent-two-three-opposite-cross': {
+    content: AdjacentTwoThreeOppositeCrossRuleDoc,
+    summary:
+      "When a 2's far-side edge is crossed out beside a 3, forces the 3's opposite line and blanks the shared-side extensions.",
   },
 }
 
