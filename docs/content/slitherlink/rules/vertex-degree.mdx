@@ -1,17 +1,28 @@
 ## What it does
 
-Every Slitherlink vertex belongs to either zero or two loop edges. A vertex may
-never become a dead end or a branch. If two lines already meet at a vertex,
-every other incident edge is crossed out. If one line and only one unknown edge
-remain, that unknown edge is forced. If no lines and only one unknown edge
-remain, it is crossed out.
+Every Slitherlink vertex belongs to either zero or two loop edges. At a vertex
+with at least one unknown incident edge, the rule may cross out every remaining
+unknown edge, force the only remaining unknown edge to be a line, or cross out
+that last unknown edge when using it would create a dead end.
 
 ## When it triggers
 
-The technique acts when the decided edges around a vertex determine the
-remaining unknown edges.
+The technique acts on a vertex that still has at least one unknown incident
+edge. No numbered clue is required. One of these partial states must hold:
+
+- Two incident edges are already lines. Every other incident edge at that
+  vertex is still unknown.
+- Exactly one incident edge is a line, every other decided incident edge is
+  crossed out, and exactly one unknown edge remains.
+- No incident edge is a line, every other decided incident edge is crossed
+  out, and exactly one unknown edge remains.
 
 ## Why it works
 
-A single used edge creates a dead end, while three or more used edges create a
-branch. Neither can be part of one continuous loop.
+A valid loop gives every used vertex degree two. A single used edge creates a
+dead end, while three or more used edges create a branch. If two lines already
+meet at a vertex, any additional line would exceed degree two, so every
+remaining unknown edge must be crossed out. If one line is already present and
+only one unknown edge remains, that edge must complete the vertex to degree
+two. If no line is present and only one unknown edge remains, marking it as a
+line would leave a degree-one dead end, so it must be crossed out.

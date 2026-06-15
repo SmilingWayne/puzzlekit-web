@@ -23,7 +23,7 @@ import {
 
 export const createColorEdgePropagationRule = (): Rule => ({
   id: 'color-edge-propagation',
-  name: 'Color-Edge Propagation',
+  name: 'Color-Edge Consistency',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedEdges = new Map<string, EdgeMark>()
     const decidedCellFills = new Map<string, SlitherCellColor>()
@@ -193,7 +193,7 @@ export const createColorEdgePropagationRule = (): Rule => ({
 
 export const createColorOutsideSeedingRule = (): Rule => ({
   id: 'color-outside-seeding',
-  name: 'Color Outside Seeding',
+  name: 'Parity Component Coloring',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     type Parity = 0 | 1
 

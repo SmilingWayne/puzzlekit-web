@@ -5,6 +5,9 @@ import AdjacentThreesRuleDoc from '../../../docs/content/slitherlink/rules/adjac
 import AdjacentTwoThreeOppositeCrossRuleDoc from '../../../docs/content/slitherlink/rules/adjacent-two-three-opposite-cross.mdx'
 import CellClueCompletionRuleDoc from '../../../docs/content/slitherlink/rules/cell-clue-completion.mdx'
 import DiagonalThreesRuleDoc from '../../../docs/content/slitherlink/rules/diagonal-threes.mdx'
+import ColorEdgePropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-edge-propagation.mdx'
+import ColorOutsideSeedingRuleDoc from '../../../docs/content/slitherlink/rules/color-outside-seeding.mdx'
+import SectorConstraintEdgePropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-constraint-edge-propagation.mdx'
 import VertexDegreeRuleDoc from '../../../docs/content/slitherlink/rules/vertex-degree.mdx'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import type { Rule } from '../../domain/rules/types'
@@ -41,7 +44,12 @@ const documentedContent: Record<
   'slitherlink:vertex-degree': {
     content: VertexDegreeRuleDoc,
     summary:
-      'Maintains the loop degree of zero or two at every Slitherlink vertex.',
+      'Forces or crosses out the remaining incident edges at a vertex once its loop degree is determined.',
+  },
+  'slitherlink:sector-constraint-edge-propagation': {
+    content: SectorConstraintEdgePropagationRuleDoc,
+    summary:
+      'Completes the two edges of a corner sector once sector reasoning has fixed its allowed line count.',
   },
   'slitherlink:contiguous-three-run-boundaries': {
     content: AdjacentThreesRuleDoc,
@@ -61,6 +69,16 @@ const documentedContent: Record<
     content: AdjacentTwoThreeOppositeCrossRuleDoc,
     summary:
       "When a 2's far-side edge is crossed out beside a 3, forces the 3's opposite line and blanks the shared-side extensions.",
+  },
+  'slitherlink:color-edge-propagation': {
+    content: ColorEdgePropagationRuleDoc,
+    summary:
+      'Keeps inside/outside coloring and edge decisions consistent across shared and boundary edges.',
+  },
+  'slitherlink:color-outside-seeding': {
+    content: ColorOutsideSeedingRuleDoc,
+    summary:
+      'Colors unknown cells in a parity component once a boundary edge or known cell anchors inside/outside.',
   },
 }
 

@@ -1,0 +1,48 @@
+## What it does
+
+Inside/outside coloring treats every cell as either inside the loop or
+outside it. This rule keeps that coloring aligned with edge decisions. It may
+mark a shared edge as a line or as crossed out, decide boundary edges from a
+colored border cell, or color an unknown neighbor once one side of an edge is
+already known.
+
+Concretely, it can:
+
+- Mark a boundary edge as a line when the adjacent cell is inside, or crossed
+  out when that cell is outside.
+- Cross out an interior edge when both adjacent cells have the same color, or
+  mark it as a line when their colors differ.
+- Color the unknown side of an edge as inside or outside when the edge and the
+  other adjacent cell are already decided.
+
+## When it triggers
+
+At least one unknown edge or unknown cell color must be reachable through these
+patterns. No numbered clue is required.
+
+**Color to edge**
+
+- A boundary cell is colored inside or outside, and its outer boundary edge is
+  still unknown.
+- Two orthogonally adjacent cells are both colored, and the edge between them
+  is still unknown.
+
+**Edge to color**
+
+- An edge is already a line or crossed out, exactly one adjacent cell is
+  colored, and the other adjacent cell is still unknown.
+
+The rule may apply several independent updates in one step when multiple edges
+or cells satisfy these conditions at once.
+
+## Why it works
+
+Inside and outside are two regions separated by the loop. A line edge sits on
+the border between them, so cells on opposite sides of a line must have
+opposite colors. A crossed-out edge does not separate the regions, so cells on
+both sides must share the same color.
+
+A boundary edge has only one adjacent cell on the board. That outer side is
+outside the puzzle, so an inside cell must meet the boundary with a line and an
+outside cell must meet it with a crossed-out edge. Any update that violates
+these relations would disagree with the loop's inside/outside partition.
