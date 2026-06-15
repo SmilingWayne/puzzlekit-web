@@ -2,6 +2,7 @@ import { cellKey, edgeKey, lineKey, sectorKey } from '../../domain/ir/keys'
 import { createMasyuPuzzle } from '../../domain/ir/masyu'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import {
+  SECTOR_MASK_ALL,
   SECTOR_MASK_NOT_1,
   SECTOR_MASK_ONLY_0,
   SECTOR_MASK_ONLY_1,
@@ -583,6 +584,406 @@ const createDiagonalThreesExample = (): RuleExampleData => {
   })
 }
 
+const createColorCluePropagationExample = (): RuleExampleData => {
+  const cornerInsidePuzzle = createSlitherPuzzle(3, 3)
+  cornerInsidePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 1 },
+  }
+
+  const clueTwoOutsidePuzzle = createSlitherPuzzle(3, 3)
+  clueTwoOutsidePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 2 },
+  }
+
+  const outsideCluePuzzle = createSlitherPuzzle(3, 3)
+  outsideCluePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 1 },
+    fill: 'yellow',
+  }
+
+  const forcedOutsidePuzzle = createSlitherPuzzle(3, 3)
+  forcedOutsidePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 3 },
+  }
+
+  return {
+    cases: [
+      {
+        id: 'corner-clue-forced-inside',
+        title: 'Corner clue forced inside',
+        puzzle: cornerInsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Cell 1 already has two yellow neighbors; if it were green, that would force two lines — invalid for clue 1.',
+      },
+      {
+        id: 'clue-two-outside-neighbors',
+        title: 'Clue 2 with two outside neighbors',
+        puzzle: clueTwoOutsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'Whatever its color, clue 2 must end with two yellow and two green neighbors — two crosses and two lines.',
+      },
+      {
+        id: 'outside-clue-remaining-outside',
+        title: 'Outside clue already satisfied',
+        puzzle: outsideCluePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Cell 1 is already settled, so the remaining sides must all be crosses; the neighbor colors follow.',
+      },
+      {
+        id: 'too-many-inside-neighbors',
+        title: 'Too many inside neighbors',
+        puzzle: forcedOutsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Cell 1 already has three green neighbors; if it were green, at most one line could remain — invalid for clue 3.',
+      },
+    ],
+  }
+}
+
+const createColorSectorMaskPropagationExample = (): RuleExampleData => {
+  const notOneColorPuzzle = createSlitherPuzzle(3, 3)
+  notOneColorPuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask =
+    SECTOR_MASK_NOT_1
+
+  const onlyOneColorPuzzle = createSlitherPuzzle(3, 3)
+  onlyOneColorPuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask =
+    SECTOR_MASK_ONLY_1
+
+  const differentColorsPuzzle = createSlitherPuzzle(2, 2)
+
+  const sameColorsPuzzle = createSlitherPuzzle(2, 2)
+
+  return {
+    cases: [
+      {
+        id: 'not-one-sector-same-color',
+        title: 'Not-one sector, same color',
+        puzzle: notOneColorPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'NOT_ONE (blue) sector requires matching outside-neighbor colors, as shown.',
+      },
+      {
+        id: 'only-one-sector-opposite-color',
+        title: 'Only-one sector, opposite color',
+        puzzle: onlyOneColorPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'ONLY_ONE sector requires opposite outside-neighbor colors, as shown.',
+      },
+      {
+        id: 'different-colors-force-only-one',
+        title: 'Opposite colors force only one',
+        puzzle: differentColorsPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'Opposite outside-neighbor colors force exactly one line in the shared corner sector.',
+      },
+      {
+        id: 'same-colors-force-not-one',
+        title: 'Matching colors forbid one line',
+        puzzle: sameColorsPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'Matching outside-neighbor colors forbid exactly one line in the shared corner sector.',
+      },
+    ],
+  }
+}
+
+const createColorOrthogonalConsensusPropagationExample = (): RuleExampleData => {
+  const insidePuzzle = createSlitherPuzzle(3, 3)
+  const outsidePuzzle = createSlitherPuzzle(3, 3)
+
+  return {
+    cases: [
+      {
+        id: 'uniform-inside-neighbors',
+        title: 'All neighbors inside',
+        puzzle: insidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'Every orthogonal neighbor is inside, so the center cell must also be inside.',
+      },
+      {
+        id: 'uniform-outside-neighbors',
+        title: 'All neighbors outside',
+        puzzle: outsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Every orthogonal neighbor is outside, so the center cell must also be outside.',
+      },
+    ],
+  }
+}
+
+const createPreventPrematureLoopExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(3, 6)
+  const top = edgeKey([1, 0], [1, 1])
+  const right = edgeKey([1, 1], [2, 1])
+  const bottom = edgeKey([2, 0], [2, 1])
+  const closing = edgeKey([1, 0], [2, 0])
+  const other = edgeKey([3, 2], [3, 6])
+
+  return example({
+    id: 'closing-edge-blank',
+    puzzle,
+    before: [
+      { kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: other, from: 'unknown', to: 'line' },
+    ],
+    after: [{ kind: 'edge', edgeKey: closing, from: 'unknown', to: 'blank' }],
+    explanation:
+      'The three drawn edges already connect both endpoints through another path, the remaining edge would close a smaller loop, considering we have another known lines.',
+  })
+}
+
 export const ruleExamples: Record<string, RuleExampleData> = {
   'masyu:white-pearl-rule': createWhitePearlExample(),
   'masyu:black-pearl-rule': createBlackPearlExample(),
@@ -597,4 +998,10 @@ export const ruleExamples: Record<string, RuleExampleData> = {
     createAdjacentTwoThreeOppositeCrossExample(),
   'slitherlink:color-edge-propagation': createColorEdgePropagationExample(),
   'slitherlink:color-outside-seeding': createColorOutsideSeedingExample(),
+  'slitherlink:color-clue-propagation': createColorCluePropagationExample(),
+  'slitherlink:color-sector-mask-propagation':
+    createColorSectorMaskPropagationExample(),
+  'slitherlink:color-orthogonal-consensus-propagation':
+    createColorOrthogonalConsensusPropagationExample(),
+  'slitherlink:prevent-premature-loop': createPreventPrematureLoopExample(),
 }

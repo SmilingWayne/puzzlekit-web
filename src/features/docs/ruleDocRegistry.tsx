@@ -6,7 +6,11 @@ import AdjacentTwoThreeOppositeCrossRuleDoc from '../../../docs/content/slitherl
 import CellClueCompletionRuleDoc from '../../../docs/content/slitherlink/rules/cell-clue-completion.mdx'
 import DiagonalThreesRuleDoc from '../../../docs/content/slitherlink/rules/diagonal-threes.mdx'
 import ColorEdgePropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-edge-propagation.mdx'
+import ColorCluePropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-clue-propagation.mdx'
 import ColorOutsideSeedingRuleDoc from '../../../docs/content/slitherlink/rules/color-outside-seeding.mdx'
+import ColorSectorMaskPropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-sector-mask-propagation.mdx'
+import ColorOrthogonalConsensusPropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-orthogonal-consensus-propagation.mdx'
+import PreventPrematureLoopRuleDoc from '../../../docs/content/slitherlink/rules/prevent-premature-loop.mdx'
 import SectorConstraintEdgePropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-constraint-edge-propagation.mdx'
 import VertexDegreeRuleDoc from '../../../docs/content/slitherlink/rules/vertex-degree.mdx'
 import { puzzleRegistry } from '../../domain/plugins/registry'
@@ -79,6 +83,26 @@ const documentedContent: Record<
     content: ColorOutsideSeedingRuleDoc,
     summary:
       'Colors unknown cells in a parity component once a boundary edge or known cell anchors inside/outside.',
+  },
+  'slitherlink:color-clue-propagation': {
+    content: ColorCluePropagationRuleDoc,
+    summary:
+      'Colors numbered clue cells or their neighbors once inside/outside neighbor counts fix the clue bookkeeping.',
+  },
+  'slitherlink:color-sector-mask-propagation': {
+    content: ColorSectorMaskPropagationRuleDoc,
+    summary:
+      'Links corner-sector line counts with the inside/outside colors of the two cells outside each corner.',
+  },
+  'slitherlink:color-orthogonal-consensus-propagation': {
+    content: ColorOrthogonalConsensusPropagationRuleDoc,
+    summary:
+      'Colors an unknown cell to match its orthogonal neighbors once they all agree on inside or outside.',
+  },
+  'slitherlink:prevent-premature-loop': {
+    content: PreventPrematureLoopRuleDoc,
+    summary:
+      'Crosses out unknown edges that would close a smaller loop while other confirmed lines remain outside it.',
   },
 }
 

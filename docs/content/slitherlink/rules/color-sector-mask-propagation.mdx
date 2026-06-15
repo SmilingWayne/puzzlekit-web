@@ -1,0 +1,57 @@
+## What it does
+
+Each cell corner has a corner sector with two edges. The two cells that sit
+just outside that corner — one above or below and one left or right — are the
+sector’s outside neighbors. This rule keeps sector line-count constraints and
+those neighbors’ inside/outside colors aligned.
+
+It may:
+
+- Color an unknown outside neighbor once the sector already requires its two
+  neighbors to match or to differ, and the other neighbor’s color is known.
+- Narrow a sector’s allowed line count when both outside neighbors are already
+  colored: matching colors forbid exactly one sector line, and opposite colors
+  require exactly one.
+
+Off-board outside-neighbor directions count as outside. Sector masks that already
+forbid a count of one line — including masks that fix zero or two lines — are
+treated like a “not exactly one” constraint for the color link. One
+application may update several cells and sectors independently.
+
+## When it triggers
+
+At least one corner sector must satisfy one of these patterns:
+
+**Sector mask to color**
+
+- The sector is narrowed to exactly one line, or it forbids exactly one line
+  (including masks that already fix zero or two lines).
+- Exactly one in-bounds outside neighbor is still unknown; the other neighbor
+  is known, or is off-board and treated as outside.
+- The unknown neighbor receives the color forced by the sector relation.
+
+**Color to sector mask**
+
+- Both outside neighbors have known colors, or one is off-board and treated as
+  outside.
+- The sector is not already narrowed to only one line or to forbid one line.
+- Matching neighbor colors narrow the sector so it cannot have exactly one
+  line; opposite colors narrow it to exactly one line.
+
+The rule does not act when both outside neighbors are unknown and in bounds, when
+both are already colored and the sector is already in one of the narrowed
+states, or when a proposed mask intersection would be empty. It does not
+overwrite an existing cell color.
+
+## Why it works
+
+A corner sector has only two edges, so its line count is 0, 1, or 2. The two
+outside neighbors lie on opposite sides of those edges. If they have opposite
+inside/outside colors, the loop border runs between them and exactly one sector
+edge must be a line — so the sector count is 1. If they share a color, both
+sector edges must be lines or both must be crosses, so the sector cannot end
+with exactly one line.
+
+Once a sector is narrowed to one of those relations, a single unknown neighbor
+has only one compatible color. Conversely, once both neighbor colors are fixed,
+only one sector mask remains compatible with the corner geometry.
