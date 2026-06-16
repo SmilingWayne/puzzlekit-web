@@ -437,7 +437,11 @@ describe('EditorPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show masyu legend/i }))
     const legend = screen.getByRole('dialog', { name: /masyu legend/i })
-    expect(within(legend).getByText(/white and black pearls/i)).toBeInTheDocument()
+    expect(within(legend).getByText('Black & White')).toBeInTheDocument()
+    expect(within(legend).getByText('Cross & Line')).toBeInTheDocument()
+    expect(within(legend).getByText('Green Tile')).toBeInTheDocument()
+    expect(within(legend).getByText('Yellow Tile')).toBeInTheDocument()
+    expect(within(legend).getByText(/white pearls go straight/i)).toBeInTheDocument()
     fireEvent.click(within(legend).getByRole('button', { name: /close masyu legend/i }))
 
     fireEvent.focus(screen.getByRole('button', { name: /show puzzle stats/i }))
