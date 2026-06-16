@@ -1530,6 +1530,270 @@ const createColorConnectivityCutColoringExample = (): RuleExampleData => {
   }
 }
 
+const createClueVertexCandidateCombinationPruningExample = (): RuleExampleData => {
+  const clueZeroPuzzle = createSlitherPuzzle(3, 3)
+  clueZeroPuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 0 } }
+
+  const clueOnePuzzle = createSlitherPuzzle(3, 3)
+  clueOnePuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 1 } }
+
+  const clueThreePuzzle = createSlitherPuzzle(3, 3)
+  clueThreePuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 3 } }
+
+  const clueTwoCornerPuzzle = createSlitherPuzzle(3, 3)
+  clueTwoCornerPuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 2 } }
+
+  const allCornerSectorDiffs = (
+    row: number,
+    col: number,
+    toMask: number,
+  ): RuleDiff[] =>
+    (['nw', 'ne', 'sw', 'se'] as const).map((corner) => ({
+      kind: 'sector' as const,
+      sectorKey: sectorKey(row, col, corner),
+      fromMask: SECTOR_MASK_ALL,
+      toMask,
+    }))
+
+  return {
+    cases: [
+      {
+        id: 'clue-zero-corners',
+        title: 'Clue 0',
+        puzzle: clueZeroPuzzle,
+        after: allCornerSectorDiffs(1, 1, SECTOR_MASK_ONLY_0),
+        explanation:
+          'A lone 0 allows no cell edges, so every corner sector is narrowed to zero lines.',
+      },
+      {
+        id: 'clue-one-corners',
+        title: 'Clue 1',
+        puzzle: clueOnePuzzle,
+        after: allCornerSectorDiffs(1, 1, SECTOR_MASK_NOT_2),
+        explanation:
+          'A lone 1 cannot use both sector edges at any corner, so every sector forbids two lines.',
+      },
+      {
+        id: 'clue-three-corners',
+        title: 'Clue 3',
+        puzzle: clueThreePuzzle,
+        after: allCornerSectorDiffs(1, 1, SECTOR_MASK_NOT_0),
+        explanation:
+          'A lone 3 needs lines on every cell edge, so no corner sector can be empty.',
+      },
+      {
+        id: 'clue-two-boundary',
+        title: 'Clue 2 at a corner',
+        puzzle: clueTwoCornerPuzzle,
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'A corner 2 splits the four-corner combinations asymmetrically: the two board-corner sectors must each have exactly one line.',
+      },
+    ],
+  }
+}
+
+const createSectorClueOneThreeIntraCellPropagationExample = (): RuleExampleData => {
+  const clueOnePuzzle = createSlitherPuzzle(2, 2)
+  clueOnePuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 1 } }
+  clueOnePuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+  const clueOneBottom = edgeKey([1, 0], [1, 1])
+  const clueOneRight = edgeKey([0, 1], [1, 1])
+
+  const clueThreePuzzle = createSlitherPuzzle(2, 2)
+  clueThreePuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 3 } }
+  clueThreePuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+  return {
+    cases: [
+      {
+        id: 'clue-one-opposite-blank',
+        title: 'Clue 1',
+        puzzle: clueOnePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: clueOneBottom, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: clueOneRight, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'The northwest sector already has its one line, so the opposite cell edges are crossed out.',
+      },
+      {
+        id: 'clue-three-opposite-line',
+        title: 'Clue 3',
+        puzzle: clueThreePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: clueOneBottom, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: clueOneRight, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'The northwest sector already has its one line, so the opposite pair must supply the other two lines for clue 3.',
+      },
+    ],
+  }
+}
+
+const createVertexOnlyOneNonSectorBalanceExample = (): RuleExampleData => {
+  const blankForcesLinePuzzle = createSlitherPuzzle(3, 3)
+  blankForcesLinePuzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask =
+    SECTOR_MASK_ONLY_1
+  const blankBottom = edgeKey([1, 1], [2, 1])
+  const blankRight = edgeKey([1, 1], [1, 2])
+
+  const lineForcesBlankPuzzle = createSlitherPuzzle(3, 3)
+  lineForcesBlankPuzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask =
+    SECTOR_MASK_ONLY_1
+
+  const boundaryPuzzle = createSlitherPuzzle(3, 3)
+  boundaryPuzzle.sectors[sectorKey(0, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+  return {
+    cases: [
+      {
+        id: 'outside-blank-forces-line',
+        title: 'Outside edge crossed out',
+        puzzle: blankForcesLinePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          { kind: 'edge', edgeKey: blankBottom, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: blankRight, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'With one outside edge crossed out, the vertex still needs its second line on the other outside edge.',
+      },
+      {
+        id: 'outside-line-forces-blank',
+        title: 'Outside edge already a line',
+        puzzle: lineForcesBlankPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          { kind: 'edge', edgeKey: blankRight, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: blankBottom, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'The outside line and the sector line already satisfy degree two, so the other outside edge is crossed out.',
+      }
+    ],
+  }
+}
+
+const createSectorNotOneClueTwoPropagationExample = (): RuleExampleData => {
+  const northwestTargetPuzzle = createSlitherPuzzle(2, 2)
+  northwestTargetPuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 2 } }
+  northwestTargetPuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask =
+    SECTOR_MASK_NOT_1
+  const northwestTop = edgeKey([0, 0], [0, 1])
+  const northwestLeft = edgeKey([0, 0], [1, 0])
+  const southeastLine = edgeKey([1, 0], [1, 1])
+
+  const northeastTargetPuzzle = createSlitherPuzzle(2, 2)
+  northeastTargetPuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 2 } }
+  northeastTargetPuzzle.sectors[sectorKey(0, 0, 'ne')].constraintsMask =
+    SECTOR_MASK_NOT_1
+  const northeastTop = edgeKey([0, 0], [0, 1])
+  const northeastRight = edgeKey([0, 1], [1, 1])
+  const southwestLine = edgeKey([0, 0], [1, 0])
+
+  return {
+    cases: [
+      {
+        id: 'not-one-nw-target',
+        title: 'Northwest target',
+        puzzle: northwestTargetPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          { kind: 'edge', edgeKey: southeastLine, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: northwestTop, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: northwestLeft, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'Southeast already has a line, so the not-one northwest sector cannot take any line.',
+      },
+      {
+        id: 'not-one-ne-target',
+        title: 'Northeast target',
+        puzzle: northeastTargetPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          { kind: 'edge', edgeKey: southwestLine, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: northeastTop, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: northeastRight, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'The mirrored diagonal case blanks the northeast sector when southwest already contributes a line.',
+      },
+    ],
+  }
+}
+
 const createPreventPrematureLoopExample = (): RuleExampleData => {
   const puzzle = createSlitherPuzzle(3, 6)
   const top = edgeKey([1, 0], [1, 1])
@@ -1582,4 +1846,12 @@ export const ruleExamples: Record<string, RuleExampleData> = {
   'slitherlink:color-connectivity-cut-coloring':
     createColorConnectivityCutColoringExample(),
   'slitherlink:prevent-premature-loop': createPreventPrematureLoopExample(),
+  'slitherlink:clue-vertex-candidate-combination-pruning':
+    createClueVertexCandidateCombinationPruningExample(),
+  'slitherlink:sector-clue-one-three-intra-cell-propagation':
+    createSectorClueOneThreeIntraCellPropagationExample(),
+  'slitherlink:vertex-onlyone-non-sector-balance':
+    createVertexOnlyOneNonSectorBalanceExample(),
+  'slitherlink:sector-not-one-clue-two-propagation':
+    createSectorNotOneClueTwoPropagationExample(),
 }

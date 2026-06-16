@@ -17,7 +17,10 @@ import PreventPrematureLoopRuleDoc from '../../../docs/content/slitherlink/rules
 import SectorConstraintEdgePropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-constraint-edge-propagation.mdx'
 import SectorDiagonalSharedVertexPropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-diagonal-shared-vertex-propagation.mdx'
 import ClueVertexCandidateCombinationPruningRuleDoc from '../../../docs/content/slitherlink/rules/clue-vertex-candidate-combination-pruning.mdx'
+import SectorClueOneThreeIntraCellPropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-clue-one-three-intra-cell-propagation.mdx'
+import SectorNotOneClueTwoPropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-not-one-clue-two-propagation.mdx'
 import SectorInferenceRuleDoc from '../../../docs/content/slitherlink/rules/sector-inference.mdx'
+import VertexOnlyOneNonSectorBalanceRuleDoc from '../../../docs/content/slitherlink/rules/vertex-onlyone-non-sector-balance.mdx'
 import ColorAssumptionInferenceRuleDoc from '../../../docs/content/slitherlink/rules/color-assumption-inference.mdx'
 import SectorParityInferenceRuleDoc from '../../../docs/content/slitherlink/rules/sector-parity-inference.mdx'
 import StrongInferenceRuleDoc from '../../../docs/content/slitherlink/rules/strong-inference.mdx'
@@ -148,6 +151,21 @@ const documentedContent: Record<
     content: ClueVertexCandidateCombinationPruningRuleDoc,
     summary:
       'Internal bookkeeping: enumerates clue-compatible four-corner vertex states; sector effects overlap with Sector Inference.',
+  },
+  'slitherlink:sector-clue-one-three-intra-cell-propagation': {
+    content: SectorClueOneThreeIntraCellPropagationRuleDoc,
+    summary:
+      'With clue 1 or 3 and an exactly-one corner sector, crosses out or draws the two opposite cell edges.',
+  },
+  'slitherlink:vertex-onlyone-non-sector-balance': {
+    content: VertexOnlyOneNonSectorBalanceRuleDoc,
+    summary:
+      'Completes the non-sector edges at a vertex once an exactly-one corner sector fixes how many outside lines remain.',
+  },
+  'slitherlink:sector-not-one-clue-two-propagation': {
+    content: SectorNotOneClueTwoPropagationRuleDoc,
+    summary:
+      'On clue 2, blanks a not-one corner sector when the opposite diagonal sector already has a line.',
   },
   'slitherlink:color-assumption-inference': {
     content: ColorAssumptionInferenceRuleDoc,

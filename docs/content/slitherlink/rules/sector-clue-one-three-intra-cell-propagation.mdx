@@ -1,0 +1,38 @@
+## What it does
+
+When a numbered cell's clue is **1** or **3** and one corner sector is already
+known to contain **exactly one line**, this rule decides the cell's two
+**opposite** edges — the edges that do not belong to that sector.
+
+- Clue **1**: both opposite edges are crossed out.
+- Clue **3**: both opposite edges are marked as lines.
+
+It does not change sector masks or vertex candidates.
+
+## When it triggers
+
+The rule inspects every cell with numeric clue **1** or **3**. For each corner
+sector of that cell whose constraint has already been narrowed to **exactly one
+line**, it looks at the two cell edges that are not part of that sector.
+
+It acts when at least one of those opposite edges is still unknown. The sector
+must already be at exactly-one-line from earlier sector reasoning; this rule
+does not infer new sector masks.
+
+If the sector is not exactly one line, or both opposite edges are already
+decided, the case is skipped.
+
+## Why it works
+
+A corner sector has two edges. If sector reasoning has fixed that sector to
+exactly one line, that line already accounts for part of the cell's clue count.
+
+For clue **1**, the cell needs only one line in total. The sector's one line
+already satisfies the clue, so the two remaining cell edges — the opposite pair
+— cannot also be lines.
+
+For clue **3**, the cell needs three lines. The sector contributes one, so the
+opposite pair must supply the other two. Both must be lines.
+
+Any other assignment would give the wrong total around the clue while still
+violating the fixed sector count.
