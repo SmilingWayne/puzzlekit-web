@@ -3,7 +3,9 @@ import { createMasyuPuzzle } from '../../domain/ir/masyu'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
 import {
   SECTOR_MASK_ALL,
+  SECTOR_MASK_NOT_0,
   SECTOR_MASK_NOT_1,
+  SECTOR_MASK_NOT_2,
   SECTOR_MASK_ONLY_0,
   SECTOR_MASK_ONLY_1,
   SECTOR_MASK_ONLY_2,
@@ -961,6 +963,254 @@ const createColorOrthogonalConsensusPropagationExample = (): RuleExampleData => 
   }
 }
 
+const createSectorInferenceExample = (): RuleExampleData => {
+  const boundaryPuzzle = createSlitherPuzzle(2, 2)
+
+  const sectorEdgesPuzzle = createSlitherPuzzle(2, 3)
+  const sectorLine = edgeKey([0, 0], [0, 1])
+  const sectorCross = edgeKey([0, 1], [1, 1])
+
+  const edgeVertexPuzzle = createSlitherPuzzle(3, 3)
+  const soleNonSectorBlank = edgeKey([0, 0], [0, 1])
+
+  const clueThreePuzzle = createSlitherPuzzle(3, 3)
+  clueThreePuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 3 } }
+
+  const outsideLinePuzzle = createSlitherPuzzle(4, 4)
+  outsideLinePuzzle.cells[cellKey(0, 3)] = { clue: { kind: 'number', value: 3 } }
+  const westOfVertex = edgeKey([0, 2], [0, 3])
+
+  const clueTwoPuzzle = createSlitherPuzzle(3, 3)
+  clueTwoPuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 2 } }
+  const clueTwoDiagLine = edgeKey([2, 1], [2, 2])
+  const clueTwoDiagCross = edgeKey([1, 2], [2, 2])
+
+  return {
+    cases: [
+      {
+        id: 'boundary-corner-not-one',
+        title: 'Board corner geometry',
+        puzzle: boundaryPuzzle,
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 1, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 0, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 1, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'A board corner has only its two sector edges, so that corner cannot end with exactly one line.',
+      },
+      {
+        id: 'sector-edges-decided',
+        title: 'Both sector edges decided',
+        puzzle: sectorEdgesPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: sectorLine, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: sectorCross, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'One sector line and one sector cross already fix the corner to exactly one line.',
+      },
+      {
+        id: 'edge-vertex-blank',
+        title: 'Sole outside edge crossed out',
+        puzzle: edgeVertexPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: soleNonSectorBlank, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 1, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'The only non-sector edge at this vertex is crossed out, so the sector cannot have exactly one line.',
+      },
+      {
+        id: 'clue-three-corners',
+        title: 'Clue 3 bookkeeping',
+        puzzle: clueThreePuzzle,
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_2,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+        ],
+        explanation:
+          'Clue 3 forbids zero sector lines on every corner of the cell; the board corner also fixes that corner to two lines.',
+      },
+      {
+        id: 'outside-line-forces-one',
+        title: 'One outside line at vertex',
+        puzzle: outsideLinePuzzle,
+        before: [
+          { kind: 'edge', edgeKey: westOfVertex, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 3, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'One line already enters the corner vertex from outside the sector, so the sector must supply exactly one more line.',
+      },
+      {
+        id: 'clue-two-diagonal',
+        title: 'Clue 2 diagonal split',
+        puzzle: clueTwoPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: clueTwoDiagLine, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: clueTwoDiagCross, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 1, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'The diagonal edges already account for one line, so clue 2 forces exactly one line in the northwest corner sector.',
+      },
+    ],
+  }
+}
+
+const createSectorDiagonalSharedVertexPropagationExample = (): RuleExampleData => {
+  const onlyOnePuzzle = createSlitherPuzzle(4, 4)
+  const notOnePuzzle = createSlitherPuzzle(4, 4)
+  const notZeroPuzzle = createSlitherPuzzle(4, 4)
+
+  return {
+    cases: [
+      {
+        id: 'only-one-diagonal',
+        title: 'Exactly one line',
+        puzzle: onlyOnePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(2, 2, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 3, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'An exactly-one-line sector on one diagonal corner forces the same count on the opposite diagonal sector.',
+      },
+      {
+        id: 'not-one-diagonal',
+        title: 'Cannot have one line',
+        puzzle: notOnePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(2, 2, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 3, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'A not-exactly-one-line sector passes the same restriction to the diagonal opposite sector.',
+      },
+      {
+        id: 'not-zero-to-not-two',
+        title: 'Cannot have zero lines',
+        puzzle: notZeroPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(2, 2, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 3, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_2,
+          },
+        ],
+        explanation:
+          'If one diagonal sector cannot be empty, the opposite diagonal sector cannot contain two lines.',
+      },
+    ],
+  }
+}
+
 const createPreventPrematureLoopExample = (): RuleExampleData => {
   const puzzle = createSlitherPuzzle(3, 6)
   const top = edgeKey([1, 0], [1, 1])
@@ -990,6 +1240,9 @@ export const ruleExamples: Record<string, RuleExampleData> = {
   'slitherlink:vertex-degree': createVertexDegreeExample(),
   'slitherlink:sector-constraint-edge-propagation':
     createSectorConstraintEdgePropagationExample(),
+  'slitherlink:sector-inference': createSectorInferenceExample(),
+  'slitherlink:sector-diagonal-shared-vertex-propagation':
+    createSectorDiagonalSharedVertexPropagationExample(),
   'slitherlink:contiguous-three-run-boundaries': createAdjacentThreesExample(),
   'slitherlink:diagonal-adjacent-three-outer-corners':
     createDiagonalThreesExample(),

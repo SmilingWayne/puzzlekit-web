@@ -352,7 +352,7 @@ export const createClueVertexCandidateCombinationPruningRule = (): Rule => ({
 
 export const createSectorDiagonalSharedVertexPropagationRule = (): Rule => ({
   id: 'sector-diagonal-shared-vertex-propagation',
-  name: 'Sector Diagonal Shared Vertex Propagation',
+  name: 'Diagonal Sector Propagation',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const diagonalCases: Array<{
       sourceCorner: SectorCorner

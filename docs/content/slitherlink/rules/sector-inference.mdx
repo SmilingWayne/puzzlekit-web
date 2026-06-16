@@ -1,0 +1,68 @@
+## What it does
+
+Each numbered cell has four corner sectors. A corner sector is the pair of edges
+that meet at that cell corner. This rule narrows how many of those two edges may
+be lines, without drawing or crossing them out directly.
+
+One application may update several sectors. The allowed counts it can enforce
+include:
+
+- exactly zero, one, or two sector lines;
+- forbidding exactly one sector line;
+- forbidding zero sector lines;
+- forbidding two sector lines.
+
+## When it triggers
+
+The rule inspects every corner sector. It acts when existing board evidence
+narrows the sector below its current mask. No prior sector mask is required;
+boundary geometry alone can start the deduction.
+
+Evidence comes from three local sources, combined for that sector:
+
+**Sector edges already decided**
+
+- If both sector edges are decided, the sector is narrowed to that exact line
+  count.
+
+**Vertex flow at the shared corner vertex**
+
+- A board corner with only the two sector edges incident: the sector cannot have
+  exactly one line.
+- Exactly one non-sector edge at the vertex is crossed out: the sector cannot
+  have exactly one line.
+- Exactly one non-sector edge is a line, and every remaining unknown edge at the
+  vertex lies in this sector: the sector must have exactly one line.
+- Two non-sector edges are lines: the sector must have zero lines.
+- Two non-sector edges are crossed out: the sector cannot have exactly one line.
+- One sector edge is crossed out: the sector cannot have two lines.
+
+**Numbered clue on the cell**
+
+- If the cell's decided edge lines already equal the clue, the sector is
+  narrowed to its own decided line count.
+- Clue 3 with both diagonal (non-sector) edges already lines: the sector must
+  have exactly one line.
+- Clue 2 with one diagonal line and one diagonal cross: the sector must have
+  exactly one line.
+- Clue 1 with both diagonal edges crossed out: the sector must have exactly one
+  line.
+- Clue 3, or one sector edge already a line: the sector cannot have zero lines.
+- Clue 1: the sector cannot have two lines.
+
+The rule only tightens masks. It never relaxes a sector that is already more
+specific, and it skips any intersection that would become empty.
+
+## Why it works
+
+A corner sector has only two edges, so its line count is 0, 1, or 2. Vertex
+degree limits how those two edges can combine with the other edges at the same
+corner vertex: a valid loop gives every used vertex degree two, so the sector
+edges and the non-sector edges at that vertex must agree on how many lines
+remain. Board corners and single-edge vertices rule out a lone sector line when
+the geometry cannot support it.
+
+Clue arithmetic applies the same idea at the cell level. Once enough edges
+around the clue are fixed — including the two sector edges and the two diagonal
+edges opposite them — only one sector line count stays compatible with the clue
+and with forbidden totals.

@@ -1,0 +1,40 @@
+## What it does
+
+Two corner sectors on diagonally adjacent cells can share the same grid vertex.
+When one of those sectors has already been narrowed to a strong line-count
+constraint, this rule copies a compatible constraint to the opposite diagonal
+sector at that vertex.
+
+The propagated relations are:
+
+- exactly one line on the source sector forces exactly one line on the target;
+- forbidding exactly one line on the source does the same on the target;
+- forbidding zero lines on the source forbids two lines on the target.
+
+Only sector masks change. This rule does not mark edges directly.
+
+## When it triggers
+
+The source sector must already be narrowed to exactly one of these masks:
+
+- exactly one line;
+- cannot have exactly one line;
+- cannot have zero lines.
+
+The diagonally opposite cell must be in bounds. The target sector must still
+allow a tighter mask after intersection. The rule does not act when the target is
+already equally constrained, or when the combined masks would contradict each
+other.
+
+No edge or clue decisions are required beyond the source sector mask itself.
+
+## Why it works
+
+At an interior vertex, the four incident edges split into two diagonal corner
+sectors. Each sector owns one pair of opposite edges around the vertex. Those
+two pairs partition the vertex completely: if one pair contains zero lines, both
+of its edges are crossed out, so the other pair must supply both lines to reach
+vertex degree two. That opposite pair then has two lines, not zero. The same
+vertex geometry makes an exact-one-line constraint and a not-exactly-one-line
+constraint pass unchanged across the diagonal pair, because both sectors are
+describing the same corner vertex from opposite sides.

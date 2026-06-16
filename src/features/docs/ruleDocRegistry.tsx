@@ -12,6 +12,8 @@ import ColorSectorMaskPropagationRuleDoc from '../../../docs/content/slitherlink
 import ColorOrthogonalConsensusPropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-orthogonal-consensus-propagation.mdx'
 import PreventPrematureLoopRuleDoc from '../../../docs/content/slitherlink/rules/prevent-premature-loop.mdx'
 import SectorConstraintEdgePropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-constraint-edge-propagation.mdx'
+import SectorDiagonalSharedVertexPropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-diagonal-shared-vertex-propagation.mdx'
+import SectorInferenceRuleDoc from '../../../docs/content/slitherlink/rules/sector-inference.mdx'
 import VertexDegreeRuleDoc from '../../../docs/content/slitherlink/rules/vertex-degree.mdx'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import type { Rule } from '../../domain/rules/types'
@@ -54,6 +56,16 @@ const documentedContent: Record<
     content: SectorConstraintEdgePropagationRuleDoc,
     summary:
       'Completes the two edges of a corner sector once sector reasoning has fixed its allowed line count.',
+  },
+  'slitherlink:sector-inference': {
+    content: SectorInferenceRuleDoc,
+    summary:
+      'Narrows corner-sector line counts from vertex flow, decided edges, and clue bookkeeping.',
+  },
+  'slitherlink:sector-diagonal-shared-vertex-propagation': {
+    content: SectorDiagonalSharedVertexPropagationRuleDoc,
+    summary:
+      'Copies a narrowed sector line-count constraint to the diagonally opposite sector at the same vertex.',
   },
   'slitherlink:contiguous-three-run-boundaries': {
     content: AdjacentThreesRuleDoc,
