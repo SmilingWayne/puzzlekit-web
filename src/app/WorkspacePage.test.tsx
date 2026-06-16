@@ -174,6 +174,27 @@ describe('WorkspacePage', () => {
     expect(screen.queryByRole('dialog', { name: /slitherlink legend/i })).not.toBeInTheDocument()
   })
 
+  it('opens masyu board legend with pearl, line, cross, and tile examples', async () => {
+    renderWorkspace()
+
+    fireEvent.change(screen.getByDisplayValue('Slitherlink'), { target: { value: 'masyu' } })
+    await waitFor(() => expect(useSolverStore.getState().pluginId).toBe('masyu'))
+
+    fireEvent.click(screen.getByRole('button', { name: /show masyu legend/i }))
+
+    const legendDialog = screen.getByRole('dialog', { name: /masyu legend/i })
+    expect(legendDialog).toBeInTheDocument()
+    expect(within(legendDialog).getByText('Black & White')).toBeInTheDocument()
+    expect(within(legendDialog).getByText('Cross & Line')).toBeInTheDocument()
+    expect(within(legendDialog).getByText('Green Tile')).toBeInTheDocument()
+    expect(within(legendDialog).getByText('Yellow Tile')).toBeInTheDocument()
+    expect(within(legendDialog).getByText(/white pearls go straight/i)).toBeInTheDocument()
+    expect(within(legendDialog).getByText(/cross out center connections/i)).toBeInTheDocument()
+    expect(within(legendDialog).getByText(/inside of the final loop/i)).toBeInTheDocument()
+    expect(within(legendDialog).getByText(/outside of the final loop/i)).toBeInTheDocument()
+    expect(within(legendDialog).getAllByLabelText(/legend canvas/i)).toHaveLength(4)
+  })
+
   it('keeps rules and legend popovers exclusive in the puzzle type row', () => {
     renderWorkspace()
 

@@ -27,7 +27,10 @@ export type PuzzleLegendExample = {
   cols: number
   clues?: Array<{ row: number; col: number; value: number | '?' }>
   edges?: PuzzleHelpExampleEdge[]
+  lines?: PuzzleHelpExampleEdge[]
+  pearls?: Array<{ row: number; col: number; color: 'white' | 'black' }>
   filledCells?: Array<{ row: number; col: number; fill: 'green' | 'yellow' }>
+  filledTiles?: Array<{ row: number; col: number; fill: 'green' | 'yellow' }>
   sectors?: PuzzleLegendSectorMarker[]
 }
 

@@ -55,20 +55,90 @@ const masyuLegend: PuzzleLegendContent = {
   title: 'Masyu Legend',
   items: [
     {
-      label: 'Pearls',
-      description: 'White and black pearls are shown in the centers of cells.',
+      label: 'Black & White',
+      description:
+        'White pearls go straight through; black pearls turn and continue straight after the turn.',
       example: {
         rows: 3,
         cols: 3,
+        pearls: [
+          { row: 1, col: 0, color: 'white' },
+          { row: 2, col: 2, color: 'black' },
+        ],
+        lines: [
+          { edge: [[0, 0], [1, 0]], mark: 'line' },
+          { edge: [[1, 0], [2, 0]], mark: 'line' },
+          { edge: [[2, 1], [2, 2]], mark: 'line' },
+          { edge: [[2, 0], [2, 1]], mark: 'line' },
+          { edge: [[1, 2], [2, 2]], mark: 'line' },
+          { edge: [[0, 2], [1, 2]], mark: 'line' },
+        ],
       },
     },
     {
-      label: 'Lines and Crosses',
+      label: 'Cross & Line',
       description:
-        'Lines connect cell centers. Crosses mark center connections that cannot be used.',
+        'Player marks draw center lines and cross out center connections that cannot be used.',
       example: {
         rows: 3,
         cols: 3,
+        pearls: [{ row: 1, col: 1, color: 'white' }],
+        lines: [
+          { edge: [[0, 1], [1, 1]], mark: 'line' },
+          { edge: [[1, 1], [2, 1]], mark: 'line' },
+          { edge: [[1, 0], [1, 1]], mark: 'blank' },
+          { edge: [[1, 1], [1, 2]], mark: 'blank' },
+        ],
+      },
+    },
+    {
+      label: 'Green Tile',
+      description: 'Green tiles mark the inside of the final loop.',
+      example: {
+        rows: 3,
+        cols: 3,
+        filledTiles: [
+          { row: 1, col: 1, fill: 'green' },
+          { row: 1, col: 2, fill: 'green' },
+          { row: 2, col: 1, fill: 'green' },
+          { row: 2, col: 2, fill: 'green' },
+        ],
+        lines: [
+          { edge: [[0, 0], [0, 1]], mark: 'line' },
+          { edge: [[0, 1], [0, 2]], mark: 'line' },
+          { edge: [[0, 2], [1, 2]], mark: 'line' },
+          { edge: [[1, 2], [2, 2]], mark: 'line' },
+          { edge: [[2, 2], [2, 1]], mark: 'line' },
+          { edge: [[2, 1], [2, 0]], mark: 'line' },
+          { edge: [[2, 0], [1, 0]], mark: 'line' },
+          { edge: [[1, 0], [0, 0]], mark: 'line' },
+        ],
+      },
+    },
+    {
+      label: 'Yellow Tile',
+      description: 'Yellow tiles mark the outside of the final loop.',
+      example: {
+        rows: 3,
+        cols: 3,
+        filledTiles: [
+          { row: 0, col: 1, fill: 'yellow' },
+          { row: 0, col: 2, fill: 'yellow' },
+          { row: 1, col: 0, fill: 'yellow' },
+          { row: 2, col: 0, fill: 'yellow' },
+          { row: 3, col: 1, fill: 'yellow' },
+          { row: 3, col: 2, fill: 'yellow' },
+        ],
+        lines: [
+          { edge: [[0, 0], [0, 1]], mark: 'line' },
+          { edge: [[0, 1], [0, 2]], mark: 'line' },
+          { edge: [[0, 2], [1, 2]], mark: 'line' },
+          { edge: [[1, 2], [2, 2]], mark: 'line' },
+          { edge: [[2, 2], [2, 1]], mark: 'line' },
+          { edge: [[2, 1], [2, 0]], mark: 'line' },
+          { edge: [[2, 0], [1, 0]], mark: 'line' },
+          { edge: [[1, 0], [0, 0]], mark: 'line' },
+        ],
       },
     },
   ],
