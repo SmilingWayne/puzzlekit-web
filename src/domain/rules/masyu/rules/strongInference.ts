@@ -1,10 +1,13 @@
 import { clonePuzzle } from '../../../ir/normalize'
 import type { LineMark, PuzzleIR } from '../../../ir/types'
-import type { InferenceDetails, RuleApplication } from '../../types'
-import {
-  applyMasyuLineAssumption,
-  type MasyuTrialResult,
-} from './trial'
+import { notifyStrongInferenceCompleted } from '../../engine'
+import type {
+  InferenceDetails,
+  RuleApplication,
+  RuleRuntimeContext,
+  StrongInferenceOutcome,
+} from '../../types'
+import { applyMasyuLineAssumption, type MasyuTrialResult } from './trial'
 import { formatMasyuLineLabel } from './shared'
 
 export type MasyuStrongInferenceOptions = {
@@ -22,9 +25,62 @@ export type MasyuStrongBranch = {
 
 export type MasyuLineAssumption = [lineKey: string, mark: LineMark]
 
+export type MasyuStrongInferenceTracker = {
+  recordProbe: (result: MasyuTrialResult) => void
+  complete: (
+    outcome: StrongInferenceOutcome,
+    producedDiffCount?: number,
+  ) => void
+}
+
 export const STRONG_MAX_CANDIDATES = 300
 export const STRONG_MAX_TRIAL_STEPS = 100
 export const STRONG_MAX_MS = 30000
+
+const NOOP_STRONG_INFERENCE_TRACKER: MasyuStrongInferenceTracker = {
+  recordProbe: () => {},
+  complete: () => {},
+}
+
+export const createMasyuStrongInferenceTracker = (
+  runtimeContext: RuleRuntimeContext | undefined,
+  ruleId: string,
+  ruleName: string,
+  candidateCount: number,
+): MasyuStrongInferenceTracker => {
+  if (!runtimeContext?.observer?.onStrongInferenceCompleted) {
+    return NOOP_STRONG_INFERENCE_TRACKER
+  }
+
+  let probeCount = 0
+  let trialStepCount = 0
+  let probeDurationMs = 0
+  let completed = false
+
+  return {
+    recordProbe: (result) => {
+      probeCount += 1
+      trialStepCount += result.stepsRun
+      probeDurationMs += result.elapsedMs
+    },
+    complete: (outcome, producedDiffCount = 0) => {
+      if (completed) {
+        return
+      }
+      completed = true
+      notifyStrongInferenceCompleted(runtimeContext, {
+        ruleId,
+        ruleName,
+        candidateCount,
+        probeCount,
+        trialStepCount,
+        probeDurationMs,
+        outcome,
+        producedDiffCount,
+      })
+    },
+  }
+}
 
 export const deriveMasyuStrongProbeBudgets = (
   maxTrialSteps: number,

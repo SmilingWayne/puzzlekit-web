@@ -1,0 +1,40 @@
+## What it does
+
+Inside/outside coloring labels each cell as inside or outside the loop. When
+every orthogonal neighbor of an unknown cell already shares one color, this rule
+colors that cell to match them. Directions off the board count as outside
+neighbors.
+
+One application may color several cells when multiple unknown cells qualify at
+once, including cases where an earlier inference in the same step unlocks the
+next one.
+
+## When it triggers
+
+At least one unknown cell must have a full orthogonal neighborhood where every
+neighbor is already decided:
+
+- For an interior cell, all four in-bounds orthogonal neighbors must already be
+  colored inside or outside.
+- For a boundary cell, every in-bounds orthogonal neighbor must be decided, and
+  each missing board direction counts as outside.
+
+All decided neighbors in that neighborhood must share the same color. If any
+in-bounds neighbor is still unknown, or the neighbors disagree, the cell is
+skipped. The rule does not overwrite an existing cell color.
+
+No numbered clue or edge decision is required.
+
+## Why it works
+
+Inside and outside are the two regions separated by the loop. Orthogonally
+adjacent cells can share a color only when the edge between them is crossed
+out, not when it is a line.
+
+If every orthogonal neighbor of an unknown cell is inside, drawing that cell as
+outside would require a line on each shared side to separate the regions. Four
+such lines would already enclose the cell, so it would be inside the loop after
+all. The symmetric argument applies when every neighbor is outside.
+
+At the puzzle boundary, the off-board side is outside, so a corner or edge cell
+surrounded only by outside neighbors must also be outside.

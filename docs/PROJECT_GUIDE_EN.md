@@ -142,15 +142,45 @@ Run:
 pnpm benchmark:solve
 ```
 
-The benchmark runner scans public/private manifests, runs each puzzle with the default plugin rule order, and writes reports to `benchmark-results/<dataset-id>.report.json`.
+The unified solver-analysis runner scans public/private manifests, runs each
+puzzle once with the default plugin rule order, and writes timestamped analysis
+artifacts under `benchmark-results/<dataset-id>/<YYYYMMDD-HHmmss>/`.
 
 Default benchmark settings:
 
 - `maxSteps = 2000`
 - `timeoutMs = 60000`
 - `ruleProfile = "default"`
+- `telemetry = "summary"`
 
-Reports include per-puzzle status, step count, duration, terminal completion report, `ruleUsage`, and compact `ruleSteps`. Full `steps` are intentionally omitted to keep reports small.
+Targeted development runs can select explicit manifests and puzzle IDs:
+
+```bash
+pnpm benchmark:solve --dataset dataset/public/masyu.json --ids masyu-20x20-8268975,masyu-25x25-988309
+```
+
+CLI options:
+
+- `--dataset <path>` is repeatable; without it, public/private manifests are scanned.
+- `--ids <a,b,c>` is repeatable and filters selected manifests.
+- `--max-steps <n>` and `--timeout-ms <n>` set per-puzzle limits.
+- `--telemetry off | summary` controls observer collectors.
+- `--format text | tsv | both | json` controls generated artifacts; default
+  `both` means text plus TSV and never includes JSON.
+- `--out-dir <path>` changes the artifact output directory.
+
+The default run prints and saves `summary.txt`, plus three long-form tables:
+`puzzles.tsv` for one-row-per-puzzle outcomes, `rule-attempts.tsv` for per-rule
+cost and hit behavior, and `strong-inference.tsv` for detailed Strong work.
+When telemetry is off, only the puzzle table is generated. JSON retains the
+complete schema-v2 report for urgent debugging and is written only by explicit
+`--format json`.
+
+Rule attempt telemetry includes misses and the final no-hit scan. Strong
+inference telemetry includes explicit plugin-declared coverage, so unsupported
+collection interfaces are distinguishable from a run that produced no Strong
+events. Generated artifacts are development outputs with no compatibility
+guarantee. Full replay steps and rule-step locations are intentionally omitted.
 
 ## 8. AI Agent Quick Start
 
@@ -168,6 +198,7 @@ For targeted work:
 
 - Slitherlink rules: start at `src/domain/rules/slither/rules.ts`.
 - Masyu rules: start at `docs/MASYU_AGENT_BRIEF.md`, then inspect `src/domain/rules/masyu/rules.ts`.
+- Rule documentation: follow `docs/RULE_DOCUMENTATION_AGENT_WORKFLOW.md`.
 - Editor/UI work: inspect the relevant `src/features/*` component plus page tests.
 - Benchmark work: read `src/domain/benchmark/runner.ts` and `scripts/benchmark-solve.ts`.
 - Historical Masyu plans: check `docs/legacy/` only when old design context is useful.

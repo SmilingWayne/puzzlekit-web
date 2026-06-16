@@ -45,7 +45,7 @@ describe('DocsPage', () => {
       screen.getByRole('button', { name: 'Play deduction' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByLabelText('Rule documentation example'),
+      screen.getByLabelText('Rule documentation example: horizontal-exit'),
     ).toBeInTheDocument()
   })
 })

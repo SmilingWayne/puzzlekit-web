@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { decodeSlitherFromPuzzlink } from '../parsers/puzzlink'
 import { tileKey, vertexKey } from '../ir/keys'
 import { createMasyuPuzzle } from '../ir/masyu'
 import { applyRuleDiffs, revertRuleDiffs, runNextRule } from './engine'
 import { slitherRules } from './slither/rules'
-import type { Rule, RuleDiff } from './types'
+import type { Rule, RuleAttemptEvent, RuleDiff, SolverObserver } from './types'
 
 describe('rule engine', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('finds at least one step for simple zero clue puzzle', () => {
     const puzzle = decodeSlitherFromPuzzlink(
       'https://puzz.link/p?slither/3/3/g0h',
@@ -56,6 +60,149 @@ describe('rule engine', () => {
       false,
       true,
     ])
+  })
+
+  it('provides the step number and observer through the runtime context', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    const observer: SolverObserver = {}
+    const seen: Array<{
+      solverStepNumber: number | undefined
+      observer: SolverObserver | undefined
+    }> = []
+    const rules: Rule[] = [
+      {
+        id: 'context',
+        name: 'Context',
+        apply: (_puzzle, runtimeContext) => {
+          seen.push({
+            solverStepNumber: runtimeContext?.solverStepNumber,
+            observer: runtimeContext?.observer,
+          })
+          return null
+        },
+      },
+    ]
+
+    runNextRule(puzzle, rules, 17, { observer })
+
+    expect(seen).toEqual([{ solverStepNumber: 17, observer }])
+  })
+
+  it('reports ordered miss and hit rule attempts through an optional observer', () => {
+    vi.spyOn(performance, 'now')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(3)
+      .mockReturnValueOnce(5)
+      .mockReturnValueOnce(8)
+      .mockReturnValueOnce(10)
+
+    const puzzle = createMasyuPuzzle(1, 2)
+    const line = Object.keys(puzzle.lines)[0]
+    const events: RuleAttemptEvent[] = []
+    const rules: Rule[] = [
+      { id: 'miss', name: 'Miss', apply: () => null },
+      {
+        id: 'hit',
+        name: 'Hit',
+        apply: () => ({
+          message: 'hit',
+          diffs: [{ kind: 'line', lineKey: line, from: 'unknown', to: 'line' }],
+          affectedCells: [],
+        }),
+      },
+    ]
+
+    const result = runNextRule(puzzle, rules, 7, {
+      observer: {
+        onRuleAttemptCompleted: (event) => events.push(event),
+      },
+    })
+
+    expect(result.step?.ruleId).toBe('hit')
+    expect(events).toEqual([
+      {
+        solverStepNumber: 7,
+        ruleId: 'miss',
+        ruleName: 'Miss',
+        hit: false,
+        durationMs: 2,
+        producedDiffCount: 0,
+      },
+      {
+        solverStepNumber: 7,
+        ruleId: 'hit',
+        ruleName: 'Hit',
+        hit: true,
+        durationMs: 3,
+        producedDiffCount: 1,
+      },
+    ])
+  })
+
+  it('reports every rule in a final no-hit scan', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    const events: RuleAttemptEvent[] = []
+    const rules: Rule[] = [
+      { id: 'miss-null', name: 'Miss Null', apply: () => null },
+      {
+        id: 'miss-empty',
+        name: 'Miss Empty',
+        apply: () => ({
+          message: 'empty',
+          diffs: [],
+          affectedCells: [],
+        }),
+      },
+    ]
+
+    const result = runNextRule(puzzle, rules, 9, {
+      observer: {
+        onRuleAttemptCompleted: (event) => events.push(event),
+      },
+    })
+
+    expect(result).toEqual({ nextPuzzle: puzzle, step: null })
+    expect(
+      events.map(({ ruleId, hit, producedDiffCount }) => ({
+        ruleId,
+        hit,
+        producedDiffCount,
+      })),
+    ).toEqual([
+      { ruleId: 'miss-null', hit: false, producedDiffCount: 0 },
+      { ruleId: 'miss-empty', hit: false, producedDiffCount: 0 },
+    ])
+  })
+
+  it('isolates observer callback errors from solver behavior', () => {
+    const puzzle = createMasyuPuzzle(1, 2)
+    const line = Object.keys(puzzle.lines)[0]
+    const rules: Rule[] = [
+      { id: 'miss', name: 'Miss', apply: () => null },
+      {
+        id: 'hit',
+        name: 'Hit',
+        apply: () => ({
+          message: 'hit',
+          diffs: [{ kind: 'line', lineKey: line, from: 'unknown', to: 'line' }],
+          affectedCells: [],
+        }),
+      },
+    ]
+
+    const baseline = runNextRule(puzzle, rules, 1)
+    const observed = runNextRule(puzzle, rules, 1, {
+      observer: {
+        onRuleAttemptCompleted: () => {
+          throw new Error('observer failed')
+        },
+      },
+    })
+
+    expect(observed.step?.ruleId).toBe(baseline.step?.ruleId)
+    expect(observed.step?.diffs).toEqual(baseline.step?.diffs)
+    expect(observed.nextPuzzle).toEqual(baseline.nextPuzzle)
   })
 
   it('applies and reverts diffs without mutating input puzzle', () => {

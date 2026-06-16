@@ -254,9 +254,34 @@
   margin: 8px 0;
 }
 
+.docs-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.docs-prose .docs-figure-scroll {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.docs-prose .docs-figure-scroll img {
+  max-width: none;
+  width: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
 .rule-example {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin: 28px 0 0;
   border: 1px solid #dbeafe;
   border-radius: 10px;
@@ -276,22 +301,79 @@
   gap: 6px;
 }
 
-.rule-example .surface-board {
+.rule-example-cases {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
 }
 
-.rule-example .surface-board-tools {
+.rule-example-case {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.rule-example-case:only-child,
+.rule-example-case:nth-last-child(1):nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.rule-example-case:nth-last-child(1):nth-child(odd):not(:only-child) {
+  width: calc(50% - 6px);
+  justify-self: center;
+}
+
+.rule-example-case h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.rule-example-board {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+}
+
+.rule-example-case .surface-board {
+  display: grid;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.rule-example-case .surface-board-tools {
   display: none;
 }
 
-.rule-example .board-scroll-shell {
+.rule-example-case .board-scroll-shell {
+  max-width: 100%;
   max-height: 430px;
 }
 
-.rule-example figcaption {
+.rule-example-case figcaption {
   color: #475569;
   font-size: 0.88rem;
+}
+
+@media (max-width: 820px) {
+  .rule-example-cases {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rule-example-case,
+  .rule-example-case:nth-last-child(1):nth-child(odd):not(:only-child) {
+    grid-column: auto;
+    width: auto;
+  }
 }
 
 .workspace-grid {

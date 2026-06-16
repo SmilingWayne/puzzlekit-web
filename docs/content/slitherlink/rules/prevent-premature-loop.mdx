@@ -1,0 +1,27 @@
+## What it does
+
+Slitherlink must end with one continuous loop. While the path is still growing,
+this rule crosses out any unknown edge that would close a smaller loop before
+the full answer is complete.
+
+One application may cross out several such edges when multiple premature
+closures are visible at once.
+
+## When it triggers
+
+At least one unknown edge must connect two vertices that are already linked by
+existing line edges through other paths. No numbered clue is required.
+
+The rule looks only at edges already marked as lines, builds the connected
+paths they form, and then checks each still-unknown edge. If that edge's two
+endpoints already belong to the same path component, it qualifies.
+
+## Why it works
+
+The final solution has exactly one loop. If an unknown edge joins two vertices
+that are already connected by confirmed lines, using it would complete a
+separate small loop while other confirmed line segments remain outside that
+loop.
+
+That would leave at least two disjoint loop pieces, which cannot be merged into
+one simple loop later. So the closing edge must be crossed out.

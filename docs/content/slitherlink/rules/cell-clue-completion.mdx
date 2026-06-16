@@ -1,0 +1,22 @@
+## What it does
+
+When a numbered clue already has enough lines among its four surrounding
+edges, every remaining unknown edge is crossed out. When every remaining
+unknown edge is needed to reach the clue count, all of them are marked as
+lines.
+
+## When it triggers
+
+The technique acts on a numbered cell that still has at least one unknown
+surrounding edge. Either the number of existing lines already equals the clue,
+or the number of existing lines plus the number of unknown edges equals the
+clue. No other prior decisions are required beyond the partial edge state
+around that cell.
+
+## Why it works
+
+A numbered cell must have exactly that many surrounding lines. If the clue is
+already satisfied, any additional line would exceed it, so every remaining
+unknown edge must be crossed out. If only as many unknown edges remain as are
+still needed, crossing out any one of them would leave the clue unsatisfied,
+so all of them must be lines.

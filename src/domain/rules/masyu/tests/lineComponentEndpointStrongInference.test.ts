@@ -208,6 +208,63 @@ describe('Masyu line component endpoint strong inference', () => {
     expect(puzzle.lines[unrelated]?.mark).toBe('unknown')
   })
 
+  it('does not retry a settled endpoint trial at higher budgets', () => {
+    const puzzle = createMasyuPuzzle(3, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    let attempts = 0
+    const settledRule: Rule = {
+      id: 'test-settled-endpoint-trial',
+      name: 'Test Settled Endpoint Trial',
+      apply: () => {
+        attempts += 1
+        return null
+      },
+    }
+
+    const result = createLineComponentEndpointStrongInferenceRule(
+      () => [settledRule],
+      { maxCandidates: 1, maxTrialSteps: 13 },
+    ).apply(puzzle)
+
+    expect(result).toBeNull()
+    expect(attempts).toBe(1)
+  })
+
+  it('retries a budget-limited endpoint trial at the next budget', () => {
+    const puzzle = createMasyuPuzzle(3, 4)
+    markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')
+    const targetCell = cellKey(2, 3)
+    let attempts = 0
+    const progressingRule: Rule = {
+      id: 'test-budget-limited-endpoint-trial',
+      name: 'Test Budget Limited Endpoint Trial',
+      apply: (trial) => {
+        attempts += 1
+        const fromFill = trial.cells[targetCell]?.fill ?? null
+        return {
+          message: 'Keep the endpoint trial progressing',
+          diffs: [
+            {
+              kind: 'cell',
+              cellKey: targetCell,
+              fromFill,
+              toFill: fromFill === 'a' ? 'b' : 'a',
+            },
+          ],
+          affectedCells: [targetCell],
+        }
+      },
+    }
+
+    const result = createLineComponentEndpointStrongInferenceRule(
+      () => [progressingRule],
+      { maxCandidates: 1, maxTrialSteps: 13 },
+    ).apply(puzzle)
+
+    expect(result).toBeNull()
+    expect(attempts).toBe(25)
+  })
+
   it('honors timeout and candidate limits', () => {
     const puzzle = createMasyuPuzzle(3, 4)
     markLine(puzzle, lineKey([0, 0], [0, 1]), 'line')

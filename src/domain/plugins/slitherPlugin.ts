@@ -261,6 +261,25 @@ export const getSlitherStats = (puzzle: PuzzleIR): PuzzleStatsContent => {
 export const slitherPlugin: PuzzlePlugin = {
   id: 'slitherlink',
   displayName: 'Slitherlink',
+  strongTelemetry: {
+    rules: [
+      {
+        ruleId: 'color-assumption-inference',
+        ruleName: 'Color Assumption Inference',
+        supported: false,
+      },
+      {
+        ruleId: 'sector-parity-inference',
+        ruleName: 'Sector Parity Inference',
+        supported: false,
+      },
+      {
+        ruleId: 'strong-inference',
+        ruleName: 'Strong Inference',
+        supported: false,
+      },
+    ],
+  },
   liveStats: {
     coverageTitle: 'Inference Coverage',
     coverageDescription: 'Decided or narrowed Slitherlink state',

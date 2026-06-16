@@ -43,6 +43,44 @@ pnpm test:e2e   # Playwright end-to-end tests
 pnpm benchmark:solve
 ```
 
+## Solver Analysis CLI
+
+`pnpm benchmark:solve` is the unified batch solver-analysis command. It scans
+`dataset/public` and local `dataset/private` manifests by default, runs each
+puzzle once, and writes timestamped text and TSV analysis artifacts under
+`benchmark-results/<dataset-id>/<timestamp>/`.
+
+Target specific datasets or puzzle IDs while developing:
+
+```bash
+pnpm benchmark:solve --dataset dataset/public/masyu.json --ids masyu-20x20-8268975,masyu-25x25-988309
+```
+
+Useful options:
+
+```text
+--dataset <path>       Repeatable manifest path
+--ids <a,b,c>          Repeatable puzzle-ID filter
+--max-steps <n>        Default: 2000
+--timeout-ms <n>       Per-puzzle timeout, default: 60000
+--telemetry <level>    off | summary, default: summary
+--format <mode>        text | tsv | both | json, default: both
+--out-dir <path>       Default: benchmark-results
+```
+
+The default `both` mode prints and saves `summary.txt`, then writes
+`puzzles.tsv`, `rule-attempts.tsv`, and `strong-inference.tsv`. These long-form
+tables are intended for spreadsheets, pivot tables, and scripts. With
+`--telemetry off`, only `puzzles.tsv` is generated. JSON is reserved for
+complete debugging output and is written only when explicitly requested with
+`--format json`.
+
+Summary telemetry reports rule attempts, misses, durations, and supported
+strong-inference work. Reports also list strong-inference rules whose detailed
+telemetry interface has not been implemented, so empty Strong data is not
+mistaken for a rule that never ran. Generated artifacts have no compatibility
+guarantee.
+
 ## App Surfaces
 
 - **Solver** (`/`): import a puzzle, run one deduction at a time, jump through the replay timeline, inspect explanations and strong-inference branches, view stats, and export supported states.

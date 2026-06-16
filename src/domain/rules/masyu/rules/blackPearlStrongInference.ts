@@ -1,8 +1,6 @@
 import type { PuzzleIR } from '../../../ir/types'
-import type { Rule, RuleApplication } from '../../types'
-import {
-  runMasyuTrialUntilFixpoint,
-} from './trial'
+import type { Rule, RuleApplication, RuleRuntimeContext } from '../../types'
+import { runMasyuTrialUntilFixpoint } from './trial'
 import { getMasyuBlackPearlKeys } from './pearlSelectors'
 import {
   formatMasyuCellKeyLabel,
@@ -17,6 +15,7 @@ import {
 import {
   buildMasyuStrongBranch,
   buildMasyuInferenceDetails,
+  createMasyuStrongInferenceTracker,
   deriveMasyuStrongProbeBudgets,
   describeMasyuStrongTrialResult,
   immediateMasyuStrongContradictionResult,
@@ -91,78 +90,112 @@ const buildBranch = (
 export const createBlackPearlStrongInferenceRule = (
   getDeterministicRules: () => Rule[],
   options: MasyuStrongInferenceOptions = {},
-): Rule => ({
-  id: 'masyu-black-pearl-strong-inference',
-  name: 'Black Pearl Strong Inference',
-  apply: (puzzle: PuzzleIR): RuleApplication | null => {
-    const deterministicRules = getDeterministicRules()
-    const candidates = collectBlackPearlExitCandidates(
-      puzzle,
-      options.maxCandidates ?? STRONG_MAX_CANDIDATES,
-    )
-    if (candidates.length === 0) {
-      return null
-    }
+): Rule => {
+  const id = 'masyu-black-pearl-strong-inference'
+  const name = 'Black Pearl Strong Inference'
+  return {
+    id,
+    name,
+    apply: (
+      puzzle: PuzzleIR,
+      runtimeContext?: RuleRuntimeContext,
+    ): RuleApplication | null => {
+      const deterministicRules = getDeterministicRules()
+      const candidates = collectBlackPearlExitCandidates(
+        puzzle,
+        options.maxCandidates ?? STRONG_MAX_CANDIDATES,
+      )
+      const tracker = createMasyuStrongInferenceTracker(
+        runtimeContext,
+        id,
+        name,
+        candidates.length,
+      )
+      if (candidates.length === 0) {
+        tracker.complete('miss')
+        return null
+      }
 
-    const deadlineMs = Date.now() + (options.maxMs ?? STRONG_MAX_MS)
-    const budgets = deriveMasyuStrongProbeBudgets(
-      options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
-    )
-    for (const budget of budgets) {
-      for (const candidate of candidates) {
-        if (Date.now() > deadlineMs) {
-          return null
-        }
+      const deadlineMs = Date.now() + (options.maxMs ?? STRONG_MAX_MS)
+      const budgets = deriveMasyuStrongProbeBudgets(
+        options.maxTrialSteps ?? STRONG_MAX_TRIAL_STEPS,
+      )
+      let eligibleCandidates: Set<BlackPearlExitCandidate> | null = null
+      for (const budget of budgets) {
+        const exhaustedCandidates = new Set<BlackPearlExitCandidate>()
+        for (const candidate of candidates) {
+          if (
+            eligibleCandidates !== null &&
+            !eligibleCandidates.has(candidate)
+          ) {
+            continue
+          }
+          if (Date.now() > deadlineMs) {
+            tracker.complete('timeout')
+            return null
+          }
 
-        const branch = buildBranch(puzzle, candidate)
-        const result = branch.setupOk
-          ? runMasyuTrialUntilFixpoint(
-              branch.puzzle,
-              deterministicRules,
-              budget,
-              deadlineMs,
-            )
-          : immediateMasyuStrongContradictionResult(branch.puzzle)
-        if (result.timedOut) {
-          return null
-        }
-        if (!result.contradiction) {
-          continue
-        }
-        if (
-          (puzzle.lines[candidate.firstLine]?.mark ?? 'unknown') !== 'unknown'
-        ) {
-          continue
-        }
+          const branch = buildBranch(puzzle, candidate)
+          const result = branch.setupOk
+            ? runMasyuTrialUntilFixpoint(
+                branch.puzzle,
+                deterministicRules,
+                budget,
+                deadlineMs,
+              )
+            : immediateMasyuStrongContradictionResult(branch.puzzle)
+          tracker.recordProbe(result)
+          if (result.timedOut) {
+            tracker.complete('timeout')
+            return null
+          }
+          if (!result.contradiction) {
+            if (result.exhausted) {
+              exhaustedCandidates.add(candidate)
+            }
+            continue
+          }
+          if (
+            (puzzle.lines[candidate.firstLine]?.mark ?? 'unknown') !== 'unknown'
+          ) {
+            continue
+          }
 
-        const diffs: RuleApplication['diffs'] = [
-          {
-            kind: 'line',
-            lineKey: candidate.firstLine,
-            from: 'unknown',
-            to: 'blank',
-          },
-        ]
-        return {
-          message:
-            `Black Pearl Strong Inference: assuming ${formatMasyuCellKeyLabel(candidate.pearlKey)} exits ${candidate.direction} ` +
-            `(${branch.setupDescription}) leads to ${describeMasyuStrongTrialResult(result)}, so ${formatMasyuLineLabel(
-              candidate.firstLine,
-            )} is crossed out.`,
-          diffs,
-          affectedCells: [candidate.pearlKey],
-          affectedLines: [candidate.firstLine],
-          inferenceDetails: buildMasyuInferenceDetails(
-            puzzle,
-            `Assume ${formatMasyuCellKeyLabel(candidate.pearlKey)} exits ${candidate.direction}`,
-            branch,
-            result,
+          const diffs: RuleApplication['diffs'] = [
+            {
+              kind: 'line',
+              lineKey: candidate.firstLine,
+              from: 'unknown',
+              to: 'blank',
+            },
+          ]
+          tracker.complete('hit', diffs.length)
+          return {
+            message:
+              `Black Pearl Strong Inference: assuming ${formatMasyuCellKeyLabel(candidate.pearlKey)} exits ${candidate.direction} ` +
+              `(${branch.setupDescription}) leads to ${describeMasyuStrongTrialResult(result)}, so ${formatMasyuLineLabel(
+                candidate.firstLine,
+              )} is crossed out.`,
             diffs,
-          ),
+            affectedCells: [candidate.pearlKey],
+            affectedLines: [candidate.firstLine],
+            inferenceDetails: buildMasyuInferenceDetails(
+              puzzle,
+              `Assume ${formatMasyuCellKeyLabel(candidate.pearlKey)} exits ${candidate.direction}`,
+              branch,
+              result,
+              diffs,
+            ),
+          }
+        }
+        eligibleCandidates = exhaustedCandidates
+        if (eligibleCandidates.size === 0) {
+          break
         }
       }
-    }
 
-    return null
-  },
-})
+      tracker.complete('miss')
+      return null
+    },
+  }
+}

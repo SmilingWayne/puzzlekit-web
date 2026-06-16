@@ -1,0 +1,45 @@
+## What it does
+
+Each numbered cell has four corner sectors. A corner sector is the pair of
+edges that meet at that cell corner. When a sector's line count has been
+narrowed by earlier sector reasoning, this rule completes the sector's two
+edges: it may mark every remaining unknown sector edge as a line or as crossed
+out, or force the last undecided sector edge when the other sector edge is
+already decided.
+
+## When it triggers
+
+The technique acts on a corner sector whose constraint has already been reduced
+to one exact count or to a forbidden count of one line. At least one of the
+sector's two edges must still be unknown. The rule applies when the partial
+edge state matches one of these cases:
+
+- The sector must contain exactly two lines. Every unknown sector edge is
+  marked as a line.
+- The sector must contain exactly zero lines. Every unknown sector edge is
+  crossed out.
+- The sector must contain exactly one line, one sector edge is already a line,
+  and the other is the only remaining unknown edge. That unknown edge is crossed
+  out.
+- The sector must contain exactly one line, one sector edge is already crossed
+  out, and the other is the only remaining unknown edge. That unknown edge is
+  marked as a line.
+- The sector cannot contain exactly one line, one sector edge is already a
+  line, and the other is the only remaining unknown edge. That unknown edge is
+  also marked as a line.
+- The sector cannot contain exactly one line, one sector edge is already crossed
+  out, and the other is the only remaining unknown edge. That unknown edge is
+  also crossed out.
+
+The sector constraint itself must come from earlier sector inference on the
+board. This rule does not infer new sector masks.
+
+## Why it works
+
+Each corner sector has only two edges, so its line count can only be 0, 1, or
+2. If sector reasoning has already fixed that count, any remaining unknown
+edges must complete it. For an exact count, once enough lines or crosses are
+already present, the last unknown edge is forced. For a forbidden count of
+one line, the two sector edges must be either both lines or both crosses; once
+one edge is decided, the other must match it so the sector does not end with
+exactly one line.

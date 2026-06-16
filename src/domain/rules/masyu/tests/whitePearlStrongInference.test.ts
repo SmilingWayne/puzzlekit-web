@@ -128,6 +128,63 @@ describe('Masyu white pearl strong inference', () => {
     expect(puzzle.lines[unrelated]?.mark).toBe('unknown')
   })
 
+  it('does not retry settled white-axis trials at higher budgets', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'white')
+    let attempts = 0
+    const settledRule: Rule = {
+      id: 'test-settled-white-trial',
+      name: 'Test Settled White Trial',
+      apply: () => {
+        attempts += 1
+        return null
+      },
+    }
+
+    const result = createWhitePearlStrongInferenceRule(() => [settledRule], {
+      maxCandidates: 1,
+      maxTrialSteps: 13,
+    }).apply(puzzle)
+
+    expect(result).toBeNull()
+    expect(attempts).toBe(2)
+  })
+
+  it('retries budget-limited white-axis trials at the next budget', () => {
+    const puzzle = createMasyuPuzzle(5, 5)
+    addPearl(puzzle, 2, 2, 'white')
+    const targetCell = cellKey(0, 0)
+    let attempts = 0
+    const progressingRule: Rule = {
+      id: 'test-budget-limited-white-trial',
+      name: 'Test Budget Limited White Trial',
+      apply: (trial) => {
+        attempts += 1
+        const fromFill = trial.cells[targetCell]?.fill ?? null
+        return {
+          message: 'Keep the white trial progressing',
+          diffs: [
+            {
+              kind: 'cell',
+              cellKey: targetCell,
+              fromFill,
+              toFill: fromFill === 'a' ? 'b' : 'a',
+            },
+          ],
+          affectedCells: [targetCell],
+        }
+      },
+    }
+
+    const result = createWhitePearlStrongInferenceRule(
+      () => [progressingRule],
+      { maxCandidates: 1, maxTrialSteps: 13 },
+    ).apply(puzzle)
+
+    expect(result).toBeNull()
+    expect(attempts).toBe(50)
+  })
+
   it('returns null when the white trial budget times out', () => {
     const puzzle = createMasyuPuzzle(5, 5)
     addPearl(puzzle, 2, 2, 'white')

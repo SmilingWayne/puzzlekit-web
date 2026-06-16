@@ -1,25 +1,17 @@
-## What this technique does
+## What it does
 
 A black pearl must be a turn in the loop. Each of the two exits from the pearl
-must continue straight through the next cell.
+must continue straight through the next cell. This can force the required
+straight extensions, cross out an opposite exit, or complete the only remaining
+turn around the pearl.
 
-## Trigger conditions
+## When it triggers
 
 The technique acts when an exit is known, a direction is blocked, or only one
 valid turning pair remains.
-
-## Conclusions
-
-It can force the required straight extensions, cross out an opposite exit, or
-complete the only remaining turn around the pearl.
 
 ## Why it works
 
 Using opposite exits would pass straight through the black pearl. Turning away
 immediately in a neighboring cell would violate the required straight
 continuation.
-
-## Limits and related techniques
-
-This technique checks direct pearl geometry. Black Pearl Candidate Pruning
-combines that geometry with broader local feasibility checks.

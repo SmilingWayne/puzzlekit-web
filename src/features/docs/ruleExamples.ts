@@ -1,16 +1,34 @@
-import { cellKey, edgeKey, lineKey } from '../../domain/ir/keys'
+import { cellKey, edgeKey, lineKey, sectorKey } from '../../domain/ir/keys'
 import { createMasyuPuzzle } from '../../domain/ir/masyu'
 import { createSlitherPuzzle } from '../../domain/ir/slither'
-import type { PuzzleIR } from '../../domain/ir/types'
-import type { InferenceFocus, RuleDiff } from '../../domain/rules/types'
+import {
+  SECTOR_MASK_ALL,
+  SECTOR_MASK_NOT_0,
+  SECTOR_MASK_NOT_1,
+  SECTOR_MASK_NOT_2,
+  SECTOR_MASK_ONLY_0,
+  SECTOR_MASK_ONLY_1,
+  SECTOR_MASK_ONLY_2,
+  type PuzzleIR,
+} from '../../domain/ir/types'
+import type { RuleDiff } from '../../domain/rules/types'
 
-export type RuleExampleData = {
+export type RuleExampleCaseData = {
+  id: string
+  title?: string
   puzzle: PuzzleIR
   before?: RuleDiff[]
   after: RuleDiff[]
-  highlights?: InferenceFocus
   explanation: string
 }
+
+export type RuleExampleData = {
+  cases: [RuleExampleCaseData, ...RuleExampleCaseData[]]
+}
+
+const example = (exampleCase: RuleExampleCaseData): RuleExampleData => ({
+  cases: [exampleCase],
+})
 
 const createWhitePearlExample = (): RuleExampleData => {
   const puzzle = createMasyuPuzzle(3, 3)
@@ -19,7 +37,8 @@ const createWhitePearlExample = (): RuleExampleData => {
   const right = lineKey([1, 1], [1, 2])
   const up = lineKey([0, 1], [1, 1])
   const down = lineKey([1, 1], [2, 1])
-  return {
+  return example({
+    id: 'horizontal-exit',
     puzzle,
     before: [{ kind: 'line', lineKey: left, from: 'unknown', to: 'line' }],
     after: [
@@ -27,10 +46,9 @@ const createWhitePearlExample = (): RuleExampleData => {
       { kind: 'line', lineKey: up, from: 'unknown', to: 'blank' },
       { kind: 'line', lineKey: down, from: 'unknown', to: 'blank' },
     ],
-    highlights: { cells: [cellKey(1, 1)], lines: [right, up, down] },
     explanation:
       'A known horizontal exit forces the white pearl to continue horizontally and rejects both vertical exits.',
-  }
+  })
 }
 
 const createBlackPearlExample = (): RuleExampleData => {
@@ -39,43 +57,1801 @@ const createBlackPearlExample = (): RuleExampleData => {
   const up = lineKey([1, 1], [2, 1])
   const upExtension = lineKey([0, 1], [1, 1])
   const down = lineKey([2, 1], [3, 1])
-  return {
+  return example({
+    id: 'upward-exit',
     puzzle,
     before: [{ kind: 'line', lineKey: up, from: 'unknown', to: 'line' }],
     after: [
       { kind: 'line', lineKey: upExtension, from: 'unknown', to: 'line' },
       { kind: 'line', lineKey: down, from: 'unknown', to: 'blank' },
     ],
-    highlights: { cells: [cellKey(2, 1)], lines: [upExtension, down] },
     explanation:
       'Once the loop exits upward from a black pearl, it must continue straight for another cell and cannot also exit downward.',
-  }
+  })
 }
 
 const createVertexDegreeExample = (): RuleExampleData => {
-  const puzzle = createSlitherPuzzle(2, 2)
-  const top = edgeKey([0, 1], [1, 1])
-  const left = edgeKey([1, 0], [1, 1])
-  const right = edgeKey([1, 1], [1, 2])
-  const bottom = edgeKey([1, 1], [2, 1])
+  const closedPuzzle = createSlitherPuzzle(2, 2)
+  const closedTop = edgeKey([0, 1], [1, 1])
+  const closedLeft = edgeKey([1, 0], [1, 1])
+  const closedRight = edgeKey([1, 1], [1, 2])
+  const closedBottom = edgeKey([1, 1], [2, 1])
+
+  const continuePuzzle = createSlitherPuzzle(2, 2)
+  const continueTop = edgeKey([0, 1], [1, 1])
+  const continueBottom = edgeKey([1, 1], [1, 2])
+  const continueLeft = edgeKey([0, 0], [0, 1])
+  const continueRight = edgeKey([0, 1], [0, 2])
+
+  const deadEndPuzzle = createSlitherPuzzle(3, 3)
+  const deadEndTop = edgeKey([1, 1], [2, 1])
+  const deadEndBottom = edgeKey([2, 1], [3, 1])
+  const deadEndLeft = edgeKey([2, 0], [2, 1])
+  const deadEndRight = edgeKey([2, 1], [2, 2])
+
   return {
+    cases: [
+      {
+        id: 'degree-two-closure',
+        title: 'Degree already two',
+        puzzle: closedPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: closedTop, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: closedLeft, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: closedRight, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: closedBottom, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'Two incident lines already meet at the vertex, so every remaining unknown edge is crossed out.',
+      },
+      {
+        id: 'degree-one-completion',
+        title: 'One line remains to complete',
+        puzzle: continuePuzzle,
+        before: [
+          { kind: 'edge', edgeKey: continueTop, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: continueBottom, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: continueLeft, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: continueRight, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'One line is already present and only one unknown edge remains, so that edge must complete degree two.',
+      },
+      {
+        id: 'single-unknown-dead-end',
+        title: 'Last edge would create a dead end',
+        puzzle: deadEndPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: deadEndTop, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: deadEndLeft, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: deadEndRight, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: deadEndBottom, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'With no line yet and only one unknown edge left, using it would leave a degree-one dead end.',
+      },
+    ],
+  }
+}
+
+const createSectorConstraintEdgePropagationExample = (): RuleExampleData => {
+  const onlyTwoPuzzle = createSlitherPuzzle(2, 2)
+  onlyTwoPuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_2
+  const onlyTwoTop = edgeKey([0, 0], [0, 1])
+  const onlyTwoLeft = edgeKey([0, 0], [1, 0])
+
+  const onlyZeroPuzzle = createSlitherPuzzle(2, 2)
+  onlyZeroPuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_0
+  const onlyZeroTop = edgeKey([0, 0], [0, 1])
+  const onlyZeroLeft = edgeKey([0, 0], [1, 0])
+
+  const onlyOnePuzzle = createSlitherPuzzle(2, 2)
+  onlyOnePuzzle.sectors[sectorKey(1, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+  const onlyOneTop = edgeKey([1, 1], [1, 2])
+  const onlyOneLeft = edgeKey([1, 1], [2, 1])
+
+  const notOnePuzzle = createSlitherPuzzle(2, 2)
+  notOnePuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_NOT_1
+  const notOneTop = edgeKey([0, 0], [0, 1])
+  const notOneLeft = edgeKey([0, 0], [1, 0])
+
+  return {
+    cases: [
+      {
+        id: 'sector-exactly-two',
+        title: 'Sector must have two lines',
+        puzzle: onlyTwoPuzzle,
+        after: [
+          { kind: 'edge', edgeKey: onlyTwoTop, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: onlyTwoLeft, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'NOT_ONE (blue) + NOT_ZERO (green) = TWO LINES.',
+      },
+      {
+        id: 'sector-exactly-zero',
+        title: 'Sector must have zero lines',
+        puzzle: onlyZeroPuzzle,
+        after: [
+          { kind: 'edge', edgeKey: onlyZeroTop, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: onlyZeroLeft, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'NOT_ONE (blue) + NOT_TWO (yellow) = TWO CROSSES.',
+      },
+      {
+        id: 'sector-exactly-one',
+        title: 'Sector must have one line',
+        puzzle: onlyOnePuzzle,
+        before: [{ kind: 'edge', edgeKey: onlyOneTop, from: 'unknown', to: 'blank' }],
+        after: [
+          { kind: 'edge', edgeKey: onlyOneLeft, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'ONLY_ONE (red) + ONE CROSS = ONE LINE.',
+      },
+      {
+        id: 'sector-not-one',
+        title: 'Sector cannot have one line',
+        puzzle: notOnePuzzle,
+        before: [{ kind: 'edge', edgeKey: notOneTop, from: 'unknown', to: 'line' }],
+        after: [
+          { kind: 'edge', edgeKey: notOneLeft, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'NOT_ONE (blue) + ONE LINE = TWO LINES.',
+      },
+    ],
+  }
+}
+
+const createAdjacentThreesExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(3, 4)
+  puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 3 } }
+  puzzle.cells[cellKey(1, 2)] = { clue: { kind: 'number', value: 3 } }
+  const left = edgeKey([1, 1], [2, 1])
+  const shared = edgeKey([1, 2], [2, 2])
+  const right = edgeKey([1, 3], [2, 3])
+  const sharedAbove = edgeKey([0, 2], [1, 2])
+  const sharedBelow = edgeKey([2, 2], [3, 2])
+  return example({
+    id: 'horizontal-pair',
+    puzzle,
+    after: [
+      { kind: 'edge', edgeKey: left, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: shared, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: sharedAbove, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: sharedBelow, from: 'unknown', to: 'blank' },
+    ],
+    explanation:
+      'Adjacent 3s force every perpendicular edge to be a line and cross out both straight extensions of their shared edge. The vertical pattern is the rotated equivalent, and longer runs apply the same deduction pairwise.',
+  })
+}
+
+const createCellClueCompletionExample = (): RuleExampleData => {
+  const satisfiedPuzzle = createSlitherPuzzle(3, 3)
+  satisfiedPuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 1 },
+  }
+  const top = edgeKey([1, 1], [1, 2])
+  const bottom = edgeKey([2, 1], [2, 2])
+  const left = edgeKey([1, 1], [2, 1])
+  const right = edgeKey([1, 2], [2, 2])
+
+  const requiredPuzzle = createSlitherPuzzle(3, 3)
+  requiredPuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 3 },
+  }
+
+  return {
+    cases: [
+      {
+        id: 'satisfied-clue',
+        title: 'Satisfied clue',
+        puzzle: satisfiedPuzzle,
+        before: [{ kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' }],
+        after: [
+          { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: left, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'Once the clue already has one line, every remaining unknown edge must be crossed out.',
+      },
+      {
+        id: 'all-edges-required',
+        title: 'All remaining edges required',
+        puzzle: requiredPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: left, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'The clue still needs two lines and only two unknown edges remain, so both must be lines.',
+      },
+    ],
+  }
+}
+
+const createAdjacentTwoThreeOppositeCrossExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(4, 4)
+  puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 2 } }
+  puzzle.cells[cellKey(1, 2)] = { clue: { kind: 'number', value: 3 } }
+  const twoOpposite = edgeKey([1, 1], [2, 1])
+  const threeOpposite = edgeKey([1, 3], [2, 3])
+  const extensionAbove = edgeKey([0, 2], [1, 2])
+  const extensionBelow = edgeKey([2, 2], [3, 2])
+  return example({
+    id: 'horizontal-pair',
+    puzzle,
+    before: [
+      { kind: 'edge', edgeKey: twoOpposite, from: 'unknown', to: 'blank' },
+    ],
+    after: [
+      { kind: 'edge', edgeKey: threeOpposite, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: extensionAbove, from: 'unknown', to: 'blank' },
+      { kind: 'edge', edgeKey: extensionBelow, from: 'unknown', to: 'blank' },
+    ],
+    explanation:
+      "With the 2's far-side edge crossed out, the 3's opposite edge is a line and the shared-side extensions are blank.",
+  })
+}
+
+const createColorEdgePropagationExample = (): RuleExampleData => {
+  const sameColorPuzzle = createSlitherPuzzle(2, 2)
+  sameColorPuzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+  sameColorPuzzle.cells[cellKey(0, 1)] = { fill: 'green' }
+  const sameColorEdge = edgeKey([0, 1], [1, 1])
+
+  const differentColorPuzzle = createSlitherPuzzle(2, 2)
+  differentColorPuzzle.cells[cellKey(0, 0)] = { fill: 'green' }
+  differentColorPuzzle.cells[cellKey(0, 1)] = { fill: 'yellow' }
+  const differentColorEdge = edgeKey([0, 1], [1, 1])
+
+  const insideCornerPuzzle = createSlitherPuzzle(2, 2)
+  const insideCornerTop = edgeKey([0, 0], [0, 1])
+  const insideCornerLeft = edgeKey([0, 0], [1, 0])
+
+  const lineInferencePuzzle = createSlitherPuzzle(2, 2)
+  const lineInferenceEdge = edgeKey([0, 1], [1, 1])
+
+  return {
+    cases: [
+      {
+        id: 'same-color-blank',
+        title: 'Same color across interior edge',
+        puzzle: sameColorPuzzle,
+        after: [
+          {
+            kind: 'edge',
+            edgeKey: sameColorEdge,
+            from: 'unknown',
+            to: 'blank',
+          },
+        ],
+        explanation:
+          'Two inside cells share a region, so the edge between them is crossed out.',
+      },
+      {
+        id: 'different-color-line',
+        title: 'Different colors across interior edge',
+        puzzle: differentColorPuzzle,
+        after: [
+          {
+            kind: 'edge',
+            edgeKey: differentColorEdge,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        explanation:
+          'Inside and outside meet on their shared edge, so that edge must be a line.',
+      },
+      {
+        id: 'inside-corner-boundary',
+        title: 'Inside cell at the boundary',
+        puzzle: insideCornerPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'edge',
+            edgeKey: insideCornerTop,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: insideCornerLeft,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        explanation:
+          'An inside corner cell must meet the exterior with lines on both boundary edges.',
+      },
+      {
+        id: 'line-infers-opposite-color',
+        title: 'Line fixes the opposite color',
+        puzzle: lineInferencePuzzle,
+        before: [
+          {
+            kind: 'edge',
+            edgeKey: lineInferenceEdge,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'A line separates opposite colors, so the unknown neighbor must be outside.',
+      },
+    ],
+  }
+}
+
+const createColorOutsideSeedingExample = (): RuleExampleData => {
+  const blankBoundaryPuzzle = createSlitherPuzzle(2, 2)
+  const blankBoundaryTop = edgeKey([0, 0], [0, 1])
+
+  const lineBoundaryPuzzle = createSlitherPuzzle(2, 2)
+  const lineBoundaryTop = edgeKey([0, 0], [0, 1])
+
+  const anchorPropagationPuzzle = createSlitherPuzzle(2, 2)
+  const anchorPropagationEdge = edgeKey([0, 1], [1, 1])
+
+  const parityChainPuzzle = createSlitherPuzzle(2, 3)
+  const parityChainTopLeft = edgeKey([0, 0], [0, 1])
+  const parityChainMiddle = edgeKey([0, 1], [1, 1])
+  const parityChainTopRight = edgeKey([0, 2], [1, 2])
+
+  return {
+    cases: [
+      {
+        id: 'blank-boundary-outside',
+        title: 'Crossed-out boundary edge',
+        puzzle: blankBoundaryPuzzle,
+        before: [
+          {
+            kind: 'edge',
+            edgeKey: blankBoundaryTop,
+            from: 'unknown',
+            to: 'blank',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'A crossed-out outer edge touches an outside cell, seeding the parity component.',
+      },
+      {
+        id: 'line-boundary-inside',
+        title: 'Line on the boundary',
+        puzzle: lineBoundaryPuzzle,
+        before: [
+          {
+            kind: 'edge',
+            edgeKey: lineBoundaryTop,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'A boundary line separates the exterior from an inside cell.',
+      },
+      {
+        id: 'known-inside-anchor',
+        title: 'Known inside cell as anchor',
+        puzzle: anchorPropagationPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'edge',
+            edgeKey: anchorPropagationEdge,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'A known inside cell anchors the component; the line forces the neighbor outside.',
+      },
+      {
+        id: 'parity-chain-from-boundary',
+        title: 'Parity chain from boundary',
+        puzzle: parityChainPuzzle,
+        before: [
+          {
+            kind: 'edge',
+            edgeKey: parityChainTopLeft,
+            from: 'unknown',
+            to: 'blank',
+          },
+          {
+            kind: 'edge',
+            edgeKey: parityChainMiddle,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: parityChainTopRight,
+            from: 'unknown',
+            to: 'blank',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'One boundary anchor colors the whole top row through parity across decided edges.',
+      },
+    ],
+  }
+}
+
+const createDiagonalThreesExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(4, 4)
+  puzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 3 } }
+  puzzle.cells[cellKey(2, 2)] = { clue: { kind: 'number', value: 3 } }
+  const firstLeft = edgeKey([1, 1], [2, 1])
+  const firstTop = edgeKey([1, 1], [1, 2])
+  const secondRight = edgeKey([2, 3], [3, 3])
+  const secondBottom = edgeKey([3, 2], [3, 3])
+  const decidedEdges = [firstLeft, firstTop, secondRight, secondBottom]
+  return example({
+    id: 'down-right-diagonal',
+    puzzle,
+    after: decidedEdges.map((key) => ({
+      kind: 'edge' as const,
+      edgeKey: key,
+      from: 'unknown' as const,
+      to: 'line' as const,
+    })),
+    explanation:
+      'Diagonal 3s force the two edges at each outer corner, giving four lines in total.',
+  })
+}
+
+const createColorCluePropagationExample = (): RuleExampleData => {
+  const cornerInsidePuzzle = createSlitherPuzzle(3, 3)
+  cornerInsidePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 1 },
+  }
+
+  const clueTwoOutsidePuzzle = createSlitherPuzzle(3, 3)
+  clueTwoOutsidePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 2 },
+  }
+
+  const outsideCluePuzzle = createSlitherPuzzle(3, 3)
+  outsideCluePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 1 },
+    fill: 'yellow',
+  }
+
+  const forcedOutsidePuzzle = createSlitherPuzzle(3, 3)
+  forcedOutsidePuzzle.cells[cellKey(1, 1)] = {
+    clue: { kind: 'number', value: 3 },
+  }
+
+  return {
+    cases: [
+      {
+        id: 'corner-clue-forced-inside',
+        title: 'Corner clue forced inside',
+        puzzle: cornerInsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Cell 1 already has two yellow neighbors; if it were green, that would force two lines — invalid for clue 1.',
+      },
+      {
+        id: 'clue-two-outside-neighbors',
+        title: 'Clue 2 with two outside neighbors',
+        puzzle: clueTwoOutsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'Whatever its color, clue 2 must end with two yellow and two green neighbors — two crosses and two lines.',
+      },
+      {
+        id: 'outside-clue-remaining-outside',
+        title: 'Outside clue already satisfied',
+        puzzle: outsideCluePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Cell 1 is already settled, so the remaining sides must all be crosses; the neighbor colors follow.',
+      },
+      {
+        id: 'too-many-inside-neighbors',
+        title: 'Too many inside neighbors',
+        puzzle: forcedOutsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Cell 1 already has three green neighbors; if it were green, at most one line could remain — invalid for clue 3.',
+      },
+    ],
+  }
+}
+
+const createColorSectorMaskPropagationExample = (): RuleExampleData => {
+  const notOneColorPuzzle = createSlitherPuzzle(3, 3)
+  notOneColorPuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask =
+    SECTOR_MASK_NOT_1
+
+  const onlyOneColorPuzzle = createSlitherPuzzle(3, 3)
+  onlyOneColorPuzzle.sectors[sectorKey(1, 1, 'se')].constraintsMask =
+    SECTOR_MASK_ONLY_1
+
+  const differentColorsPuzzle = createSlitherPuzzle(2, 2)
+
+  const sameColorsPuzzle = createSlitherPuzzle(2, 2)
+
+  return {
+    cases: [
+      {
+        id: 'not-one-sector-same-color',
+        title: 'Not-one sector, same color',
+        puzzle: notOneColorPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'NOT_ONE (blue) sector requires matching outside-neighbor colors, as shown.',
+      },
+      {
+        id: 'only-one-sector-opposite-color',
+        title: 'Only-one sector, opposite color',
+        puzzle: onlyOneColorPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'ONLY_ONE sector requires opposite outside-neighbor colors, as shown.',
+      },
+      {
+        id: 'different-colors-force-only-one',
+        title: 'Opposite colors force only one',
+        puzzle: differentColorsPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'Opposite outside-neighbor colors force exactly one line in the shared corner sector.',
+      },
+      {
+        id: 'same-colors-force-not-one',
+        title: 'Matching colors forbid one line',
+        puzzle: sameColorsPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'Matching outside-neighbor colors forbid exactly one line in the shared corner sector.',
+      },
+    ],
+  }
+}
+
+const createColorOrthogonalConsensusPropagationExample = (): RuleExampleData => {
+  const insidePuzzle = createSlitherPuzzle(3, 3)
+  const outsidePuzzle = createSlitherPuzzle(3, 3)
+
+  return {
+    cases: [
+      {
+        id: 'uniform-inside-neighbors',
+        title: 'All neighbors inside',
+        puzzle: insidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'Every orthogonal neighbor is inside, so the center cell must also be inside.',
+      },
+      {
+        id: 'uniform-outside-neighbors',
+        title: 'All neighbors outside',
+        puzzle: outsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Every orthogonal neighbor is outside, so the center cell must also be outside.',
+      },
+    ],
+  }
+}
+
+const createSectorInferenceExample = (): RuleExampleData => {
+  const boundaryPuzzle = createSlitherPuzzle(2, 2)
+
+  const sectorEdgesPuzzle = createSlitherPuzzle(2, 3)
+  const sectorLine = edgeKey([0, 0], [0, 1])
+  const sectorCross = edgeKey([0, 1], [1, 1])
+
+  const edgeVertexPuzzle = createSlitherPuzzle(3, 3)
+  const soleNonSectorBlank = edgeKey([0, 0], [0, 1])
+
+  const clueThreePuzzle = createSlitherPuzzle(3, 3)
+  clueThreePuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 3 } }
+
+  const outsideLinePuzzle = createSlitherPuzzle(4, 4)
+  outsideLinePuzzle.cells[cellKey(0, 3)] = { clue: { kind: 'number', value: 3 } }
+  const westOfVertex = edgeKey([0, 2], [0, 3])
+
+  const clueTwoPuzzle = createSlitherPuzzle(3, 3)
+  clueTwoPuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 2 } }
+  const clueTwoDiagLine = edgeKey([2, 1], [2, 2])
+  const clueTwoDiagCross = edgeKey([1, 2], [2, 2])
+
+  return {
+    cases: [
+      {
+        id: 'boundary-corner-not-one',
+        title: 'Board corner geometry',
+        puzzle: boundaryPuzzle,
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 1, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 0, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 1, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'A board corner has only its two sector edges, so that corner cannot end with exactly one line.',
+      },
+      {
+        id: 'sector-edges-decided',
+        title: 'Both sector edges decided',
+        puzzle: sectorEdgesPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: sectorLine, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: sectorCross, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'One sector line and one sector cross already fix the corner to exactly one line.',
+      },
+      {
+        id: 'edge-vertex-blank',
+        title: 'Sole outside edge crossed out',
+        puzzle: edgeVertexPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: soleNonSectorBlank, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 1, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'The only non-sector edge at this vertex is crossed out, so the sector cannot have exactly one line.',
+      },
+      {
+        id: 'clue-three-corners',
+        title: 'Clue 3 bookkeeping',
+        puzzle: clueThreePuzzle,
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_2,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+        ],
+        explanation:
+          'Clue 3 forbids zero sector lines on every corner of the cell; the board corner also fixes that corner to two lines.',
+      },
+      {
+        id: 'outside-line-forces-one',
+        title: 'One outside line at vertex',
+        puzzle: outsideLinePuzzle,
+        before: [
+          { kind: 'edge', edgeKey: westOfVertex, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 3, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'One line already enters the corner vertex from outside the sector, so the sector must supply exactly one more line.',
+      },
+      {
+        id: 'clue-two-diagonal',
+        title: 'Clue 2 diagonal split',
+        puzzle: clueTwoPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: clueTwoDiagLine, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: clueTwoDiagCross, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 1, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'The diagonal edges already account for one line, so clue 2 forces exactly one line in the northwest corner sector.',
+      },
+    ],
+  }
+}
+
+const createSectorDiagonalSharedVertexPropagationExample = (): RuleExampleData => {
+  const onlyOnePuzzle = createSlitherPuzzle(4, 4)
+  const notOnePuzzle = createSlitherPuzzle(4, 4)
+  const notZeroPuzzle = createSlitherPuzzle(4, 4)
+
+  return {
+    cases: [
+      {
+        id: 'only-one-diagonal',
+        title: 'Exactly one line',
+        puzzle: onlyOnePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(2, 2, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 3, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        explanation:
+          'An exactly-one-line sector on one diagonal corner forces the same count on the opposite diagonal sector.',
+      },
+      {
+        id: 'not-one-diagonal',
+        title: 'Cannot have one line',
+        puzzle: notOnePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(2, 2, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 3, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'A not-exactly-one-line sector passes the same restriction to the diagonal opposite sector.',
+      },
+      {
+        id: 'not-zero-to-not-two',
+        title: 'Cannot have zero lines',
+        puzzle: notZeroPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(2, 2, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_0,
+          },
+        ],
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(1, 3, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_2,
+          },
+        ],
+        explanation:
+          'If one diagonal sector cannot be empty, the opposite diagonal sector cannot contain two lines.',
+      },
+    ],
+  }
+}
+
+const createInsideReachabilityColoringExample = (): RuleExampleData => {
+  const lineWallPuzzle = createSlitherPuzzle(1, 2)
+  const lineWallDivider = edgeKey([0, 1], [1, 1])
+
+  const outsideBarrierPuzzle = createSlitherPuzzle(1, 3)
+
+  return {
+    cases: [
+      {
+        id: 'line-blocks-inside-flood',
+        title: 'Line seals a pocket',
+        puzzle: lineWallPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'edge',
+            edgeKey: lineWallDivider,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'A line blocks every inside path to the right cell, so it must be outside.',
+      },
+      {
+        id: 'outside-barrier-stops-flood',
+        title: 'Outside cell blocks the flood',
+        puzzle: outsideBarrierPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'The flood cannot pass through the outside cell, so the sealed cell beyond it is also outside.',
+      },
+    ],
+  }
+}
+
+const createOutsideReachabilityColoringExample = (): RuleExampleData => {
+  const enclosedPuzzle = createSlitherPuzzle(1, 1)
+  const enclosedTop = edgeKey([0, 0], [0, 1])
+  const enclosedBottom = edgeKey([1, 0], [1, 1])
+  const enclosedLeft = edgeKey([0, 0], [1, 0])
+  const enclosedRight = edgeKey([0, 1], [1, 1])
+
+  const partialWallPuzzle = createSlitherPuzzle(1, 4)
+  const partialTop0 = edgeKey([0, 0], [0, 1])
+  const partialTop1 = edgeKey([0, 1], [0, 2])
+  const partialTop2 = edgeKey([0, 2], [0, 3])
+  const partialBottom0 = edgeKey([1, 0], [1, 1])
+  const partialBottom1 = edgeKey([1, 1], [1, 2])
+  const partialBottom2 = edgeKey([1, 2], [1, 3])
+  const partialLeft = edgeKey([0, 0], [1, 0])
+  const partialGap = edgeKey([0, 1], [1, 1])
+  const partialRight = edgeKey([0, 3], [1, 3])
+
+  return {
+    cases: [
+      {
+        id: 'fully-enclosed-pocket',
+        title: 'Fully walled pocket',
+        puzzle: enclosedPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: enclosedTop, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: enclosedBottom, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: enclosedLeft, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: enclosedRight, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'No passage reaches the exterior, so the enclosed cell must be inside.',
+      },
+      {
+        id: 'partial-wall-with-escape',
+        title: 'One opening stays outside',
+        puzzle: partialWallPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: partialTop0, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialTop1, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialTop2, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialBottom0, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialBottom1, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialBottom2, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialLeft, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialGap, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: partialRight, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'The left pocket cannot reach the exterior, while the rightmost cell still can through the crossed-out gap.',
+      },
+    ],
+  }
+}
+
+const createColorConnectivityCutColoringExample = (): RuleExampleData => {
+  const insideBottleneckPuzzle = createSlitherPuzzle(1, 3)
+
+  const unreachableFromInsidePuzzle = createSlitherPuzzle(1, 3)
+  const unreachableDivider = edgeKey([0, 1], [1, 1])
+
+  const outsideBottleneckPuzzle = createSlitherPuzzle(3, 3)
+
+  const enclosedInsidePuzzle = createSlitherPuzzle(1, 1)
+  const enclosedInsideTop = edgeKey([0, 0], [0, 1])
+  const enclosedInsideBottom = edgeKey([1, 0], [1, 1])
+  const enclosedInsideLeft = edgeKey([0, 0], [1, 0])
+  const enclosedInsideRight = edgeKey([0, 1], [1, 1])
+
+  return {
+    cases: [
+      {
+        id: 'inside-connectivity-cut',
+        title: 'Inside bottleneck',
+        puzzle: insideBottleneckPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'Two inside sources would disconnect unless the middle cell is also inside.',
+      },
+      {
+        id: 'unreachable-from-inside',
+        title: 'Walled off from inside',
+        puzzle: unreachableFromInsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'edge',
+            edgeKey: unreachableDivider,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Line walls separate these cells from every inside source, so they must be outside.',
+      },
+      {
+        id: 'outside-connectivity-cut',
+        title: 'Outside bottleneck',
+        puzzle: outsideBottleneckPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'The exterior would disconnect from the outside cell unless the top center cell is also outside.',
+      },
+      {
+        id: 'unreachable-from-outside',
+        title: 'Walled off from outside',
+        puzzle: enclosedInsidePuzzle,
+        before: [
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideTop,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideBottom,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideLeft,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideRight,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'With no outside source on the board, the fully line-bounded cell cannot reach the exterior and must be inside.',
+      },
+    ],
+  }
+}
+
+const createClueVertexCandidateCombinationPruningExample = (): RuleExampleData => {
+  const clueZeroPuzzle = createSlitherPuzzle(3, 3)
+  clueZeroPuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 0 } }
+
+  const clueOnePuzzle = createSlitherPuzzle(3, 3)
+  clueOnePuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 1 } }
+
+  const clueThreePuzzle = createSlitherPuzzle(3, 3)
+  clueThreePuzzle.cells[cellKey(1, 1)] = { clue: { kind: 'number', value: 3 } }
+
+  const clueTwoCornerPuzzle = createSlitherPuzzle(3, 3)
+  clueTwoCornerPuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 2 } }
+
+  const allCornerSectorDiffs = (
+    row: number,
+    col: number,
+    toMask: number,
+  ): RuleDiff[] =>
+    (['nw', 'ne', 'sw', 'se'] as const).map((corner) => ({
+      kind: 'sector' as const,
+      sectorKey: sectorKey(row, col, corner),
+      fromMask: SECTOR_MASK_ALL,
+      toMask,
+    }))
+
+  return {
+    cases: [
+      {
+        id: 'clue-zero-corners',
+        title: 'Clue 0',
+        puzzle: clueZeroPuzzle,
+        after: allCornerSectorDiffs(1, 1, SECTOR_MASK_ONLY_0),
+        explanation:
+          'A lone 0 allows no cell edges, so every corner sector is narrowed to zero lines.',
+      },
+      {
+        id: 'clue-one-corners',
+        title: 'Clue 1',
+        puzzle: clueOnePuzzle,
+        after: allCornerSectorDiffs(1, 1, SECTOR_MASK_NOT_2),
+        explanation:
+          'A lone 1 cannot use both sector edges at any corner, so every sector forbids two lines.',
+      },
+      {
+        id: 'clue-three-corners',
+        title: 'Clue 3',
+        puzzle: clueThreePuzzle,
+        after: allCornerSectorDiffs(1, 1, SECTOR_MASK_NOT_0),
+        explanation:
+          'A lone 3 needs lines on every cell edge, so no corner sector can be empty.',
+      },
+      {
+        id: 'clue-two-boundary',
+        title: 'Clue 2 at a corner',
+        puzzle: clueTwoCornerPuzzle,
+        after: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'sw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+        ],
+        explanation:
+          'A corner 2 splits the four-corner combinations asymmetrically: the two board-corner sectors must each have exactly one line.',
+      },
+    ],
+  }
+}
+
+const createSectorClueOneThreeIntraCellPropagationExample = (): RuleExampleData => {
+  const clueOnePuzzle = createSlitherPuzzle(2, 2)
+  clueOnePuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 1 } }
+  clueOnePuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+  const clueOneBottom = edgeKey([1, 0], [1, 1])
+  const clueOneRight = edgeKey([0, 1], [1, 1])
+
+  const clueThreePuzzle = createSlitherPuzzle(2, 2)
+  clueThreePuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 3 } }
+  clueThreePuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+  return {
+    cases: [
+      {
+        id: 'clue-one-opposite-blank',
+        title: 'Clue 1',
+        puzzle: clueOnePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: clueOneBottom, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: clueOneRight, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'The northwest sector already has its one line, so the opposite cell edges are crossed out.',
+      },
+      {
+        id: 'clue-three-opposite-line',
+        title: 'Clue 3',
+        puzzle: clueThreePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: clueOneBottom, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: clueOneRight, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'The northwest sector already has its one line, so the opposite pair must supply the other two lines for clue 3.',
+      },
+    ],
+  }
+}
+
+const createVertexOnlyOneNonSectorBalanceExample = (): RuleExampleData => {
+  const blankForcesLinePuzzle = createSlitherPuzzle(3, 3)
+  blankForcesLinePuzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask =
+    SECTOR_MASK_ONLY_1
+  const blankBottom = edgeKey([1, 1], [2, 1])
+  const blankRight = edgeKey([1, 1], [1, 2])
+
+  const lineForcesBlankPuzzle = createSlitherPuzzle(3, 3)
+  lineForcesBlankPuzzle.sectors[sectorKey(0, 0, 'se')].constraintsMask =
+    SECTOR_MASK_ONLY_1
+
+  const boundaryPuzzle = createSlitherPuzzle(3, 3)
+  boundaryPuzzle.sectors[sectorKey(0, 1, 'nw')].constraintsMask = SECTOR_MASK_ONLY_1
+
+  return {
+    cases: [
+      {
+        id: 'outside-blank-forces-line',
+        title: 'Outside edge crossed out',
+        puzzle: blankForcesLinePuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          { kind: 'edge', edgeKey: blankBottom, from: 'unknown', to: 'blank' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: blankRight, from: 'unknown', to: 'line' },
+        ],
+        explanation:
+          'With one outside edge crossed out, the vertex still needs its second line on the other outside edge.',
+      },
+      {
+        id: 'outside-line-forces-blank',
+        title: 'Outside edge already a line',
+        puzzle: lineForcesBlankPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'se'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_ONLY_1,
+          },
+          { kind: 'edge', edgeKey: blankRight, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: blankBottom, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'The outside line and the sector line already satisfy degree two, so the other outside edge is crossed out.',
+      }
+    ],
+  }
+}
+
+const createSectorNotOneClueTwoPropagationExample = (): RuleExampleData => {
+  const northwestTargetPuzzle = createSlitherPuzzle(2, 2)
+  northwestTargetPuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 2 } }
+  northwestTargetPuzzle.sectors[sectorKey(0, 0, 'nw')].constraintsMask =
+    SECTOR_MASK_NOT_1
+  const northwestTop = edgeKey([0, 0], [0, 1])
+  const northwestLeft = edgeKey([0, 0], [1, 0])
+  const southeastLine = edgeKey([1, 0], [1, 1])
+
+  const northeastTargetPuzzle = createSlitherPuzzle(2, 2)
+  northeastTargetPuzzle.cells[cellKey(0, 0)] = { clue: { kind: 'number', value: 2 } }
+  northeastTargetPuzzle.sectors[sectorKey(0, 0, 'ne')].constraintsMask =
+    SECTOR_MASK_NOT_1
+  const northeastTop = edgeKey([0, 0], [0, 1])
+  const northeastRight = edgeKey([0, 1], [1, 1])
+  const southwestLine = edgeKey([0, 0], [1, 0])
+
+  return {
+    cases: [
+      {
+        id: 'not-one-nw-target',
+        title: 'Northwest target',
+        puzzle: northwestTargetPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'nw'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          { kind: 'edge', edgeKey: southeastLine, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: northwestTop, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: northwestLeft, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'Southeast already has a line, so the not-one northwest sector cannot take any line.',
+      },
+      {
+        id: 'not-one-ne-target',
+        title: 'Northeast target',
+        puzzle: northeastTargetPuzzle,
+        before: [
+          {
+            kind: 'sector',
+            sectorKey: sectorKey(0, 0, 'ne'),
+            fromMask: SECTOR_MASK_ALL,
+            toMask: SECTOR_MASK_NOT_1,
+          },
+          { kind: 'edge', edgeKey: southwestLine, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          { kind: 'edge', edgeKey: northeastTop, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: northeastRight, from: 'unknown', to: 'blank' },
+        ],
+        explanation:
+          'The mirrored diagonal case blanks the northeast sector when southwest already contributes a line.',
+      },
+    ],
+  }
+}
+
+const createPreventPrematureLoopExample = (): RuleExampleData => {
+  const puzzle = createSlitherPuzzle(3, 6)
+  const top = edgeKey([1, 0], [1, 1])
+  const right = edgeKey([1, 1], [2, 1])
+  const bottom = edgeKey([2, 0], [2, 1])
+  const closing = edgeKey([1, 0], [2, 0])
+  const other = edgeKey([3, 2], [3, 6])
+
+  return example({
+    id: 'closing-edge-blank',
     puzzle,
     before: [
       { kind: 'edge', edgeKey: top, from: 'unknown', to: 'line' },
-      { kind: 'edge', edgeKey: left, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'line' },
+      { kind: 'edge', edgeKey: other, from: 'unknown', to: 'line' },
     ],
-    after: [
-      { kind: 'edge', edgeKey: right, from: 'unknown', to: 'blank' },
-      { kind: 'edge', edgeKey: bottom, from: 'unknown', to: 'blank' },
-    ],
-    highlights: { edges: [right, bottom], vertices: ['1,1'] },
+    after: [{ kind: 'edge', edgeKey: closing, from: 'unknown', to: 'blank' }],
     explanation:
-      'A loop vertex already containing two used edges cannot accept either remaining edge.',
-  }
+      'The three drawn edges already connect both endpoints through another path, the remaining edge would close a smaller loop, considering we have another known lines.',
+  })
 }
 
 export const ruleExamples: Record<string, RuleExampleData> = {
   'masyu:white-pearl-rule': createWhitePearlExample(),
   'masyu:black-pearl-rule': createBlackPearlExample(),
   'slitherlink:vertex-degree': createVertexDegreeExample(),
+  'slitherlink:sector-constraint-edge-propagation':
+    createSectorConstraintEdgePropagationExample(),
+  'slitherlink:sector-inference': createSectorInferenceExample(),
+  'slitherlink:sector-diagonal-shared-vertex-propagation':
+    createSectorDiagonalSharedVertexPropagationExample(),
+  'slitherlink:contiguous-three-run-boundaries': createAdjacentThreesExample(),
+  'slitherlink:diagonal-adjacent-three-outer-corners':
+    createDiagonalThreesExample(),
+  'slitherlink:cell-count-completion': createCellClueCompletionExample(),
+  'slitherlink:adjacent-two-three-opposite-cross':
+    createAdjacentTwoThreeOppositeCrossExample(),
+  'slitherlink:color-edge-propagation': createColorEdgePropagationExample(),
+  'slitherlink:color-outside-seeding': createColorOutsideSeedingExample(),
+  'slitherlink:color-clue-propagation': createColorCluePropagationExample(),
+  'slitherlink:color-sector-mask-propagation':
+    createColorSectorMaskPropagationExample(),
+  'slitherlink:color-orthogonal-consensus-propagation':
+    createColorOrthogonalConsensusPropagationExample(),
+  'slitherlink:inside-reachability-coloring':
+    createInsideReachabilityColoringExample(),
+  'slitherlink:outside-reachability-coloring':
+    createOutsideReachabilityColoringExample(),
+  'slitherlink:color-connectivity-cut-coloring':
+    createColorConnectivityCutColoringExample(),
+  'slitherlink:prevent-premature-loop': createPreventPrematureLoopExample(),
+  'slitherlink:clue-vertex-candidate-combination-pruning':
+    createClueVertexCandidateCombinationPruningExample(),
+  'slitherlink:sector-clue-one-three-intra-cell-propagation':
+    createSectorClueOneThreeIntraCellPropagationExample(),
+  'slitherlink:vertex-onlyone-non-sector-balance':
+    createVertexOnlyOneNonSectorBalanceExample(),
+  'slitherlink:sector-not-one-clue-two-propagation':
+    createSectorNotOneClueTwoPropagationExample(),
 }

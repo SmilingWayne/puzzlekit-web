@@ -1,0 +1,44 @@
+## What it does
+
+On a cell with clue **2**, when one corner sector cannot contain exactly one
+line and the **diagonally opposite** corner sector already has a line on at
+least one of its two edges, this rule crosses out every still-unknown edge in
+the first sector.
+
+It may blank both edges of the target corner sector in one application. It does
+not draw new lines and does not change sector masks.
+
+## When it triggers
+
+The rule inspects every cell with numeric clue **2**. For each of the four
+corner-sector pairs (northwest versus southeast, northeast versus southwest) it
+checks:
+
+1. The **target** corner sector's constraint forbids exactly one line (the mask
+   does not allow a count of 1).
+2. At least one edge of the **opposite** diagonal corner sector is already a
+   line.
+3. The target corner sector has no line yet on either of its two edges.
+4. At least one target-sector edge is still unknown.
+
+All four diagonal orientations are tried independently. If the target sector
+already has a line, the opposite sector has no line, the target sector still
+allows exactly one line, or every target edge is already decided, that
+orientation is skipped.
+
+## Why it works
+
+Clue **2** needs exactly two lines on the four cell edges. The two corner
+sectors on one diagonal each contribute their own pair of edges; the opposite
+edges of the cell form the other diagonal pair.
+
+If the opposite diagonal sector already uses a line, part of the clue count is
+committed away from the target sector's corner. If the target sector **cannot**
+have exactly one line, its only legal totals are zero or two lines. With the
+opposite diagonal already contributing a line toward the cell total, giving the
+target sector any line would push the cell over two lines or force the target
+sector into the forbidden count of one when combined with the remaining cell
+edges.
+
+So every surviving solution leaves both target-sector edges crossed out. Marking
+them blank is safe and may enable later sector or clue propagation.

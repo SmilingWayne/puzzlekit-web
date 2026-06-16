@@ -1,0 +1,52 @@
+## What it does
+
+Decides the two edges of a corner sector that is forbidden from having exactly
+one line.
+
+Depending on the trial outcome, the rule may:
+
+- draw both sector edges or cross out both of them when one parity branch
+  contradicts the puzzle; or
+- fix any additional edges that both parity branches force to the same decision
+  downstream.
+
+When this rule fires in the solver, its step in **Reasoning Steps** includes a
+**View details** link. Click it to open the **Branch Inspector** and replay the
+line-parity and blank-parity trial branches through deterministic propagation.
+
+## When it triggers
+
+The rule runs only after every deterministic Slitherlink rule has been applied
+to a fixpoint. It inspects corner sectors whose mask already forbids exactly one
+line, with both sector edges still unknown.
+
+For each such sector, the solver tries two parity branches: both sector edges as
+lines, and both as crosses. Each branch is propagated with the full
+deterministic rule list within a rising probe budget (24, 96, 384, then the
+maximum trial-step cap).
+
+The rule acts in either of these cases:
+
+- **Opposite-branch conclusion:** one parity branch reaches a hard contradiction
+  and the other does not. The surviving branch's initial edge assignment is
+  applied to the real board.
+- **Shared-consequence conclusion:** neither branch contradicts within the budget,
+  but deterministic propagation fixes the same additional unknown edge on both
+  branches. Those shared edge decisions are applied to the real board.
+
+If both branches contradict, both remain feasible without a shared consequence,
+or the time or step budget is exhausted, the rule makes no change.
+
+## Why it works
+
+A sector with two edges can have zero, one, or two lines. When sector reasoning
+has already ruled out exactly one line, only two parity patterns remain: both
+lines or both crosses.
+
+If assuming one parity pattern leads to a hard contradiction — for example a
+vertex-degree violation, clue mismatch, sector-mask conflict, or premature
+loop — that pattern is impossible and the opposite parity is forced.
+
+If both patterns remain locally feasible but every deterministic continuation
+agrees on further edge decisions, those consequences do not depend on which
+parity was chosen and are safe to apply.

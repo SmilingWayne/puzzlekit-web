@@ -1,0 +1,46 @@
+## What it does
+
+Inside/outside coloring must stay consistent across the whole grid. This rule
+colors unknown cells that belong to the same parity component as an already
+anchored region.
+
+A parity component is a connected group of cells linked by decided edges:
+cells separated by a crossed-out edge must share a color, and cells separated
+by a line must have opposite colors. Once any cell in that component is fixed
+as inside or outside — either directly or through a boundary edge — every other
+still-unknown cell in the same consistent component receives the matching
+color.
+
+## When it triggers
+
+At least one unknown cell must belong to a parity component that already has a
+valid anchor. An anchor can come from:
+
+- A cell that is already colored inside or outside.
+- A decided boundary edge: a crossed-out boundary edge fixes the adjacent cell
+  as outside, and a line on the boundary fixes it as inside.
+
+The rule also needs a consistent color assignment for that component. It does
+not act when:
+
+- No anchor exists for the component.
+- Different anchors in the same component demand conflicting colors.
+
+No numbered clue is required. One application may color every qualifying
+unknown cell in every anchored component on the board.
+
+## Why it works
+
+Valid Slitherlink solutions induce a two-coloring of the cells: inside the loop
+versus outside it. Crossed-out edges connect cells in the same region; line
+edges connect cells in opposite regions. Those relations define parity within
+each connected component.
+
+If at least one cell in a component is fixed, parity determines the color of
+every other cell in that component. Boundary edges are anchors because the
+exterior is outside: a crossed-out outer edge touches an outside cell, and a
+line on the outer border separates the exterior from an inside cell.
+
+When anchors agree, each unknown cell in the component has only one color
+compatible with the loop partition. Conflicting anchors signal an impossible
+state, so the rule leaves that component unchanged.

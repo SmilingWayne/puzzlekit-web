@@ -138,7 +138,7 @@ const inferSectorMaskByVertex = (
 
 export const createApplySectorsInference = (): Rule => ({
   id: 'sector-inference',
-  name: 'Apply Vertex Flow Sector Inference',
+  name: 'Corner Sector Inference',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
     const diffs: RuleApplication['diffs'] = []

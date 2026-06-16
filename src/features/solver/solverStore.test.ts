@@ -697,7 +697,7 @@ describe('solver store cell color replay', () => {
     const mockStep: RuleStep = {
       id: 'step-1',
       ruleId: 'color-edge-propagation',
-      ruleName: 'Color-Edge Propagation',
+      ruleName: 'Color-Edge Consistency',
       message: 'test',
       diffs: [
         {

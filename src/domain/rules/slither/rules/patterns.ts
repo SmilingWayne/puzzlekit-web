@@ -5,7 +5,7 @@ import { formatCellRunLabel, isClueThree } from './shared'
 
 export const createContiguousThreeRunBoundariesRule = (): Rule => ({
   id: 'contiguous-three-run-boundaries',
-  name: 'Contiguous 3-Run Boundaries',
+  name: 'Adjacent 3s',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedEdges = new Map<string, EdgeMark>()
     const allAffectedCells = new Set<string>()
@@ -41,7 +41,11 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
         }
 
         let runAddedAny = false
-        for (let boundaryCol = cStart; boundaryCol <= cEnd + 1; boundaryCol += 1) {
+        for (
+          let boundaryCol = cStart;
+          boundaryCol <= cEnd + 1;
+          boundaryCol += 1
+        ) {
           const key = edgeKey([r, boundaryCol], [r + 1, boundaryCol])
           runAddedAny = decideUnknownEdge(key, 'line') || runAddedAny
         }
@@ -58,8 +62,10 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
         }
 
         if (runAddedAny) {
-          for (let col = cStart; col <= cEnd; col += 1) allAffectedCells.add(cellKey(r, col))
-          if (firstExample === null) firstExample = formatCellRunLabel('row', r, cStart, cEnd)
+          for (let col = cStart; col <= cEnd; col += 1)
+            allAffectedCells.add(cellKey(r, col))
+          if (firstExample === null)
+            firstExample = formatCellRunLabel('row', r, cStart, cEnd)
         }
       }
     }
@@ -81,7 +87,11 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
         }
 
         let runAddedAny = false
-        for (let boundaryRow = rStart; boundaryRow <= rEnd + 1; boundaryRow += 1) {
+        for (
+          let boundaryRow = rStart;
+          boundaryRow <= rEnd + 1;
+          boundaryRow += 1
+        ) {
           const key = edgeKey([boundaryRow, c], [boundaryRow, c + 1])
           runAddedAny = decideUnknownEdge(key, 'line') || runAddedAny
         }
@@ -98,8 +108,10 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
         }
 
         if (runAddedAny) {
-          for (let row = rStart; row <= rEnd; row += 1) allAffectedCells.add(cellKey(row, c))
-          if (firstExample === null) firstExample = formatCellRunLabel('col', c, rStart, rEnd)
+          for (let row = rStart; row <= rEnd; row += 1)
+            allAffectedCells.add(cellKey(row, c))
+          if (firstExample === null)
+            firstExample = formatCellRunLabel('col', c, rStart, rEnd)
         }
       }
     }
@@ -109,8 +121,8 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
     return {
       message:
         firstExample !== null
-          ? `Contiguous 3-run at ${firstExample}: the 3-clues need the run boundary lines, so straight extensions outside the run are blank.`
-          : 'Contiguous 3-run: the 3-clues need the run boundary lines, so straight extensions outside the run are blank.',
+          ? `Adjacent 3s at ${firstExample}: every edge perpendicular to the run is a line, and each shared edge cannot continue straight beyond the run.`
+          : 'Adjacent 3s: every edge perpendicular to the run is a line, and each shared edge cannot continue straight beyond the run.',
       diffs: [...decidedEdges.entries()].map(([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,
@@ -124,15 +136,17 @@ export const createContiguousThreeRunBoundariesRule = (): Rule => ({
 
 export const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
   id: 'diagonal-adjacent-three-outer-corners',
-  name: 'Diagonal Adjacent 3 Outer Corners',
+  name: 'Diagonal 3s',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedEdges = new Map<string, EdgeMark>()
     const allAffectedCells = new Set<string>()
 
     for (let r = 0; r < puzzle.rows - 1; r += 1) {
       for (let c = 0; c < puzzle.cols - 1; c += 1) {
-        const mainDiagonal = isClueThree(puzzle, r, c) && isClueThree(puzzle, r + 1, c + 1)
-        const antiDiagonal = isClueThree(puzzle, r, c + 1) && isClueThree(puzzle, r + 1, c)
+        const mainDiagonal =
+          isClueThree(puzzle, r, c) && isClueThree(puzzle, r + 1, c + 1)
+        const antiDiagonal =
+          isClueThree(puzzle, r, c + 1) && isClueThree(puzzle, r + 1, c)
         if (!mainDiagonal && !antiDiagonal) {
           continue
         }
@@ -155,7 +169,10 @@ export const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
 
         let positionAddedAny = false
         for (const key of candidateEdgeKeys) {
-          if ((puzzle.edges[key]?.mark ?? 'unknown') === 'unknown' && !decidedEdges.has(key)) {
+          if (
+            (puzzle.edges[key]?.mark ?? 'unknown') === 'unknown' &&
+            !decidedEdges.has(key)
+          ) {
             decidedEdges.set(key, 'line')
             positionAddedAny = true
           }
@@ -177,7 +194,8 @@ export const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
     if (decidedEdges.size === 0) return null
 
     return {
-      message: 'Diagonal adjacent 3s force their outside corner edges to be lines; otherwise one of the 3-clues cannot reach three lines.',
+      message:
+        'Diagonal 3s force the two outer-corner edges of each clue to be lines; otherwise one of the clues cannot reach three lines.',
       diffs: [...decidedEdges.entries()].map(([k, to]) => ({
         kind: 'edge' as const,
         edgeKey: k,
@@ -189,9 +207,15 @@ export const createDiagonalAdjacentThreeOuterCornersRule = (): Rule => ({
   },
 })
 
-const getNumberClueValue = (puzzle: PuzzleIR, row: number, col: number): number | null => {
+const getNumberClueValue = (
+  puzzle: PuzzleIR,
+  row: number,
+  col: number,
+): number | null => {
   const clue = puzzle.cells[cellKey(row, col)]?.clue
-  return clue?.kind === 'number' && clue.value !== '?' ? Number(clue.value) : null
+  return clue?.kind === 'number' && clue.value !== '?'
+    ? Number(clue.value)
+    : null
 }
 
 export const createAdjacentTwoThreeOppositeCrossRule = (): Rule => ({
@@ -216,8 +240,10 @@ export const createAdjacentTwoThreeOppositeCrossRule = (): Rule => ({
       return true
     }
 
-    const verticalEdge = (row: number, col: number): string => edgeKey([row, col], [row + 1, col])
-    const horizontalEdge = (row: number, col: number): string => edgeKey([row, col], [row, col + 1])
+    const verticalEdge = (row: number, col: number): string =>
+      edgeKey([row, col], [row + 1, col])
+    const horizontalEdge = (row: number, col: number): string =>
+      edgeKey([row, col], [row, col + 1])
 
     const applyPair = (
       twoRow: number,
@@ -234,7 +260,10 @@ export const createAdjacentTwoThreeOppositeCrossRule = (): Rule => ({
       if (rowDelta === 0) {
         const sharedCol = colDelta === 1 ? twoCol + 1 : twoCol
         twoOpposite = verticalEdge(twoRow, colDelta === 1 ? twoCol : twoCol + 1)
-        threeOpposite = verticalEdge(threeRow, colDelta === 1 ? threeCol + 1 : threeCol)
+        threeOpposite = verticalEdge(
+          threeRow,
+          colDelta === 1 ? threeCol + 1 : threeCol,
+        )
         if (twoRow > 0) {
           extensionEdges.push(verticalEdge(twoRow - 1, sharedCol))
         }
@@ -243,8 +272,14 @@ export const createAdjacentTwoThreeOppositeCrossRule = (): Rule => ({
         }
       } else {
         const sharedRow = rowDelta === 1 ? twoRow + 1 : twoRow
-        twoOpposite = horizontalEdge(rowDelta === 1 ? twoRow : twoRow + 1, twoCol)
-        threeOpposite = horizontalEdge(rowDelta === 1 ? threeRow + 1 : threeRow, threeCol)
+        twoOpposite = horizontalEdge(
+          rowDelta === 1 ? twoRow : twoRow + 1,
+          twoCol,
+        )
+        threeOpposite = horizontalEdge(
+          rowDelta === 1 ? threeRow + 1 : threeRow,
+          threeCol,
+        )
         if (twoCol > 0) {
           extensionEdges.push(horizontalEdge(sharedRow, twoCol - 1))
         }

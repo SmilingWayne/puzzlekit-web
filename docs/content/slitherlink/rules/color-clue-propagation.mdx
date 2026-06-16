@@ -1,0 +1,66 @@
+## What it does
+
+Inside/outside coloring labels each cell as inside or outside the loop. A
+numbered clue counts how many of its four side edges are lines. This rule uses
+those two views together: it may color the clue cell itself, or color unknown
+orthogonal neighbors once enough neighboring inside/outside cells are already
+known.
+
+Directions off the board count as outside neighbors. One application may update
+several cells when multiple numbered clues qualify at once.
+
+## When it triggers
+
+At least one numbered clue cell must participate, and at least one unknown cell
+color must follow from one of these patterns:
+
+**Contradiction on the clue cell**
+
+- The clue is smaller than the current inside-neighbor count, or larger than
+  `4 − outside-neighbor count`. The clue cell is colored inside.
+- The clue is smaller than the outside-neighbor count, or larger than
+  `4 − inside-neighbor count`. The clue cell is colored outside.
+
+**Clue 2 with two known outside neighbors**
+
+- Exactly two orthogonal neighbors are already outside. Every remaining unknown
+  neighbor is colored inside.
+
+**Clue 2 with two known inside neighbors**
+
+- Exactly two orthogonal neighbors are already inside. Every remaining unknown
+  neighbor is colored outside.
+
+**Clue cell already colored**
+
+- The clue cell is inside and already has as many outside neighbors as the clue
+  value. Every remaining unknown neighbor is inside.
+- The clue cell is outside and already has as many inside neighbors as the clue
+  value. Every remaining unknown neighbor is outside.
+- The clue cell is outside and the outside-neighbor count fixes how many more
+  inside neighbors are still required. Every remaining unknown neighbor is
+  inside.
+- The clue cell is inside and the inside-neighbor count fixes how many more
+  outside neighbors are still required. Every remaining unknown neighbor is
+  outside.
+
+Prior edge decisions are not required, but any already-colored neighbors are
+used in the counts. The rule does not overwrite an existing cell color.
+
+## Why it works
+
+A clue counts line edges around its cell. In a valid coloring, an outside
+neighbor sits across a crossed-out edge from the clue side that contributes no
+line, while an inside neighbor sits across a line edge. So the clue value limits
+how many neighbors can be outside versus inside.
+
+If the known neighbor counts already make the clue impossible for one side, the
+clue cell must be on the other side. For clue 2, two outside neighbors already
+use both non-line sides, so every remaining side must be a line and its neighbor
+inside — and the symmetric argument applies when two inside neighbors are known.
+When the clue cell’s own color is fixed, the same bookkeeping forces every
+still-unknown neighbor once the matching count is already saturated or the
+remaining requirement is fixed.
+
+Any other assignment would make the clue disagree with the loop’s
+inside/outside partition.

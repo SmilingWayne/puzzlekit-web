@@ -1,0 +1,63 @@
+## What it does
+
+Makes edge decisions by probing bounded trial branches on high-value local
+candidates.
+
+Depending on the trial outcome, the rule may:
+
+- force one of two mutually exclusive edge assignments when one branch
+  contradicts the puzzle; or
+- fix any additional edges that both branches force to the same decision
+  downstream.
+
+Candidate shapes include:
+
+- a corner sector constrained to exactly one line, with both sector edges still
+  unknown;
+- a vertex that already has one line and exactly two unknown continuations; and
+- any remaining unknown edge not already covered by a sector-only-one pair.
+
+When this rule fires in the solver, its step in **Reasoning Steps** includes a
+**View details** link. Click it to open the **Branch Inspector** and replay
+Branch A and Branch B from the base puzzle through deterministic propagation.
+
+## When it triggers
+
+The rule runs only after every deterministic Slitherlink rule has been applied
+to a fixpoint, and after Color Assumption Inference and Sector Parity Inference
+have had their turn on the same state.
+
+Candidates are collected in priority order: vertex two-choice cases first, then
+sector-only-one cases, then standalone unknown edges. For a binary pair, Branch
+A assumes the first edge is a line and the second is a cross; Branch B assumes
+the opposite. For a standalone edge, Branch A assumes a line and Branch B
+assumes a cross.
+
+Each candidate is tested with the full deterministic rule list within a rising
+probe budget (24, 96, 384, then the maximum trial-step cap).
+
+The rule acts in either of these cases:
+
+- **Opposite-branch conclusion:** one branch reaches a hard contradiction and
+  the other does not. The surviving branch's initial edge assignment is applied
+  to the real board.
+- **Shared-consequence conclusion:** neither branch contradicts within the
+  budget, but deterministic propagation fixes the same additional unknown edge
+  on both branches. Those shared edge decisions are applied to the real board.
+
+If both branches contradict, both remain feasible without a shared consequence,
+or the time or step budget is exhausted, the rule makes no change.
+
+## Why it works
+
+Each trial branch temporarily commits to one local edge pattern and asks whether
+the rest of the puzzle can still satisfy Slitherlink's loop, clue, sector, and
+color constraints after full deterministic propagation.
+
+If one pattern reaches a hard contradiction, that pattern is impossible and the
+alternative assignment is forced. If both patterns remain feasible but every
+continuation agrees on further edge decisions, those consequences are
+independent of which branch was assumed and are safe to apply.
+
+The search is bounded by candidate count, trial steps, and elapsed time, so the
+solver only reports conclusions that are found within those limits.

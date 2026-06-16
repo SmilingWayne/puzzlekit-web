@@ -1,0 +1,53 @@
+## What it does
+
+When a corner sector at a vertex is known to contain **exactly one line**, this
+rule completes the vertex's **non-sector** edges — the incident edges that are
+not part of that sector.
+
+Depending on the partial state it may:
+
+- mark the only remaining non-sector edge as a **line**;
+- mark one unknown non-sector edge as a **line** when another non-sector edge is
+  already crossed out;
+- cross out one unknown non-sector edge when another non-sector edge is already
+  a line.
+
+It does not change sector masks.
+
+## When it triggers
+
+The rule scans every grid vertex and every corner sector that touches it. It
+acts when that sector's constraint has already been narrowed to **exactly one
+line** and one of these local patterns appears among the vertex's non-sector
+edges:
+
+- **Single outside edge:** exactly one incident edge is not in the sector, and
+  it is still unknown. That edge is marked as a line so the vertex can still
+  reach degree two.
+- **Two outside edges, one blank:** two non-sector edges are incident, one is
+  crossed out, one is unknown. The unknown edge is marked as a line.
+- **Two outside edges, one line:** two non-sector edges are incident, one is a
+  line, one is unknown. The unknown edge is crossed out.
+
+The exactly-one sector constraint must come from earlier sector reasoning. If the
+sector is not exactly one line, or the non-sector pattern does not match one of
+the cases above, the vertex-sector pair is skipped.
+
+## Why it works
+
+A valid loop gives every used vertex degree two. A corner sector's two edges are
+only part of that accounting; the other edges at the same vertex must supply the
+rest.
+
+If the sector is fixed at exactly one line, that line uses one of the vertex's
+two allowed lines. The non-sector edges must provide the other line — or none,
+if the sector line is the only one the vertex needs.
+
+When only one non-sector edge exists at the vertex, it must be the completing
+line. When two non-sector edges remain open, a crossed-out edge means the vertex
+still needs its second line on the other; an existing line means the sector line
+and that line already satisfy degree two, so the last unknown non-sector edge
+must be crossed out.
+
+Any other mark would leave the vertex with degree one or degree three at that
+corner.

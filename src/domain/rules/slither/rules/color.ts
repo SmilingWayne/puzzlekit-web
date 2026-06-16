@@ -23,7 +23,7 @@ import {
 
 export const createColorEdgePropagationRule = (): Rule => ({
   id: 'color-edge-propagation',
-  name: 'Color-Edge Propagation',
+  name: 'Color-Edge Consistency',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedEdges = new Map<string, EdgeMark>()
     const decidedCellFills = new Map<string, SlitherCellColor>()
@@ -193,7 +193,7 @@ export const createColorEdgePropagationRule = (): Rule => ({
 
 export const createColorOutsideSeedingRule = (): Rule => ({
   id: 'color-outside-seeding',
-  name: 'Color Outside Seeding',
+  name: 'Parity Component Coloring',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     type Parity = 0 | 1
 
@@ -367,7 +367,7 @@ export const createColorOutsideSeedingRule = (): Rule => ({
 
 export const createColorCluePropagationRule = (): Rule => ({
   id: 'color-clue-propagation',
-  name: 'Color Clue Propagation',
+  name: 'Clue Inside/Outside Counting',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
@@ -482,7 +482,7 @@ export const createColorCluePropagationRule = (): Rule => ({
 
 export const createColorOrthogonalConsensusPropagationRule = (): Rule => ({
   id: 'color-orthogonal-consensus-propagation',
-  name: 'Color Orthogonal Consensus Propagation',
+  name: 'Orthogonal Color Consensus',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const decidedCellFills = new Map<string, SlitherCellColor>()
     const affectedCells = new Set<string>()
@@ -1139,7 +1139,7 @@ const getCornerOutsideNeighbors = (row: number, col: number, corner: SectorCorne
 
 export const createColorSectorMaskPropagationRule = (): Rule => ({
   id: 'color-sector-mask-propagation',
-  name: 'Color Sector-Mask Propagation',
+  name: 'Sector-Color Consistency',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const corners: SectorCorner[] = ['nw', 'ne', 'sw', 'se']
     const decidedCellFills = new Map<string, SlitherCellColor>()

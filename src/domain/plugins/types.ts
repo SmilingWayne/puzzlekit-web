@@ -27,7 +27,10 @@ export type PuzzleLegendExample = {
   cols: number
   clues?: Array<{ row: number; col: number; value: number | '?' }>
   edges?: PuzzleHelpExampleEdge[]
+  lines?: PuzzleHelpExampleEdge[]
+  pearls?: Array<{ row: number; col: number; color: 'white' | 'black' }>
   filledCells?: Array<{ row: number; col: number; fill: 'green' | 'yellow' }>
+  filledTiles?: Array<{ row: number; col: number; fill: 'green' | 'yellow' }>
   sectors?: PuzzleLegendSectorMarker[]
 }
 
@@ -98,6 +101,16 @@ export type PuzzleLiveStatsConfig = {
   coverageSeries: LiveStatsCoverageSeries[]
 }
 
+export type StrongTelemetryRule = {
+  ruleId: string
+  ruleName: string
+  supported: boolean
+}
+
+export type PuzzleStrongTelemetryConfig = {
+  rules: StrongTelemetryRule[]
+}
+
 export interface PuzzlePlugin {
   id: string
   displayName: string
@@ -105,6 +118,7 @@ export interface PuzzlePlugin {
   legend?: PuzzleLegendContent
   displayOptions?: PuzzleDisplayOption[]
   liveStats?: PuzzleLiveStatsConfig
+  strongTelemetry?: PuzzleStrongTelemetryConfig
   getStats?: (puzzle: PuzzleIR) => PuzzleStatsContent | null
   parse: (input: string) => PuzzleIR
   encode: (puzzle: PuzzleIR) => string

@@ -79,7 +79,7 @@ describe('DatasetPage', () => {
     expect(
       screen.getByLabelText(/slitherlink-10x10-0001 dataset preview/i),
     ).toHaveClass('dataset-preview-canvas')
-    expect(screen.getByText(/showing 56 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 56 \/ 112 puzzles/i)).toBeInTheDocument()
   })
 
   it('filters by search text, size, and tag', () => {
@@ -98,7 +98,7 @@ describe('DatasetPage', () => {
     expect(
       screen.queryByRole('heading', { name: 'slitherlink-10x10-0001' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByText(/showing 1 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 1 \/ 112 puzzles/i)).toBeInTheDocument()
 
     fireEvent.change(
       screen.getByPlaceholderText(/name, tag, size, type, or url/i),
@@ -119,13 +119,13 @@ describe('DatasetPage', () => {
     expect(
       screen.queryByRole('heading', { name: 'slitherlink-10x10-0001' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByText(/showing 2 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 2 \/ 112 puzzles/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /auto-imported/i }))
     expect(
       screen.getByRole('button', { name: /auto-imported/i }),
     ).toHaveAttribute('data-active', 'true')
-    expect(screen.getByText(/showing 2 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 2 \/ 112 puzzles/i)).toBeInTheDocument()
   })
 
   it('enables Masyu datasets and resets type-specific filters', () => {
@@ -143,7 +143,7 @@ describe('DatasetPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /auto-imported/i }))
     fireEvent.change(typeSelect, { target: { value: 'masyu' } })
 
-    expect(screen.getByText(/showing 55 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 56 \/ 112 puzzles/i)).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'masyu-25x25-0001' }),
     ).toBeInTheDocument()
@@ -162,7 +162,7 @@ describe('DatasetPage', () => {
     fireEvent.change(screen.getByLabelText(/^size$/i), {
       target: { value: '20 x 20' },
     })
-    expect(screen.getByText(/showing 2 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 2 \/ 112 puzzles/i)).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'masyu-20x20-6613546' }),
     ).toBeInTheDocument()
@@ -179,7 +179,7 @@ describe('DatasetPage', () => {
         target: { value: 'masyu-20x20-6613546' },
       },
     )
-    expect(screen.getByText(/showing 1 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 1 \/ 112 puzzles/i)).toBeInTheDocument()
   })
 
   it('filters Masyu datasets by difficulty and area tags', () => {
@@ -190,19 +190,19 @@ describe('DatasetPage', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'easy' }))
-    expect(screen.getByText(/showing 18 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 18 \/ 112 puzzles/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Small' }))
-    expect(screen.getByText(/showing 7 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 7 \/ 112 puzzles/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Medium' }))
-    expect(screen.getByText(/showing 7 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 7 \/ 112 puzzles/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Large' }))
-    expect(screen.getByText(/showing 41 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 42 \/ 112 puzzles/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'hard' }))
-    expect(screen.getByText(/showing 37 \/ 111 puzzles/i)).toBeInTheDocument()
+    expect(screen.getByText(/showing 38 \/ 112 puzzles/i)).toBeInTheDocument()
   })
 
   it('renders compact action links for each dataset puzzle', () => {

@@ -498,6 +498,15 @@
       "height": 15,
       "tags": ["easy", "Medium"],
       "source": "example.txt"
+    },
+    {
+      "id": "masyu-25x25-1202688",
+      "puzzleType": "masyu",
+      "sourceUrl": "https://puzz.link/p?mashu/25/25/00k900o0j0la9a1120000000312la7b1i9036g6ii900110l303600i42102c953163101f179344169f01309119i300aa909221502f080c3f3079m20163l39f10a03p00300400163fi593j031039kj1i01600000c713b0e09190e23632f6099b040c0f999c020909p00",
+      "width": 25,
+      "height": 25,
+      "tags": ["hard", "Large"],
+      "source": "example.txt"
     }
   ]
 }

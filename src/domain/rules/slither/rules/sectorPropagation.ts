@@ -120,7 +120,7 @@ const addVertexDiff = (
 
 export const createVertexCandidateEdgePruningRule = (): Rule => ({
   id: 'vertex-candidate-edge-pruning',
-  name: 'Vertex Candidate Edge Pruning',
+  name: 'Vertex Candidate Pruning',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const diffs: RuleApplication['diffs'] = []
     const decidedEdges = new Map<string, EdgeMark>()
@@ -167,7 +167,7 @@ export const createVertexCandidateEdgePruningRule = (): Rule => ({
 
     return {
       message:
-        'Vertex candidate pruning removed degree-0/degree-2 states that conflict with known edges, then forced edges shared by every remaining state.',
+        'Impossible degree states were removed at one or more vertices, and edges agreed on by every remaining candidate were decided.',
       diffs,
       affectedCells: [],
     }
@@ -200,7 +200,7 @@ const cornerLineCountFromCandidates = (
 
 export const createClueVertexCandidateCombinationPruningRule = (): Rule => ({
   id: 'clue-vertex-candidate-combination-pruning',
-  name: 'Clue Vertex Candidate Combination Pruning',
+  name: 'Clue Combination Pruning',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const diffs: RuleApplication['diffs'] = []
     const nextVertexCandidates = new Map<string, VertexCandidate[]>()
@@ -342,7 +342,7 @@ export const createClueVertexCandidateCombinationPruningRule = (): Rule => ({
 
     return {
       message:
-        'Only clue-compatible corner combinations survive, so unsupported vertex states and sector counts are removed.',
+        'Only clue-compatible four-corner combinations survive, so unsupported vertex candidates and sector counts are removed.',
       diffs,
       affectedCells: [...affectedCells],
       affectedSectors: [...affectedSectors],
@@ -352,7 +352,7 @@ export const createClueVertexCandidateCombinationPruningRule = (): Rule => ({
 
 export const createSectorDiagonalSharedVertexPropagationRule = (): Rule => ({
   id: 'sector-diagonal-shared-vertex-propagation',
-  name: 'Sector Diagonal Shared Vertex Propagation',
+  name: 'Diagonal Sector Propagation',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const diagonalCases: Array<{
       sourceCorner: SectorCorner

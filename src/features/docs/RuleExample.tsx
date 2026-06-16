@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { PuzzleIR } from '../../domain/ir/types'
 import { applyRuleDiffs } from '../../domain/rules/engine'
-import type { InferenceFocus, RuleDiff } from '../../domain/rules/types'
 import { CanvasBoard } from '../board/CanvasBoard'
 import type { DisplaySettings } from '../solver/solverStore'
+import type { RuleExampleCaseData, RuleExampleData } from './ruleExamples'
 
-type Props = {
-  puzzle: PuzzleIR
-  before?: RuleDiff[]
-  after: RuleDiff[]
-  highlights?: InferenceFocus
-  explanation?: string
-}
+type View = 'before' | 'after'
 
 const displaySettings: DisplaySettings = {
   showCoordinates: false,
@@ -26,15 +19,14 @@ const displaySettings: DisplaySettings = {
   showGrid: true,
 }
 
-export const RuleExample = ({
-  puzzle,
-  before = [],
-  after,
-  highlights = {},
-  explanation,
-}: Props) => {
-  const [view, setView] = useState<'before' | 'after'>('before')
-  const [isPlaying, setIsPlaying] = useState(false)
+const RuleExampleCase = ({
+  exampleCase,
+  view,
+}: {
+  exampleCase: RuleExampleCaseData
+  view: View
+}) => {
+  const { id, title, puzzle, before = [], after, explanation } = exampleCase
   const beforePuzzle = useMemo(
     () => applyRuleDiffs(puzzle, before),
     [before, puzzle],
@@ -43,6 +35,52 @@ export const RuleExample = ({
     () => applyRuleDiffs(beforePuzzle, after),
     [after, beforePuzzle],
   )
+  const changedEdges = useMemo(
+    () =>
+      view === 'after'
+        ? after.flatMap((diff) => (diff.kind === 'edge' ? [diff.edgeKey] : []))
+        : [],
+    [after, view],
+  )
+  const changedLines = useMemo(
+    () =>
+      view === 'after'
+        ? after.flatMap((diff) => (diff.kind === 'line' ? [diff.lineKey] : []))
+        : [],
+    [after, view],
+  )
+
+  return (
+    <figure className="rule-example-case" data-view={view}>
+      {title ? <h3>{title}</h3> : null}
+      <div className="rule-example-board">
+        <CanvasBoard
+          puzzle={view === 'before' ? beforePuzzle : afterPuzzle}
+          pluginId={puzzle.puzzleType}
+          highlightedEdges={changedEdges}
+          highlightedLines={changedLines}
+          highlightedCells={[]}
+          highlightedColorCells={[]}
+          highlightedColorTiles={[]}
+          displaySettings={displaySettings}
+          onSetDisplayOption={() => undefined}
+          variant="surface"
+          ariaLabel={`Rule documentation example: ${title ?? id}`}
+        />
+      </div>
+      <figcaption>{explanation}</figcaption>
+    </figure>
+  )
+}
+
+export const RuleExample = ({ cases }: RuleExampleData) => {
+  const [view, setView] = useState<View>('before')
+  const [isPlaying, setIsPlaying] = useState(false)
+
+  const selectView = (nextView: View) => {
+    setIsPlaying(false)
+    setView(nextView)
+  }
 
   useEffect(() => {
     if (!isPlaying) {
@@ -56,20 +94,20 @@ export const RuleExample = ({
   }, [isPlaying])
 
   return (
-    <figure className="rule-example">
+    <section className="rule-example" aria-label="Rule example">
       <div className="rule-example-toolbar">
         <div className="rule-example-tabs" aria-label="Rule example state">
           <button
             type="button"
             data-active={view === 'before'}
-            onClick={() => setView('before')}
+            onClick={() => selectView('before')}
           >
             Before
           </button>
           <button
             type="button"
             data-active={view === 'after'}
-            onClick={() => setView('after')}
+            onClick={() => selectView('after')}
           >
             After
           </button>
@@ -85,22 +123,15 @@ export const RuleExample = ({
           {isPlaying ? 'Playing...' : 'Play deduction'}
         </button>
       </div>
-      <CanvasBoard
-        puzzle={view === 'before' ? beforePuzzle : afterPuzzle}
-        pluginId={puzzle.puzzleType}
-        highlightedEdges={highlights.edges ?? []}
-        highlightedLines={highlights.lines ?? []}
-        highlightedCells={highlights.cells ?? []}
-        highlightedColorCells={highlights.cells ?? []}
-        highlightedColorTiles={highlights.tiles ?? []}
-        displaySettings={displaySettings}
-        onSetDisplayOption={() => undefined}
-        variant="surface"
-        inferenceDiffs={view === 'after' ? after : []}
-        inferenceDiffRole="conclusion"
-        ariaLabel="Rule documentation example"
-      />
-      {explanation ? <figcaption>{explanation}</figcaption> : null}
-    </figure>
+      <div className="rule-example-cases">
+        {cases.map((exampleCase) => (
+          <RuleExampleCase
+            key={exampleCase.id}
+            exampleCase={exampleCase}
+            view={view}
+          />
+        ))}
+      </div>
+    </section>
   )
 }

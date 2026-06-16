@@ -13,14 +13,20 @@ describe('public datasets', () => {
     const validated = validateBenchmarkManifest(manifest)
     expect(validated.puzzleType).toBe('masyu')
     expect(validated.title).toBe('Masyu Dataset')
-    expect(validated.items).toHaveLength(55)
-    expect(new Set(validated.items.map((item) => item.id)).size).toBe(55)
+    expect(validated.items).toHaveLength(56)
+    expect(new Set(validated.items.map((item) => item.id)).size).toBe(56)
 
     const existingItems = validated.items.slice(0, 37)
-    const newItems = validated.items.slice(37)
+    const newItems = validated.items.slice(37, -1)
+    const newestItem = validated.items.at(-1)
     expect(existingItems.every((item) => item.tags.includes('hard'))).toBe(true)
     expect(newItems.every((item) => item.tags.includes('easy'))).toBe(true)
     expect(newItems.every((item) => item.source === 'example.txt')).toBe(true)
+    expect(newestItem).toMatchObject({
+      id: 'masyu-25x25-1202688',
+      tags: ['hard', 'Large'],
+      source: 'example.txt',
+    })
     expect(newItems.map((item) => item.id)).toEqual([
       'masyu-15x21-0005',
       'masyu-10x10-0006',
@@ -52,7 +58,7 @@ describe('public datasets', () => {
       expect(item.puzzleType).toBe('masyu')
       expect(item.tags).toEqual([difficultyTag, sizeTag])
       expect(item.id).toMatch(/^masyu-\d+x\d+-\d+$/)
-      if (difficultyTag === 'hard') {
+      if (difficultyTag === 'hard' && item.id !== newestItem?.id) {
         expect(item.source).toBe(
           item.width === 25
             ? 'https://zh.puzzle-masyu.com/?size=18'

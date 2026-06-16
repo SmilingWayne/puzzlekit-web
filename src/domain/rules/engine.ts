@@ -2,9 +2,12 @@ import type { PuzzleIR } from '../ir/types'
 import type {
   Rule,
   RuleAttempt,
+  RuleAttemptEvent,
   RuleDiff,
+  RunNextRuleOptions,
   RuleRuntimeContext,
   RuleStep,
+  StrongInferenceCompletedEvent,
 } from './types'
 
 type WritableBuckets = {
@@ -157,14 +160,42 @@ export const rewindPuzzleByStep = (
   return revertRuleDiffs(puzzle, step.diffs)
 }
 
+const notifyRuleAttemptCompleted = (
+  options: RunNextRuleOptions,
+  event: RuleAttemptEvent,
+): void => {
+  try {
+    options.observer?.onRuleAttemptCompleted?.(event)
+  } catch {
+    // Observability must never affect solver behavior.
+  }
+}
+
+export const notifyStrongInferenceCompleted = (
+  runtimeContext: RuleRuntimeContext | undefined,
+  event: Omit<StrongInferenceCompletedEvent, 'solverStepNumber'>,
+): void => {
+  try {
+    runtimeContext?.observer?.onStrongInferenceCompleted?.({
+      solverStepNumber: runtimeContext.solverStepNumber,
+      ...event,
+    })
+  } catch {
+    // Observability must never affect solver behavior.
+  }
+}
+
 export const runNextRule = (
   puzzle: PuzzleIR,
   rules: Rule[],
   stepNumber: number,
+  options: RunNextRuleOptions = {},
 ): { nextPuzzle: PuzzleIR; step: RuleStep | null } => {
   const startedAt = performance.now()
   const runtimeContext: RuleRuntimeContext = {
     cache: new Map<string, unknown>(),
+    solverStepNumber: stepNumber,
+    observer: options.observer,
   }
   const attempts: RuleAttempt[] = []
   for (const rule of rules) {
@@ -177,6 +208,14 @@ export const runNextRule = (
       ruleName: rule.name,
       durationMs: ruleApplyMs,
       hit,
+    })
+    notifyRuleAttemptCompleted(options, {
+      solverStepNumber: stepNumber,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      durationMs: ruleApplyMs,
+      hit,
+      producedDiffCount: hit ? (result?.diffs.length ?? 0) : 0,
     })
     if (!result || result.diffs.length === 0) {
       continue

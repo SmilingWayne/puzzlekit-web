@@ -1,0 +1,24 @@
+## What it does
+
+When a `2` and a `3` are horizontally or vertically adjacent, and the edge on
+the `2` opposite their shared side is already crossed out, the edge on the `3`
+opposite their shared side is forced to be a line. The edges that continue
+straight along their shared side beyond the pair are crossed out. At a board
+edge, only the in-bounds extension is crossed out.
+
+## When it triggers
+
+The technique acts on a horizontally or vertically adjacent pair of numbered
+clues with values `2` and `3`, in either order. The edge on the `2` that lies
+on the side away from the `3` must already be crossed out. Unknown edges do not
+satisfy this prerequisite.
+
+## Why it works
+
+With its far-side edge crossed out, the `2` must take both of its lines from
+its shared edge with the `3` and from one of the two edges perpendicular to
+that shared side. That fixes how the loop passes through the pair, so the
+`3` must use its own far-side edge to reach three lines. If the loop also
+continued straight along the shared side beyond the pair, a vertex on that
+side would receive too many incident lines or the `3` could not reach its
+required count, so those extension edges must be crossed out.
