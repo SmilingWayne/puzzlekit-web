@@ -1,0 +1,40 @@
+## What it does
+
+Inside/outside coloring labels each cell as inside or outside the loop. This
+rule floods outward from every known inside cell through passages that are not
+line edges, then colors every still-unknown cell that the flood never reaches as
+outside.
+
+A passage is any shared edge that is still unknown or crossed out. Line edges
+block the flood. Existing outside cells and clue **3** cells also block the
+flood and are never recolored by this rule.
+
+One application may color many cells when several pockets are sealed off from
+all inside sources at once.
+
+## When it triggers
+
+At least one cell must already be colored inside. The rule does nothing when no
+inside anchor exists.
+
+From those anchors, it walks to orthogonally adjacent cells across non-line
+edges, skipping:
+
+- Cells already colored outside.
+- Clue **3** cells (whether or not they are colored yet).
+
+Every remaining unknown cell that never joins the flood is colored outside. The
+rule does not overwrite cells that already have a color.
+
+No numbered clue is required beyond the implicit **3**-clue barrier behavior.
+
+## Why it works
+
+The loop separates the grid into an inside region and an outside region. Cells
+in the same region can be reached from one another without crossing a line edge,
+because a line is the border between opposite colors.
+
+If a cell cannot be reached from any known inside cell without crossing a line,
+it cannot lie on an inside-connected path. Every valid completion keeps such a
+cell outside. Outside cells and **3** clues are hard barriers because they
+already fix the parity on their side of the loop.

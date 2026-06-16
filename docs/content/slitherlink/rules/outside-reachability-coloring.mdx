@@ -1,0 +1,42 @@
+## What it does
+
+Inside/outside coloring labels each cell as inside or outside the loop. This
+rule floods inward from the exterior and from every known outside cell through
+passages that are not line edges, then colors every still-unknown cell the flood
+never reaches as inside.
+
+The exterior seeds any border cell whose outer edge is still unknown or crossed
+out. Existing outside cells are additional seeds. A passage is any shared edge
+that is still unknown or crossed out; line edges block the flood. Existing
+inside cells and clue **3** cells block the flood and are never recolored.
+
+One application may color many cells when several enclosed pockets remain
+unreachable from the exterior at once.
+
+## When it triggers
+
+At least one flood seed must exist:
+
+- A cell already colored outside, or
+- A border cell that can still reach off the board through a non-line boundary
+  edge.
+
+If every border cell is already walled off by lines on all outward edges and no
+outside-colored cell is present, the rule does nothing.
+
+From the seeds, it walks to orthogonally adjacent cells across non-line edges,
+skipping inside cells and clue **3** cells. Every remaining unknown cell that
+never joins the flood is colored inside. The rule does not overwrite cells that
+already have a color.
+
+## Why it works
+
+The puzzle exterior is outside the loop. From any outside-colored cell or any
+border opening, cells in the same outside region are reachable without crossing
+a line, because lines separate opposite colors.
+
+If an unknown cell cannot be reached from the exterior or from any known
+outside cell without crossing a line, it sits in a sealed pocket. In every valid
+completion that pocket is surrounded by loop edges, so its cells are inside.
+Inside cells and **3** clues are hard barriers for the same parity reasons as in
+the complementary inside flood.

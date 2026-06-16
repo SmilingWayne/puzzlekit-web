@@ -1,0 +1,56 @@
+## What it does
+
+Inside/outside coloring must stay connected: all inside cells belong to one
+inside region, and all outside cells connect to the exterior. This rule reasons
+about those connectivity requirements on the cell adjacency graph and may color
+unknown cells in four situations:
+
+- **Inside cut:** an unknown cell or narrow cell group is the only link between
+  two separated inside sources, so it must be inside.
+- **Outside cut:** an unknown bottleneck is the only link between the exterior
+  (or separated outside sources), so it must be outside.
+- **Unreachable from inside:** a cell group cannot connect to any inside source
+  without crossing a line edge, so every unknown cell in it is outside.
+- **Unreachable from outside:** a cell group cannot connect to the exterior or
+  any outside source without crossing a line edge, so every unknown cell in it
+  is inside.
+
+Crossed-out edges merge adjacent cells into the same color candidate group.
+Unknown edges still connect groups for reachability analysis but do not force
+same-color merging. Line edges are walls: they do not connect groups. Cells
+already colored the opposite role are excluded from each pass.
+
+One application runs an inside-targeted pass and an outside-targeted pass, and
+may combine several update types in a single step.
+
+## When it triggers
+
+At least one of these must be available:
+
+- Two or more separated inside sources that would disconnect unless an unknown
+  bottleneck is inside.
+- The exterior plus at least one outside source that would disconnect unless an
+  unknown bottleneck is outside.
+- Unknown cells in a component separated from all inside sources by line edges.
+- Unknown cells in a component separated from the exterior and all outside
+  sources by line edges.
+
+The rule only fills still-unknown cells. Clue **3** cells may be colored when
+they act as connectivity bottlenecks, but existing inside/outside colors are
+never overwritten.
+
+No numbered clue is required beyond the **3**-clue handling above.
+
+## Why it works
+
+Valid solutions induce a two-coloring where inside and outside are each
+connected regions (outside includes the off-board exterior). Consider only cells
+that could still take a given color, linked by adjacency across non-line edges.
+If two confirmed regions of that color would lie in different components unless
+some still-unknown cells take that color, those cells are articulation points:
+every completion must keep the color connected through them.
+
+Crossed-out edges already force same-color parity, so blank-compressed groups
+must decide together. Line edges are separators, so a component walled off from
+every inside source cannot be inside, and a component walled off from the
+exterior cannot be outside.

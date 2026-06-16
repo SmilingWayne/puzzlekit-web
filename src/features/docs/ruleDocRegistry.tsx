@@ -10,10 +10,15 @@ import ColorCluePropagationRuleDoc from '../../../docs/content/slitherlink/rules
 import ColorOutsideSeedingRuleDoc from '../../../docs/content/slitherlink/rules/color-outside-seeding.mdx'
 import ColorSectorMaskPropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-sector-mask-propagation.mdx'
 import ColorOrthogonalConsensusPropagationRuleDoc from '../../../docs/content/slitherlink/rules/color-orthogonal-consensus-propagation.mdx'
+import ColorConnectivityCutColoringRuleDoc from '../../../docs/content/slitherlink/rules/color-connectivity-cut-coloring.mdx'
+import InsideReachabilityColoringRuleDoc from '../../../docs/content/slitherlink/rules/inside-reachability-coloring.mdx'
+import OutsideReachabilityColoringRuleDoc from '../../../docs/content/slitherlink/rules/outside-reachability-coloring.mdx'
 import PreventPrematureLoopRuleDoc from '../../../docs/content/slitherlink/rules/prevent-premature-loop.mdx'
 import SectorConstraintEdgePropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-constraint-edge-propagation.mdx'
 import SectorDiagonalSharedVertexPropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-diagonal-shared-vertex-propagation.mdx'
+import ClueVertexCandidateCombinationPruningRuleDoc from '../../../docs/content/slitherlink/rules/clue-vertex-candidate-combination-pruning.mdx'
 import SectorInferenceRuleDoc from '../../../docs/content/slitherlink/rules/sector-inference.mdx'
+import VertexCandidateEdgePruningRuleDoc from '../../../docs/content/slitherlink/rules/vertex-candidate-edge-pruning.mdx'
 import VertexDegreeRuleDoc from '../../../docs/content/slitherlink/rules/vertex-degree.mdx'
 import { puzzleRegistry } from '../../domain/plugins/registry'
 import type { Rule } from '../../domain/rules/types'
@@ -111,10 +116,35 @@ const documentedContent: Record<
     summary:
       'Colors an unknown cell to match its orthogonal neighbors once they all agree on inside or outside.',
   },
+  'slitherlink:inside-reachability-coloring': {
+    content: InsideReachabilityColoringRuleDoc,
+    summary:
+      'Floods from known inside cells through non-line passages and colors unreachable unknown cells outside.',
+  },
+  'slitherlink:outside-reachability-coloring': {
+    content: OutsideReachabilityColoringRuleDoc,
+    summary:
+      'Floods from the exterior and known outside cells through non-line passages and colors unreachable unknown cells inside.',
+  },
+  'slitherlink:color-connectivity-cut-coloring': {
+    content: ColorConnectivityCutColoringRuleDoc,
+    summary:
+      'Colors connectivity bottlenecks and line-separated pockets to keep inside and outside each connected.',
+  },
   'slitherlink:prevent-premature-loop': {
     content: PreventPrematureLoopRuleDoc,
     summary:
       'Crosses out unknown edges that would close a smaller loop while other confirmed lines remain outside it.',
+  },
+  'slitherlink:vertex-candidate-edge-pruning': {
+    content: VertexCandidateEdgePruningRuleDoc,
+    summary:
+      'Internal bookkeeping: maintains vertex candidate sets and syncs them with known edges; visible conclusions usually match Vertex Degree.',
+  },
+  'slitherlink:clue-vertex-candidate-combination-pruning': {
+    content: ClueVertexCandidateCombinationPruningRuleDoc,
+    summary:
+      'Internal bookkeeping: enumerates clue-compatible four-corner vertex states; sector effects overlap with Sector Inference.',
   },
 }
 
@@ -128,6 +158,9 @@ const getCategory = (rule: Rule): string => {
   }
   if (rule.id.includes('color') || rule.id.includes('tile')) {
     return 'Color and Region Reasoning'
+  }
+  if (rule.id.includes('pruning')) {
+    return 'Internal Candidate Propagation'
   }
   if (rule.id.includes('sector') || rule.id.includes('vertex')) {
     return 'Sector and Vertex Reasoning'

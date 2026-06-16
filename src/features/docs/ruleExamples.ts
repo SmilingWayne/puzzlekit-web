@@ -1211,6 +1211,325 @@ const createSectorDiagonalSharedVertexPropagationExample = (): RuleExampleData =
   }
 }
 
+const createInsideReachabilityColoringExample = (): RuleExampleData => {
+  const lineWallPuzzle = createSlitherPuzzle(1, 2)
+  const lineWallDivider = edgeKey([0, 1], [1, 1])
+
+  const outsideBarrierPuzzle = createSlitherPuzzle(1, 3)
+
+  return {
+    cases: [
+      {
+        id: 'line-blocks-inside-flood',
+        title: 'Line seals a pocket',
+        puzzle: lineWallPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'edge',
+            edgeKey: lineWallDivider,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'A line blocks every inside path to the right cell, so it must be outside.',
+      },
+      {
+        id: 'outside-barrier-stops-flood',
+        title: 'Outside cell blocks the flood',
+        puzzle: outsideBarrierPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'The flood cannot pass through the outside cell, so the sealed cell beyond it is also outside.',
+      },
+    ],
+  }
+}
+
+const createOutsideReachabilityColoringExample = (): RuleExampleData => {
+  const enclosedPuzzle = createSlitherPuzzle(1, 1)
+  const enclosedTop = edgeKey([0, 0], [0, 1])
+  const enclosedBottom = edgeKey([1, 0], [1, 1])
+  const enclosedLeft = edgeKey([0, 0], [1, 0])
+  const enclosedRight = edgeKey([0, 1], [1, 1])
+
+  const partialWallPuzzle = createSlitherPuzzle(1, 4)
+  const partialTop0 = edgeKey([0, 0], [0, 1])
+  const partialTop1 = edgeKey([0, 1], [0, 2])
+  const partialTop2 = edgeKey([0, 2], [0, 3])
+  const partialBottom0 = edgeKey([1, 0], [1, 1])
+  const partialBottom1 = edgeKey([1, 1], [1, 2])
+  const partialBottom2 = edgeKey([1, 2], [1, 3])
+  const partialLeft = edgeKey([0, 0], [1, 0])
+  const partialGap = edgeKey([0, 1], [1, 1])
+  const partialRight = edgeKey([0, 3], [1, 3])
+
+  return {
+    cases: [
+      {
+        id: 'fully-enclosed-pocket',
+        title: 'Fully walled pocket',
+        puzzle: enclosedPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: enclosedTop, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: enclosedBottom, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: enclosedLeft, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: enclosedRight, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'No passage reaches the exterior, so the enclosed cell must be inside.',
+      },
+      {
+        id: 'partial-wall-with-escape',
+        title: 'One opening stays outside',
+        puzzle: partialWallPuzzle,
+        before: [
+          { kind: 'edge', edgeKey: partialTop0, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialTop1, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialTop2, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialBottom0, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialBottom1, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialBottom2, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialLeft, from: 'unknown', to: 'line' },
+          { kind: 'edge', edgeKey: partialGap, from: 'unknown', to: 'blank' },
+          { kind: 'edge', edgeKey: partialRight, from: 'unknown', to: 'line' },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'The left pocket cannot reach the exterior, while the rightmost cell still can through the crossed-out gap.',
+      },
+    ],
+  }
+}
+
+const createColorConnectivityCutColoringExample = (): RuleExampleData => {
+  const insideBottleneckPuzzle = createSlitherPuzzle(1, 3)
+
+  const unreachableFromInsidePuzzle = createSlitherPuzzle(1, 3)
+  const unreachableDivider = edgeKey([0, 1], [1, 1])
+
+  const outsideBottleneckPuzzle = createSlitherPuzzle(3, 3)
+
+  const enclosedInsidePuzzle = createSlitherPuzzle(1, 1)
+  const enclosedInsideTop = edgeKey([0, 0], [0, 1])
+  const enclosedInsideBottom = edgeKey([1, 0], [1, 1])
+  const enclosedInsideLeft = edgeKey([0, 0], [1, 0])
+  const enclosedInsideRight = edgeKey([0, 1], [1, 1])
+
+  return {
+    cases: [
+      {
+        id: 'inside-connectivity-cut',
+        title: 'Inside bottleneck',
+        puzzle: insideBottleneckPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'Two inside sources would disconnect unless the middle cell is also inside.',
+      },
+      {
+        id: 'unreachable-from-inside',
+        title: 'Walled off from inside',
+        puzzle: unreachableFromInsidePuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'edge',
+            edgeKey: unreachableDivider,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 2),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'Line walls separate these cells from every inside source, so they must be outside.',
+      },
+      {
+        id: 'outside-connectivity-cut',
+        title: 'Outside bottleneck',
+        puzzle: outsideBottleneckPuzzle,
+        before: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(1, 2),
+            fromFill: null,
+            toFill: 'green',
+          },
+          {
+            kind: 'cell',
+            cellKey: cellKey(2, 1),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 1),
+            fromFill: null,
+            toFill: 'yellow',
+          },
+        ],
+        explanation:
+          'The exterior would disconnect from the outside cell unless the top center cell is also outside.',
+      },
+      {
+        id: 'unreachable-from-outside',
+        title: 'Walled off from outside',
+        puzzle: enclosedInsidePuzzle,
+        before: [
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideTop,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideBottom,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideLeft,
+            from: 'unknown',
+            to: 'line',
+          },
+          {
+            kind: 'edge',
+            edgeKey: enclosedInsideRight,
+            from: 'unknown',
+            to: 'line',
+          },
+        ],
+        after: [
+          {
+            kind: 'cell',
+            cellKey: cellKey(0, 0),
+            fromFill: null,
+            toFill: 'green',
+          },
+        ],
+        explanation:
+          'With no outside source on the board, the fully line-bounded cell cannot reach the exterior and must be inside.',
+      },
+    ],
+  }
+}
+
 const createPreventPrematureLoopExample = (): RuleExampleData => {
   const puzzle = createSlitherPuzzle(3, 6)
   const top = edgeKey([1, 0], [1, 1])
@@ -1256,5 +1575,11 @@ export const ruleExamples: Record<string, RuleExampleData> = {
     createColorSectorMaskPropagationExample(),
   'slitherlink:color-orthogonal-consensus-propagation':
     createColorOrthogonalConsensusPropagationExample(),
+  'slitherlink:inside-reachability-coloring':
+    createInsideReachabilityColoringExample(),
+  'slitherlink:outside-reachability-coloring':
+    createOutsideReachabilityColoringExample(),
+  'slitherlink:color-connectivity-cut-coloring':
+    createColorConnectivityCutColoringExample(),
   'slitherlink:prevent-premature-loop': createPreventPrematureLoopExample(),
 }

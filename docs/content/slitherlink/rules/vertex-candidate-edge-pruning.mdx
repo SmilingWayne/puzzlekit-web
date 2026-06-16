@@ -1,0 +1,56 @@
+## What it does
+
+This is an **internal solver rule**, not a technique most players would name or
+apply by hand. It maintains **vertex candidates** at each grid vertex: the edge
+pairs (or empty pair for degree zero) that could still satisfy the loop's
+degree-zero / degree-two constraint.
+
+Each pass may:
+
+1. **Prune** candidates that disagree with edges already marked as a line or
+   crossed out.
+2. **Force** an unknown incident edge when every remaining candidate agrees it
+   must be a line or must be crossed out.
+
+The main work is (1), which updates invisible solver state. Step (2) is the only
+part that can show up as a normal line or cross on the board — and when the
+candidate set is still the full initial one, that conclusion usually matches
+what **Vertex Degree** would already deduce from line counts alone.
+
+Humans reason about vertex flow directly ("two lines here, so the rest are
+crosses"). A computer prefers an explicit list of surviving degree states and
+cheap set operations over re-deriving the same facts in several ad hoc cases.
+This rule is that bookkeeping layer: mechanical, exhaustive, and easy to chain
+into later propagation and trial contradiction checks.
+
+## When it triggers
+
+The rule scans every vertex on each application. It acts when at least one of
+these holds:
+
+- A known line or cross removes at least one vertex candidate.
+- After pruning, every surviving candidate includes the same still-unknown edge
+  (that edge is marked as a line).
+- After pruning, no surviving candidate includes the same still-unknown edge
+  (that edge is crossed out).
+
+No prior pruning step is required. A fresh puzzle already starts with the full
+degree-zero / degree-two candidate set at each vertex.
+
+The interesting cases are usually invisible: candidates were narrowed earlier by
+**Clue Combination Pruning** or a previous pass, so several unknown edges remain
+but only one combined degree state is still legal. Vertex Degree may not fire
+because the line count alone does not look decisive.
+
+## Why it works
+
+Vertex degree is a hard loop rule. Storing legal edge pairs is equivalent to that
+constraint while edges are still open. Any candidate that includes a crossed-out
+edge, or omits a drawn line, is impossible and is removed.
+
+If every remaining legal state uses the same unknown edge, that edge is necessary;
+if none use it, it is forbidden. The logic is sound but **computer-oriented**:
+humans rarely maintain enumerated candidate sets; they apply the same facts through
+local vertex-degree reasoning or sector/clue patterns. The solver keeps both views
+in sync so propagation rules and bounded inference can detect dead ends when no
+feasible degree state remains at a vertex.

@@ -1,0 +1,62 @@
+## What it does
+
+This is an **internal solver rule**. It is correct and useful for a program, but
+humans seldom solve Slitherlink by explicitly listing every four-corner vertex
+assignment around a clue.
+
+For each numbered cell, the rule tries every **combination** of one vertex
+candidate per corner and keeps only combinations that could still be correct
+together. From the survivors it may:
+
+- **Narrow vertex candidates** at one or more corners (invisible on the board).
+- **Narrow sector masks** at one or more corner sectors (sometimes visible as
+  new sector marks).
+
+It does not mark edges directly.
+
+A human looking at the same deduction might say "clue 3 means this corner sector
+cannot be empty" after a short local argument. The solver reaches similar sector
+tightening by brute-force compatibility: enumerate four-corner states, filter by
+clue count, shared-edge agreement, and existing sector masks, then project what
+still survives. That is **computer-friendly** — uniform, exhaustive, and easy to
+compose with vertex-candidate pruning and trial search — but not a natural pen-and-
+paper workflow.
+
+## When it triggers
+
+The rule inspects every cell with a numeric clue (not `?`). It acts when at least
+one four-corner combination survives all filters below. That can happen on a
+fresh board with only the clue present: clue `0`, `1`, `2`, or `3` alone already
+eliminates impossible corner patterns.
+
+It also fires after earlier deductions have narrowed vertex candidates or sector
+masks, when some former combinations no longer satisfy the clue or a neighbor
+cell.
+
+Each combination must pass:
+
+- **Clue count:** the four cell edges contain exactly the clue number of lines.
+- **Shared-edge agreement:** each cell edge is used the same way by both corners
+  that touch it.
+- **Sector masks:** each corner sector's line count is still allowed.
+- **Early pruning:** partial assignments that already exceed the clue, or cannot
+  still reach it, are discarded before all four corners are chosen.
+
+## Why it works
+
+The four corners of one cell are not independent. Two corners sharing an edge
+must agree whether that edge is a line; the clue fixes the total number of lines
+on the four cell edges; sector masks add prior corner-sector restrictions.
+
+If a four-corner assignment breaks any of those checks, no valid solution can
+include it. Removing unsupported vertex candidates and tightening sector masks to
+counts that still appear in surviving combinations preserves every solution
+consistent with the current board.
+
+The proof is local and elementary; what is **not** human-typical is the method.
+Players tend to use **Sector Inference**, clue arithmetic, and vertex flow in
+separate steps they can narrate. This rule fuses those constraints into one
+compatibility sweep — better for a deterministic engine than for teaching a
+memorable player technique. Treat the trace as solver plumbing; compare visible
+sector changes with the documented sector rules when you want a human-readable
+story.
