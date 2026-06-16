@@ -254,6 +254,31 @@
   margin: 8px 0;
 }
 
+.docs-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.docs-prose .docs-figure-scroll {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.docs-prose .docs-figure-scroll img {
+  max-width: none;
+  width: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
 .rule-example {
   display: grid;
   gap: 12px;

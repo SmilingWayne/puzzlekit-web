@@ -273,7 +273,7 @@ export const createStrongInferenceRule = (
   options: StrongInferenceOptions = {},
 ): Rule => ({
   id: 'strong-inference',
-  name: 'Strong Inference (Conservative)',
+  name: 'Strong Inference',
   apply: (puzzle: PuzzleIR): RuleApplication | null => {
     const deterministicRules = getDeterministicRules()
     const candidates = collectStrongCandidates(puzzle, options.maxCandidates ?? STRONG_MAX_CANDIDATES)

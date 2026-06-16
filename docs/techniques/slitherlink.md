@@ -28,7 +28,7 @@ PuzzleKit represents Slitherlink with a grid-edge model:
 - Import from `puzz.link` Slitherlink URLs and Penpa inputs.
 - Create and edit Slitherlink puzzles in the editor.
 - Render clues, lines, crosses, colors, sectors, and solver highlights.
-- Replay deterministic and conservative branch-based solving steps with
-  explanations.
+- Replay deterministic and bounded strong-inference solving steps with
+  explanations and branch inspection.
 - Analyze completion for one valid loop satisfying all numbered clues.
 

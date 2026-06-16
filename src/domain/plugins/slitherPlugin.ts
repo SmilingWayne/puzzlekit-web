@@ -275,7 +275,7 @@ export const slitherPlugin: PuzzlePlugin = {
       },
       {
         ruleId: 'strong-inference',
-        ruleName: 'Strong Inference (Conservative)',
+        ruleName: 'Strong Inference',
         supported: false,
       },
     ],

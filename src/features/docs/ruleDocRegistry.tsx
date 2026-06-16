@@ -18,6 +18,9 @@ import SectorConstraintEdgePropagationRuleDoc from '../../../docs/content/slithe
 import SectorDiagonalSharedVertexPropagationRuleDoc from '../../../docs/content/slitherlink/rules/sector-diagonal-shared-vertex-propagation.mdx'
 import ClueVertexCandidateCombinationPruningRuleDoc from '../../../docs/content/slitherlink/rules/clue-vertex-candidate-combination-pruning.mdx'
 import SectorInferenceRuleDoc from '../../../docs/content/slitherlink/rules/sector-inference.mdx'
+import ColorAssumptionInferenceRuleDoc from '../../../docs/content/slitherlink/rules/color-assumption-inference.mdx'
+import SectorParityInferenceRuleDoc from '../../../docs/content/slitherlink/rules/sector-parity-inference.mdx'
+import StrongInferenceRuleDoc from '../../../docs/content/slitherlink/rules/strong-inference.mdx'
 import VertexCandidateEdgePruningRuleDoc from '../../../docs/content/slitherlink/rules/vertex-candidate-edge-pruning.mdx'
 import VertexDegreeRuleDoc from '../../../docs/content/slitherlink/rules/vertex-degree.mdx'
 import { puzzleRegistry } from '../../domain/plugins/registry'
@@ -145,6 +148,21 @@ const documentedContent: Record<
     content: ClueVertexCandidateCombinationPruningRuleDoc,
     summary:
       'Internal bookkeeping: enumerates clue-compatible four-corner vertex states; sector effects overlap with Sector Inference.',
+  },
+  'slitherlink:color-assumption-inference': {
+    content: ColorAssumptionInferenceRuleDoc,
+    summary:
+      'Colors an unknown cell when assuming the opposite inside/outside color contradicts the puzzle after deterministic propagation.',
+  },
+  'slitherlink:sector-parity-inference': {
+    content: SectorParityInferenceRuleDoc,
+    summary:
+      'Decides both edges of a not-one sector, or shared downstream edges, by comparing line and blank parity trial branches.',
+  },
+  'slitherlink:strong-inference': {
+    content: StrongInferenceRuleDoc,
+    summary:
+      'Probes high-value edge candidates with bounded trial branches to force a surviving assignment or a shared downstream consequence.',
   },
 }
 
